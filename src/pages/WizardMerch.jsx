@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, Bot, Undo, Check } from 'lucide-react';
+import { Send, Sparkles, Bot, Undo, Check, Info } from 'lucide-react';
 import './WizardMerch.css';
 
 // Mock chat responses for the Wizard
@@ -55,6 +55,11 @@ export default function WizardMerch() {
 
   return (
     <div className="wizard-page animate-fade-in">
+      <div className="wizard-info-bar" role="status" aria-live="polite">
+        <Info size={16} />
+        <span>This feature isn’t ready yet — the Merch Wizard is currently a preview.</span>
+      </div>
+
       <div className="wizard-header">
          <div className="flex-center-gap">
            <Sparkles className="text-accent" size={28} />

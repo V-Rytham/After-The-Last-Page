@@ -9,6 +9,21 @@
   margin-bottom: 1.75rem;
 }
 
+.wizard-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.65rem 1rem;
+  margin: 0 auto 1.25rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: var(--font-size-0);
+  letter-spacing: 0.02em;
+}
+
 .flex-center-gap {
   display: flex;
   align-items: center;
