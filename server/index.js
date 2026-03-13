@@ -87,13 +87,28 @@ const seedBooksIfEmpty = async () => {
     return;
   }
 
-  const count = await Book.countDocuments();
-  if (count > 0) {
+  if (!defaultBooks.length) {
     return;
   }
 
-  await Book.insertMany(defaultBooks);
-  console.log(`[SEED] Inserted ${defaultBooks.length} starter books.`);
+  const existingBooks = await Book.find({ gutenbergId: { $exists: true, $ne: null } }).select('gutenbergId');
+  const existingGutenbergIds = new Set(
+    existingBooks
+      .map((book) => Number(book.gutenbergId))
+      .filter((id) => Number.isFinite(id)),
+  );
+
+  const missingBooks = defaultBooks.filter((book) => {
+    const gutenbergId = Number(book.gutenbergId);
+    return Number.isFinite(gutenbergId) && !existingGutenbergIds.has(gutenbergId);
+  });
+
+  if (!missingBooks.length) {
+    return;
+  }
+
+  await Book.insertMany(missingBooks, { ordered: false });
+  console.log(`[SEED] Inserted ${missingBooks.length} missing starter books.`);
 };
 
 await connectDB();
