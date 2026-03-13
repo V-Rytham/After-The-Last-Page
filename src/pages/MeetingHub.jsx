@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ShieldCheck, ArrowRight, Video, MessageSquare, Mic, User, Send, LockKeyhole } from 'lucide-react';
 import { io } from 'socket.io-client';
@@ -35,11 +35,26 @@ const MeetingHub = () => {
   const [quizQuestions, setQuizQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roomId, setRoomId] = useState(null);
+  const [matchRole, setMatchRole] = useState(null);
   const [messages, setMessages] = useState([]);
   const [socketReady, setSocketReady] = useState(false);
   const [matchNotice, setMatchNotice] = useState('');
   const [searchHint, setSearchHint] = useState('');
   const socketRef = useRef(null);
+
+  const peerRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const remoteStreamRef = useRef(null);
+  const pendingOfferRef = useRef(null);
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const remoteAudioRef = useRef(null);
+  const roomIdRef = useRef(null);
+  const startCallRef = useRef(null);
+  const [mediaStatus, setMediaStatus] = useState('idle'); // idle | requesting | ready | connecting | connected | failed
+  const [mediaError, setMediaError] = useState('');
+  const [isMuted, setIsMuted] = useState(false);
+  const [isCameraOff, setIsCameraOff] = useState(false);
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [currentAnswer, setCurrentAnswer] = useState('');
@@ -47,6 +62,10 @@ const MeetingHub = () => {
   const [prefType, setPrefType] = useState('text');
   const accessMode = location.state?.accessMode || null;
   const gateNotice = location.state?.notice || '';
+
+  useEffect(() => {
+    roomIdRef.current = roomId;
+  }, [roomId]);
 
   useEffect(() => {
     const buildQuiz = (selectedBook) => {
@@ -103,13 +122,77 @@ const MeetingHub = () => {
       setMatchNotice('Live matching is offline right now. You can still enter the community thread.');
     });
 
-    socketRef.current.on('match_found', ({ roomId: matchedRoomId }) => {
+    socketRef.current.on('match_found', ({ roomId: matchedRoomId, role }) => {
       setRoomId(matchedRoomId);
+      setMatchRole(role || null);
       setPhase('connected');
     });
 
     socketRef.current.on('receive_message', ({ message }) => {
       setMessages((prev) => [...prev, { text: message, sender: 'partner', timestamp: new Date() }]);
+    });
+
+    socketRef.current.on('webrtc_offer', async ({ offer }) => {
+      if (!offer) return;
+
+      try {
+        if (!localStreamRef.current) {
+          pendingOfferRef.current = offer;
+          if (typeof startCallRef.current === 'function') {
+            startCallRef.current();
+          }
+          return;
+        }
+
+        const pc = peerRef.current;
+        if (!pc) {
+          pendingOfferRef.current = offer;
+          return;
+        }
+
+        await pc.setRemoteDescription(offer);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socketRef.current?.emit('webrtc_answer', { roomId: roomIdRef.current, answer: pc.localDescription });
+        setMediaStatus('connecting');
+      } catch (error) {
+        console.error('[MEET] Failed handling WebRTC offer:', error);
+        setMediaError(error?.message || 'Failed handling WebRTC offer.');
+        setMediaStatus('failed');
+      }
+    });
+
+    socketRef.current.on('webrtc_answer', async ({ answer }) => {
+      if (!answer) return;
+
+      try {
+        const pc = peerRef.current;
+        if (!pc) {
+          return;
+        }
+
+        await pc.setRemoteDescription(answer);
+        setMediaStatus('connecting');
+      } catch (error) {
+        console.error('[MEET] Failed handling WebRTC answer:', error);
+        setMediaError(error?.message || 'Failed handling WebRTC answer.');
+        setMediaStatus('failed');
+      }
+    });
+
+    socketRef.current.on('webrtc_ice_candidate', async ({ candidate }) => {
+      if (!candidate) return;
+
+      try {
+        const pc = peerRef.current;
+        if (!pc) {
+          return;
+        }
+
+        await pc.addIceCandidate(candidate);
+      } catch (error) {
+        console.error('[MEET] Failed adding ICE candidate:', error);
+      }
     });
 
     return () => {
@@ -118,6 +201,216 @@ const MeetingHub = () => {
       }
     };
   }, [accessMode, bookId]);
+
+  const cleanupMedia = useCallback(() => {
+    if (peerRef.current) {
+      try {
+        peerRef.current.ontrack = null;
+        peerRef.current.onicecandidate = null;
+        peerRef.current.onconnectionstatechange = null;
+        peerRef.current.oniceconnectionstatechange = null;
+        peerRef.current.close();
+      } catch {
+        // ignore
+      }
+      peerRef.current = null;
+    }
+
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+
+    remoteStreamRef.current = null;
+    pendingOfferRef.current = null;
+
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = null;
+    }
+
+    setMediaStatus('idle');
+    setMediaError('');
+    setIsMuted(false);
+    setIsCameraOff(false);
+  }, []);
+
+  const ensurePeerConnection = useCallback(() => {
+    if (peerRef.current) {
+      return peerRef.current;
+    }
+
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478?transport=udp' },
+      ],
+    });
+
+    remoteStreamRef.current = new MediaStream();
+
+    pc.ontrack = (event) => {
+      const [stream] = event.streams || [];
+      const remoteStream = remoteStreamRef.current;
+
+      if (stream) {
+        stream.getTracks().forEach((track) => remoteStream.addTrack(track));
+      } else if (event.track) {
+        remoteStream.addTrack(event.track);
+      }
+
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStream;
+      }
+
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = remoteStream;
+      }
+
+      setMediaStatus('connected');
+    };
+
+    pc.onicecandidate = (event) => {
+      if (!event.candidate) return;
+      socketRef.current?.emit('webrtc_ice_candidate', { roomId: roomIdRef.current, candidate: event.candidate });
+    };
+
+    const updateState = () => {
+      const state = pc.connectionState || pc.iceConnectionState;
+      if (state === 'connected') {
+        setMediaStatus('connected');
+      } else if (state === 'connecting' || state === 'checking') {
+        setMediaStatus('connecting');
+      } else if (state === 'failed' || state === 'disconnected') {
+        setMediaStatus('failed');
+      }
+    };
+
+    pc.onconnectionstatechange = updateState;
+    pc.oniceconnectionstatechange = updateState;
+
+    peerRef.current = pc;
+    return pc;
+  }, []);
+
+  const getMediaConstraints = useCallback(() => {
+    if (prefType === 'voice') {
+      return { audio: true, video: false };
+    }
+
+    if (prefType === 'video') {
+      return {
+        audio: true,
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      };
+    }
+
+    return null;
+  }, [prefType]);
+
+  const startCall = useCallback(async () => {
+    if (!socketRef.current?.connected || !roomIdRef.current) {
+      setMediaError('Connection is not ready yet. Please try again.');
+      setMediaStatus('failed');
+      return;
+    }
+
+    const constraints = getMediaConstraints();
+    if (!constraints) {
+      return;
+    }
+
+    if (localStreamRef.current) {
+      return;
+    }
+
+    setMediaStatus('requesting');
+    setMediaError('');
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      localStreamRef.current = stream;
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      const pc = ensurePeerConnection();
+
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+
+      setMediaStatus('ready');
+
+      if (pendingOfferRef.current && matchRole === 'callee') {
+        const offer = pendingOfferRef.current;
+        pendingOfferRef.current = null;
+        await pc.setRemoteDescription(offer);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socketRef.current?.emit('webrtc_answer', { roomId: roomIdRef.current, answer: pc.localDescription });
+        setMediaStatus('connecting');
+        return;
+      }
+
+      if (matchRole === 'caller') {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socketRef.current?.emit('webrtc_offer', { roomId: roomIdRef.current, offer: pc.localDescription });
+        setMediaStatus('connecting');
+      }
+    } catch (error) {
+      console.error('[MEET] Failed starting call:', error);
+      setMediaError(error?.message || 'Unable to access microphone/camera.');
+      setMediaStatus('failed');
+    }
+  }, [ensurePeerConnection, getMediaConstraints, matchRole]);
+
+  useEffect(() => {
+    startCallRef.current = startCall;
+  }, [startCall]);
+
+  useEffect(() => {
+    if (phase !== 'connected') {
+      return undefined;
+    }
+
+    if (prefType !== 'voice' && prefType !== 'video') {
+      cleanupMedia();
+      return undefined;
+    }
+
+    const isAlreadyStarted = Boolean(localStreamRef.current);
+    if (isAlreadyStarted || mediaStatus === 'requesting') {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      startCall();
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [cleanupMedia, mediaStatus, phase, prefType, startCall]);
+
+  const mediaLabel = useMemo(() => {
+    if (prefType === 'voice') return 'Voice call';
+    if (prefType === 'video') return 'Video call';
+    return 'Call';
+  }, [prefType]);
 
   useEffect(() => {
     if (phase !== 'searching') {
@@ -326,7 +619,19 @@ const MeetingHub = () => {
               </div>
             </div>
             <div className="room-actions">
-              <button className="btn-secondary sm" onClick={() => window.location.reload()}>Leave Room</button>
+              <button
+                type="button"
+                className="btn-secondary sm"
+                onClick={() => {
+                  cleanupMedia();
+                  setRoomId(null);
+                  setMatchRole(null);
+                  setMessages([]);
+                  setPhase('preferences');
+                }}
+              >
+                Leave Room
+              </button>
             </div>
           </div>
 
@@ -356,9 +661,82 @@ const MeetingHub = () => {
               </div>
             ) : (
               <div className="media-interface">
-                <div className="media-placeholder">
-                  <User size={64} className="text-muted opacity-50 mb-4" />
-                  <p className="text-muted mt-4">Video/Voice placeholder. Signaling established in room {roomId}</p>
+                <div className="media-stage" role="group" aria-label={mediaLabel}>
+                  <div className="media-grid">
+                    <div className="media-tile">
+                      <div className="media-tile-label">You</div>
+                      {prefType === 'video' ? (
+                        <video ref={localVideoRef} autoPlay muted playsInline className="media-video" />
+                      ) : (
+                        <div className="media-avatar">
+                          <User size={48} />
+                          <span>Your mic</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="media-tile">
+                      <div className="media-tile-label">Partner</div>
+                      <video ref={remoteVideoRef} autoPlay playsInline className="media-video" />
+                      <audio ref={remoteAudioRef} autoPlay />
+                    </div>
+                  </div>
+
+                  <div className="media-controls">
+                    {(mediaStatus === 'failed' || mediaError) && (
+                      <div className="media-error" role="status">
+                        {mediaError || 'Call failed. Try again.'}
+                      </div>
+                    )}
+
+                    <div className="media-actions">
+                      <button
+                        type="button"
+                        className="btn-secondary sm"
+                        onClick={() => {
+                          const stream = localStreamRef.current;
+                          const tracks = stream ? stream.getAudioTracks() : [];
+                          tracks.forEach((track) => {
+                            track.enabled = isMuted;
+                          });
+                          setIsMuted((muted) => !muted);
+                        }}
+                        disabled={!localStreamRef.current}
+                      >
+                        {isMuted ? 'Unmute' : 'Mute'}
+                      </button>
+
+                      {prefType === 'video' && (
+                        <button
+                          type="button"
+                          className="btn-secondary sm"
+                          onClick={() => {
+                            const stream = localStreamRef.current;
+                            const tracks = stream ? stream.getVideoTracks() : [];
+                            tracks.forEach((track) => {
+                              track.enabled = isCameraOff;
+                            });
+                            setIsCameraOff((off) => !off);
+                          }}
+                          disabled={!localStreamRef.current}
+                        >
+                          {isCameraOff ? 'Camera on' : 'Camera off'}
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        className="btn-primary sm"
+                        onClick={() => {
+                          cleanupMedia();
+                          startCall();
+                        }}
+                        disabled={mediaStatus === 'requesting'}
+                      >
+                        {mediaStatus === 'requesting' ? 'Requesting…' : (localStreamRef.current ? 'Reconnect' : 'Start call')}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

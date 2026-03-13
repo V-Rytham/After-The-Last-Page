@@ -2,6 +2,44 @@ import { getActorKeyForUser, getAllBookAccessStates } from './readingAccess';
 import { getStoredUser } from './auth';
 
 const SESSION_KEY = 'readingSessions';
+const SHELF_KEY = 'userShelf';
+
+const readShelfStore = () => {
+  const raw = localStorage.getItem(SHELF_KEY);
+  if (!raw) {
+    return {};
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+};
+
+const writeShelfStore = (store) => {
+  localStorage.setItem(SHELF_KEY, JSON.stringify(store));
+};
+
+export const getUserShelf = () => {
+  const store = readShelfStore();
+  const actorKey = getActorKeyForUser(getStoredUser());
+  return store[actorKey] || [];
+};
+
+export const toggleBookOnShelf = (bookId) => {
+  const store = readShelfStore();
+  const actorKey = getActorKeyForUser(getStoredUser());
+  const current = store[actorKey] || [];
+  
+  if (current.includes(bookId)) {
+    store[actorKey] = current.filter(id => id !== bookId);
+  } else {
+    store[actorKey] = [...current, bookId];
+  }
+  
+  writeShelfStore(store);
+  return store[actorKey];
+};
 
 const readSessionStore = () => {
   const raw = localStorage.getItem(SESSION_KEY);
@@ -98,11 +136,21 @@ export const getLibraryState = (books) => {
     }))
     .filter((book) => !continueIds.has(book._id || book.id) && !recentlyReadIds.has(book._id || book.id));
 
+  const savedBookIds = new Set(getUserShelf());
+  const savedBooks = books
+    .filter((book) => savedBookIds.has(book._id || book.id))
+    .map((book) => ({
+      ...book,
+      access: accessMap[book._id || book.id] || {},
+      session: sessions[book._id || book.id] || null,
+    }));
+
   return {
     continueReading,
     recentlyRead,
     recentlyOpened,
     discover,
+    savedBooks,
     accessMap,
     sessions,
   };

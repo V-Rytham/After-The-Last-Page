@@ -1,11 +1,31 @@
 .reader-root {
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
+  overflow: hidden;
 }
 
 .reader-surface {
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:root {
+  --reader-margin-scale: 1;
+}
+
+.reader-page-viewport {
+  width: 100%;
+  height: 90vh;
+  overflow: hidden;
+}
+
+.reader-page-viewport .reader-content-wrapper {
+  height: 100%;
+  overflow: hidden;
 }
 
 .theme-light {
@@ -338,6 +358,22 @@
   text-transform: uppercase;
 }
 
+.settings-link {
+  width: fit-content;
+  color: var(--accent-ink);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  border-bottom: 1px solid transparent;
+  opacity: 0.9;
+  transition: border-color var(--transition-fast), opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-link:hover {
+  border-color: currentColor;
+  opacity: 1;
+  color: var(--text-primary);
+}
+
 .goto-form {
   display: flex;
   gap: 0.5rem;
@@ -425,8 +461,8 @@
 
 .reader-content-wrapper {
   position: relative;
-  overflow: visible;
-  padding: max(4.75rem, 8vh) clamp(1rem, 3.5vw, 3rem) max(4rem, 10vh);
+  overflow: hidden;
+  padding: clamp(2.25rem, 5vh, 3.25rem) calc(clamp(1rem, 3.2vw, 2.6rem) * var(--reader-margin-scale)) clamp(2.25rem, 5vh, 3.25rem);
   font-family: var(--font-reading);
   letter-spacing: 0.01em;
 }
@@ -499,6 +535,7 @@
 .reading-column p {
   max-width: none;
   margin: 0 auto 1.42em;
+  color: inherit;
   text-indent: 0;
   text-align: justify;
   text-justify: inter-word;
@@ -692,6 +729,35 @@
   padding-top: 2.25rem;
   text-align: center;
   border-top: 1px solid rgba(128, 128, 128, 0.22);
+}
+
+.finish-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1004;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.finish-overlay .finish-banner {
+  margin-top: 0;
+  padding-top: 1.2rem;
+  padding-bottom: 1.15rem;
+  border-top: 0;
+  border-radius: 1.5rem;
+  max-width: 34rem;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(128, 128, 128, 0.18);
+}
+
+.theme-dark .finish-overlay .finish-banner {
+  background: rgba(25, 24, 22, 0.84);
 }
 
 .finish-icon {

@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, ChevronLeft, ChevronRight, Clock3, Search } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, Clock3, Search, Bookmark, BookmarkCheck } from 'lucide-react';
 import api from '../utils/api';
 import { getFallbackBooks } from '../utils/bookFallback';
-import { getLibraryState } from '../utils/readingSession';
+import { getLibraryState, toggleBookOnShelf, getUserShelf } from '../utils/readingSession';
 import BookCoverArt from '../components/books/BookCoverArt';
 import './BooksLibrary.css';
 
@@ -77,15 +77,33 @@ const FeaturedContinue = ({ book }) => {
   );
 };
 
-const BookEntry = ({ book, compact = false }) => {
+const BookEntry = ({ book, compact = false, onToggleShelf, isSaved }) => {
   const bookId = getBookId(book);
   const progressPercent = book.session?.progressPercent || (book.access?.isRead ? 100 : 0);
+  const displayTitle = (book.title || '').split(';')[0].trim();
+
+  const handleToggleShelf = (e) => {
+    e.preventDefault();
+    if (onToggleShelf) {
+      onToggleShelf(bookId);
+    }
+  };
 
   return (
     <Link to={`/read/${bookId}`} className={`book-entry ${compact ? 'compact' : ''}`}>
       <article className="book-object">
         <div className="book-cover-wrap" style={{ '--book-accent': book.coverColor || '#6f614d' }}>
           {renderCoverArt(book)}
+
+          {onToggleShelf && (
+            <button
+              className={`book-shelf-toggle ${isSaved ? 'saved' : ''}`}
+              onClick={handleToggleShelf}
+              aria-label={isSaved ? "Remove from shelf" : "Add to shelf"}
+            >
+              {isSaved ? <BookmarkCheck size={18} /> : <Bookmark size={18} />}
+            </button>
+          )}
         </div>
 
         {progressPercent > 0 && (
@@ -95,7 +113,7 @@ const BookEntry = ({ book, compact = false }) => {
         )}
 
         <div className="book-copy">
-          <h3 className="book-title font-serif">{book.title}</h3>
+          <h3 className="book-title font-serif" title={book.title}>{displayTitle}</h3>
           <p className="book-author">{book.author}</p>
           <div className="book-meta">
             <span>{getProgressLabel(book)}</span>
@@ -112,7 +130,7 @@ const BookEntry = ({ book, compact = false }) => {
   );
 };
 
-const Section = ({ title, subtitle, books, compact = false }) => {
+const Section = ({ title, subtitle, books, compact = false, onToggleShelf, userShelfIds }) => {
   if (!books.length) {
     return null;
   }
@@ -126,7 +144,13 @@ const Section = ({ title, subtitle, books, compact = false }) => {
 
       <div className={`books-shelf ${compact ? 'compact' : ''}`}>
         {books.map((book) => (
-          <BookEntry key={getBookId(book)} book={book} compact={compact} />
+          <BookEntry 
+            key={getBookId(book)} 
+            book={book} 
+            compact={compact} 
+            onToggleShelf={onToggleShelf}
+            isSaved={userShelfIds ? userShelfIds.has(getBookId(book)) : false}
+          />
         ))}
       </div>
     </section>
@@ -139,6 +163,13 @@ const BooksLibrary = () => {
   const [tagPage, setTagPage] = useState(0);
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [recommendationState, setRecommendationState] = useState({ loading: false, currentBookId: null, recommendations: null });
+  const [userShelfIds, setUserShelfIds] = useState(new Set(getUserShelf()));
+
+  const handleToggleShelf = (bookId) => {
+    const newShelf = toggleBookOnShelf(bookId);
+    setUserShelfIds(new Set(newShelf));
+  };
 
   useEffect(() => {
     const fetchBooks = async () => {
@@ -179,7 +210,97 @@ const BooksLibrary = () => {
     return allTags.slice(start, start + TAGS_PER_PAGE);
   }, [allTags, tagPage]);
 
-  const libraryState = useMemo(() => getLibraryState(books), [books]);
+  const libraryState = useMemo(() => {
+    const state = getLibraryState(books);
+    
+    // Explicitly update savedBooks based on current userShelfIds state so it's perfectly in sync with immediate UI updates
+    state.savedBooks = books
+      .filter((book) => userShelfIds.has(getBookId(book)))
+      .map((book) => ({
+        ...book,
+        access: state.accessMap[getBookId(book)] || {},
+        session: state.sessions[getBookId(book)] || null,
+      }));
+      
+    return state;
+  }, [books, userShelfIds]);
+
+  useEffect(() => {
+    if (loading || !books.length) {
+      return;
+    }
+
+    const baseBook = libraryState.continueReading[0] || libraryState.recentlyRead[0] || libraryState.recentlyOpened[0] || null;
+    const currentBookId = baseBook ? getBookId(baseBook) : null;
+    if (!currentBookId) {
+      setRecommendationState({ loading: false, currentBookId: null, recommendations: null });
+      return;
+    }
+
+    const readBookIds = Object.entries(libraryState.accessMap || {})
+      .filter(([, access]) => access?.isRead)
+      .map(([bookId]) => bookId);
+
+    let cancelled = false;
+    setRecommendationState((prev) => ({ ...prev, loading: true }));
+
+    api.post('/recommender', { currentBookId, readBookIds, limitPerShelf: 8 })
+      .then(({ data }) => {
+        if (cancelled) {
+          return;
+        }
+        setRecommendationState({
+          loading: false,
+          currentBookId: data?.currentBookId || currentBookId,
+          recommendations: data?.recommendations || null,
+        });
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        console.error('[RECOMMENDER] Failed to fetch recommendations:', error);
+        setRecommendationState({ loading: false, currentBookId, recommendations: null });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [books, libraryState, loading]);
+
+  const recommendationShelves = useMemo(() => {
+    const recs = recommendationState.recommendations;
+    if (!recs) {
+      return null;
+    }
+
+    const byId = new Map(books.map((book) => [getBookId(book), book]));
+    
+    const seenTitles = new Set();
+    const hydrateAndDeduplicate = (bookId) => {
+      const book = byId.get(bookId);
+      if (!book) {
+        return null;
+      }
+      
+      const normalizedTitle = (book.title || '').trim().toLowerCase();
+      if (seenTitles.has(normalizedTitle)) return null;
+      seenTitles.add(normalizedTitle);
+
+      return {
+        ...book,
+        access: libraryState.accessMap[bookId] || {},
+        session: libraryState.sessions[bookId] || null,
+      };
+    };
+
+    return {
+      basedOnBook: (recs.based_on_book || []).map(hydrateAndDeduplicate).filter(Boolean).slice(0, 6),
+      sameAuthor: (recs.same_author || []).map(hydrateAndDeduplicate).filter(Boolean).slice(0, 6),
+      seriesContinuation: (recs.series_continuation || []).map(hydrateAndDeduplicate).filter(Boolean).slice(0, 6),
+      genreBased: (recs.genre_based || []).map(hydrateAndDeduplicate).filter(Boolean).slice(0, 6),
+    };
+  }, [books, libraryState.accessMap, libraryState.sessions, recommendationState.recommendations]);
 
   const filteredBooks = useMemo(() => (
     books
@@ -194,6 +315,37 @@ const BooksLibrary = () => {
         return matchesSearch && matchesTag;
       })
   ), [books, libraryState.accessMap, libraryState.sessions, searchTerm, selectedTag]);
+
+  const recentActivity = useMemo(() => {
+    const continueIds = new Set((libraryState.continueReading || []).map((book) => getBookId(book)));
+    const byId = new Map();
+
+    const consider = (book, activityAt) => {
+      const id = getBookId(book);
+      if (!id || continueIds.has(id)) {
+        return;
+      }
+
+      const existing = byId.get(id);
+      if (!existing || activityAt > existing.activityAt) {
+        byId.set(id, { book, activityAt });
+      }
+    };
+
+    for (const book of libraryState.recentlyOpened || []) {
+      const activityAt = new Date(book.session?.lastOpenedAt || 0).getTime();
+      consider(book, activityAt);
+    }
+
+    for (const book of libraryState.recentlyRead || []) {
+      const activityAt = new Date(book.access?.lastReadAt || 0).getTime();
+      consider(book, activityAt);
+    }
+
+    return [...byId.values()]
+      .sort((a, b) => b.activityAt - a.activityAt)
+      .map((entry) => entry.book);
+  }, [libraryState.continueReading, libraryState.recentlyOpened, libraryState.recentlyRead]);
 
   const hasActiveFiltering = Boolean(searchTerm.trim()) || selectedTag !== 'All';
 
@@ -210,11 +362,6 @@ const BooksLibrary = () => {
   return (
     <div className="library-page animate-fade-in">
       <header className="library-hero">
-        <div className="library-copy">
-          <h1 className="library-title font-serif">Your Desk</h1>
-          <p className="library-subtitle">Resume where you left off or browse your shelf.</p>
-        </div>
-
         <div className="library-controls">
           <label className="search-bar">
             <Search className="search-icon" size={18} />
@@ -274,7 +421,12 @@ const BooksLibrary = () => {
           {filteredBooks.length > 0 ? (
             <div className="books-grid">
               {filteredBooks.map((book) => (
-                <BookEntry key={getBookId(book)} book={book} />
+                <BookEntry 
+                  key={getBookId(book)} 
+                  book={book} 
+                  onToggleShelf={handleToggleShelf}
+                  isSaved={userShelfIds.has(getBookId(book))}
+                />
               ))}
             </div>
           ) : (
@@ -297,39 +449,82 @@ const BooksLibrary = () => {
             <FeaturedContinue book={libraryState.continueReading[0] || libraryState.recentlyOpened[0] || null} />
           </section>
 
-          <Section
-            title="Recently Read"
-            subtitle="Finished books that still feel nearby."
-            books={libraryState.recentlyRead.slice(0, 6)}
-            compact
-          />
-
-          <Section
-            title="Recently Opened"
-            subtitle="Books you picked up most recently."
-            books={libraryState.recentlyOpened}
-            compact
-          />
-
           <section className="library-section">
             <div className="section-heading">
               <h2 className="font-serif">Your Shelf</h2>
               <p>Your books, arranged as a calm cover grid.</p>
             </div>
 
-            <div className="books-shelf">
-              {books.map((book) => (
-                <BookEntry
-                  key={getBookId(book)}
-                  book={{
-                    ...book,
-                    access: libraryState.accessMap[getBookId(book)] || {},
-                    session: libraryState.sessions[getBookId(book)] || null,
-                  }}
-                />
-              ))}
-            </div>
+            {libraryState.savedBooks && libraryState.savedBooks.length > 0 ? (
+              <div className="books-shelf">
+                {libraryState.savedBooks.map((book) => (
+                  <BookEntry
+                    key={getBookId(book)}
+                    book={book}
+                    onToggleShelf={handleToggleShelf}
+                    isSaved={userShelfIds.has(getBookId(book))}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="no-results" style={{ minHeight: '12rem' }}>
+                <BookOpen size={32} className="text-muted" />
+                <h3 className="font-serif">Your shelf is empty.</h3>
+                <p>Start adding books you love.</p>
+              </div>
+            )}
           </section>
+
+          {recommendationShelves && (() => {
+            const baseBook = books.find((book) => getBookId(book) === recommendationState.currentBookId) || null;
+            const baseTitle = baseBook?.title || 'a book you opened';
+            const baseAuthor = baseBook?.author || 'this author';
+            return (
+              <>
+                <Section
+                  title="Continue Series"
+                  subtitle="The next unread volume in your current saga."
+                  books={recommendationShelves.seriesContinuation}
+                  compact
+                  onToggleShelf={handleToggleShelf}
+                  userShelfIds={userShelfIds}
+                />
+                <Section
+                  title={`Because you read ${baseTitle}`}
+                  subtitle="Stories with similar tags and themes."
+                  books={recommendationShelves.basedOnBook}
+                  compact
+                  onToggleShelf={handleToggleShelf}
+                  userShelfIds={userShelfIds}
+                />
+                <Section
+                  title={`More from ${baseAuthor}`}
+                  subtitle="Same author, different doors."
+                  books={recommendationShelves.sameAuthor}
+                  compact
+                  onToggleShelf={handleToggleShelf}
+                  userShelfIds={userShelfIds}
+                />
+                <Section
+                  title="More in this genre"
+                  subtitle="A softer fallback when tag matches are thin."
+                  books={recommendationShelves.genreBased}
+                  compact
+                  onToggleShelf={handleToggleShelf}
+                  userShelfIds={userShelfIds}
+                />
+              </>
+            );
+          })()}
+
+          <Section
+            title="Recent Activity"
+            subtitle="The last covers you touched, finished, or returned to."
+            books={recentActivity.slice(0, 8)}
+            compact
+            onToggleShelf={handleToggleShelf}
+            userShelfIds={userShelfIds}
+          />
         </>
       )}
     </div>

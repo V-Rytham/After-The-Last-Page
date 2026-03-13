@@ -4,11 +4,22 @@ import axios from 'axios';
 const baseURL = (() => {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl) {
-    return envUrl;
+    const normalized = envUrl.trim();
+    if (!normalized) {
+      return '/api';
+    }
+
+    const isAbsolute = /^https?:\/\//i.test(normalized);
+    if (isAbsolute || normalized.startsWith('/')) {
+      return normalized;
+    }
+
+    // Allow `VITE_API_URL=api` (common misconfig) by normalizing to a root-relative path.
+    return `/${normalized}`;
   }
 
   if (import.meta.env.DEV) {
-    return '/api';
+    return 'http://localhost:5000/api';
   }
 
   if (typeof window !== 'undefined' && window.location?.hostname) {

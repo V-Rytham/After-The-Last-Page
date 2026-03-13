@@ -1,0 +1,63 @@
+.profile-page {
+  width: min(100%, var(--page-max-width));
+  margin: 0 auto;
+  padding: 1.15rem var(--page-gutter) var(--section-space);
+  display: grid;
+  gap: 1.1rem;
+}
+
+.profile-head {
+  display: grid;
+  gap: 0.25rem;
+  max-width: 52ch;
+}
+
+.profile-head p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.profile-card {
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.1rem;
+  display: grid;
+  gap: 0.65rem;
+  max-width: 42rem;
+}
+
+.profile-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.profile-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: var(--font-size-1);
+  letter-spacing: 0.02em;
+}
+
+.profile-value {
+  color: var(--text-secondary);
+  font-size: var(--font-size-1);
+  justify-self: end;
+  text-align: right;
+}
+
+@media (max-width: 560px) {
+  .profile-row {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .profile-value {
+    justify-self: start;
+    text-align: left;
+  }
+}
+

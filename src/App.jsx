@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import Navbar from './components/layout/Navbar';
 import LandingPage from './pages/LandingPage';
 import BooksLibrary from './pages/BooksLibrary';
+import Library from './pages/Library';
 import MeetingAccessHub from './pages/MeetingAccessHub';
 import ReadingRoom from './pages/ReadingRoom';
 import MeetingHub from './pages/MeetingHub';
@@ -10,6 +11,8 @@ import BookThread from './pages/BookThread';
 import ThreadAccessHub from './pages/ThreadAccessHub';
 import WizardMerch from './pages/WizardMerch';
 import AuthPage from './pages/AuthPage';
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 import api from './utils/api';
 import { clearAuthSession, getStoredToken, getStoredUser, saveAuthSession, updateStoredUser } from './utils/auth';
 import { getCurrentActorAccessState, hydrateBookAccessForUser, syncCurrentAccessState } from './utils/readingAccess';
@@ -44,9 +47,12 @@ const AppShell = ({ currentUser, onLogout, uiTheme, onThemeChange, onAuthSuccess
           <Route path="/" element={<LandingPage currentUser={currentUser} />} />
           <Route path="/auth" element={<AuthPage currentUser={currentUser} onAuthSuccess={onAuthSuccess} />} />
           <Route path="/desk" element={<RequireMember currentUser={currentUser}><BooksLibrary /></RequireMember>} />
+          <Route path="/library" element={<RequireMember currentUser={currentUser}><Library /></RequireMember>} />
           <Route path="/books" element={<Navigate to="/desk" replace />} />
           <Route path="/meet" element={<MeetingAccessHub currentUser={currentUser} />} />
           <Route path="/threads" element={<ThreadAccessHub currentUser={currentUser} />} />
+          <Route path="/profile" element={<RequireMember currentUser={currentUser}><ProfilePage currentUser={currentUser} /></RequireMember>} />
+          <Route path="/settings" element={<RequireMember currentUser={currentUser}><SettingsPage uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember>} />
           <Route path="/read/:bookId" element={<RequireMember currentUser={currentUser}><ReadingRoom uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember>} />
           <Route path="/meet/:bookId" element={<MeetingHub />} />
           <Route path="/thread/:bookId" element={<BookThread />} />

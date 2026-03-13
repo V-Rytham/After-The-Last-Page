@@ -61,7 +61,7 @@ export default function LandingPage({ currentUser }) {
   const [threadError, setThreadError] = useState(false);
 
   const isMember = Boolean(currentUser && !currentUser.isAnonymous);
-  const threadPreviewCount = isMember ? 3 : 6;
+  const threadPreviewCount = isMember ? 2 : 6;
 
   useEffect(() => {
     const fetchBooks = async () => {
@@ -158,12 +158,10 @@ export default function LandingPage({ currentUser }) {
       <div className="home-shell">
         <header className="home-hero" aria-label="Home">
           <div className="home-hero-copy">
-            <div className="home-hero-brand" aria-label="After The Last Page">
-              <span className="home-brand font-serif">After The Last Page</span>
-              <span className="home-tagline">Where books become conversations</span>
-            </div>
-
-            <h1 className="home-title font-serif">Close the cover. Open the conversation.</h1>
+            <h1 className="home-title font-serif">
+              <span className="home-title-line">Close the cover.</span>
+              <span className="home-title-line">Open the conversation.</span>
+            </h1>
 
             <p className="home-subtitle">
               Read books in a calm, distraction-free space, then meet other readers for text, voice, or video so ideas can
@@ -190,21 +188,31 @@ export default function LandingPage({ currentUser }) {
           <aside className="home-hero-visual" aria-hidden="true">
             <div className="home-visual-surface">
               <div className="home-visual-page">
-                <div className="home-visual-kicker">Reading</div>
+                <div className="home-visual-kicker">Reading Room</div>
                 <div className="home-visual-lines">
-                  <span />
-                  <span />
-                  <span className="is-short" />
-                  <span />
-                  <span className="is-medium" />
+                  <span className="home-visual-line is-title">The Quiet Shelf</span>
+                  <span className="home-visual-line is-body">Chapter 3: the river scene</span>
+                  <span className="home-visual-line is-body">Saved note: “the light moves…”</span>
+                  <span className="home-visual-line is-body">Next: Page 84</span>
                 </div>
               </div>
 
               <div className="home-visual-thread">
-                <div className="home-visual-kicker">Conversation</div>
-                <div className="home-visual-bubble is-me" />
-                <div className="home-visual-bubble" />
-                <div className="home-visual-bubble is-me is-small" />
+                <div className="home-visual-kicker">Discussion</div>
+                <div className="home-visual-lines">
+                  <span className="home-visual-line is-title">After the last page</span>
+                  <span className="home-visual-line is-body">What changed for you at the end?</span>
+                  <span className="home-visual-line is-body">A few notes from the room</span>
+                </div>
+                <div className="home-visual-bubble">
+                  <span className="home-visual-bubble-text">“The last sentence feels like a door.”</span>
+                </div>
+                <div className="home-visual-bubble is-me">
+                  <span className="home-visual-bubble-text">“I reread the final chapter twice.”</span>
+                </div>
+                <div className="home-visual-bubble is-small">
+                  <span className="home-visual-bubble-text">“Anyone else notice the refrain?”</span>
+                </div>
               </div>
             </div>
           </aside>
@@ -264,7 +272,7 @@ export default function LandingPage({ currentUser }) {
           </div>
         </section>
 
-        <section className="home-section" aria-labelledby="sample-discussions-heading">
+        <section className="home-section home-discussion-preview" aria-labelledby="sample-discussions-heading">
           <div className="home-section-head">
             <div className="home-section-copy">
               <h2 id="sample-discussions-heading" className="font-serif">From the discussion rooms</h2>

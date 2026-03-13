@@ -20,8 +20,15 @@ export default function registerSocketEvents(io) {
           socket.join(roomId);
           partnerSocket.join(roomId);
 
-          io.to(roomId).emit('match_found', {
+          socket.emit('match_found', {
             roomId,
+            role: 'caller',
+            message: 'You have been paired with a fellow reader.',
+          });
+
+          partnerSocket.emit('match_found', {
+            roomId,
+            role: 'callee',
             message: 'You have been paired with a fellow reader.',
           });
 

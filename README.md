@@ -127,6 +127,13 @@ The frontend will infer the API host automatically (useful for iPad/tablets on t
 - Library goals and constraints: `LIBRARY_INTERFACE.md`
 - BookThread notes: `BOOKTHREAD_INTERFACE.md`
 
+## Deployment note (SPA refresh)
+
+If you deploy the frontend as a static site, you must configure a rewrite so deep links like `/read/:bookId` serve `index.html` on refresh (otherwise you will see a plain `Not Found`).
+
+- Render Blueprint: see `render.yaml` (rewrite `/*` → `/index.html`).
+- Static hosts that support it: `public/_redirects` is included and will be copied into `dist/` on build.
+
 ## Roadmap (High-level)
 
 - Expand book catalog + real pagination content pipeline
