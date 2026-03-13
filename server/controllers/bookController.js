@@ -1,6 +1,42 @@
 import { Book } from '../models/Book.js';
 import { convertTextToChapters, fetchGutenbergText, getGutenbergBookPageUrl, getGutenbergCoverUrl, stripGutenbergBoilerplate } from '../utils/gutenberg.js';
 
+const parseGutenbergRouteId = (value) => {
+  const raw = String(value || '').trim().toLowerCase();
+  const match = raw.match(/^g?(\d+)$/);
+  if (!match) {
+    return null;
+  }
+
+  return Number.parseInt(match[1], 10);
+};
+
+const fetchBookByRouteId = async (routeId, projection) => {
+  const gutenbergId = parseGutenbergRouteId(routeId);
+  if (gutenbergId != null) {
+    return Book.findOne({ gutenbergId }).select(projection);
+  }
+
+  return Book.findById(routeId).select(projection);
+};
+
+const createVirtualGutenbergBook = (routeId) => {
+  const gutenbergId = parseGutenbergRouteId(routeId);
+  if (gutenbergId == null) {
+    return null;
+  }
+
+  return {
+    title: `Project Gutenberg #${gutenbergId}`,
+    author: 'Project Gutenberg',
+    gutenbergId,
+    sourceProvider: 'Project Gutenberg',
+    sourceUrl: getGutenbergBookPageUrl(gutenbergId),
+    rights: 'Public domain (Project Gutenberg)',
+    coverImage: getGutenbergCoverUrl(gutenbergId, 'medium'),
+  };
+};
+
 export const getBooks = async (req, res) => {
   try {
     const books = await Book.find({}).select('-textContent -chapters');
@@ -12,21 +48,60 @@ export const getBooks = async (req, res) => {
 
 export const getBookById = async (req, res) => {
   try {
-    const book = await Book.findById(req.params.id).select('-textContent -chapters');
+    const book = await fetchBookByRouteId(req.params.id, '-textContent -chapters');
     if (book) {
       res.json(book);
     } else {
+      const virtualBook = createVirtualGutenbergBook(req.params.id);
+      if (virtualBook) {
+        res.json(virtualBook);
+        return;
+      }
+
       res.status(404).json({ message: 'Book not found' });
     }
   } catch {
+    const virtualBook = createVirtualGutenbergBook(req.params.id);
+    if (virtualBook) {
+      res.json(virtualBook);
+      return;
+    }
+
     res.status(500).json({ message: 'Server error fetching book' });
   }
 };
 
 export const getBookContent = async (req, res) => {
+  const routeBookId = req.params.id;
+  const gutenbergIdFromRoute = parseGutenbergRouteId(routeBookId);
+
+  const buildRemoteGutenbergResponse = async (gutenbergId) => {
+    const rawText = await fetchGutenbergText(gutenbergId);
+    const mainText = stripGutenbergBoilerplate(rawText);
+    const chapters = convertTextToChapters(mainText, { fallbackTitle: 'Chapter' });
+
+    return {
+      chapters,
+      sourceProvider: 'Project Gutenberg',
+      sourceUrl: getGutenbergBookPageUrl(gutenbergId),
+      rights: 'Public domain (Project Gutenberg)',
+      gutenbergId,
+    };
+  };
+
   try {
-    const book = await Book.findById(req.params.id).select('chapters sourceProvider sourceUrl rights gutenbergId title author coverImage');
+    const book = await fetchBookByRouteId(routeBookId, 'chapters sourceProvider sourceUrl rights gutenbergId title author coverImage synopsis');
     if (!book) {
+      if (gutenbergIdFromRoute != null) {
+        try {
+          const remoteBook = await buildRemoteGutenbergResponse(gutenbergIdFromRoute);
+          res.json(remoteBook);
+          return;
+        } catch (error) {
+          console.error(`[BOOK] Failed to fetch Gutenberg book for route id ${routeBookId}:`, error?.message || error);
+        }
+      }
+
       res.status(404).json({ message: 'Book not found' });
       return;
     }
@@ -49,19 +124,17 @@ export const getBookContent = async (req, res) => {
 
     if (!hasChapters && book.gutenbergId) {
       try {
-        const rawText = await fetchGutenbergText(book.gutenbergId);
-        const mainText = stripGutenbergBoilerplate(rawText);
-        const nextChapters = convertTextToChapters(mainText, { fallbackTitle: 'Chapter' });
+        const remoteBook = await buildRemoteGutenbergResponse(book.gutenbergId);
 
-        book.chapters = nextChapters;
-        book.sourceUrl = getGutenbergBookPageUrl(book.gutenbergId);
+        book.chapters = remoteBook.chapters;
+        book.sourceUrl = remoteBook.sourceUrl;
         book.coverImage = book.coverImage || getGutenbergCoverUrl(book.gutenbergId, 'medium');
-        book.rights = book.rights || 'Public domain (Project Gutenberg)';
-        book.sourceProvider = book.sourceProvider || 'Project Gutenberg';
+        book.rights = book.rights || remoteBook.rights;
+        book.sourceProvider = book.sourceProvider || remoteBook.sourceProvider;
         await book.save();
 
         res.json({
-          chapters: nextChapters,
+          chapters: remoteBook.chapters,
           sourceProvider: book.sourceProvider,
           sourceUrl: book.sourceUrl,
           rights: book.rights,
@@ -102,6 +175,16 @@ export const getBookContent = async (req, res) => {
       gutenbergId: book.gutenbergId,
     });
   } catch {
+    if (gutenbergIdFromRoute != null) {
+      try {
+        const remoteBook = await buildRemoteGutenbergResponse(gutenbergIdFromRoute);
+        res.json(remoteBook);
+        return;
+      } catch (error) {
+        console.error(`[BOOK] Failed to load Gutenberg fallback for ${routeBookId}:`, error?.message || error);
+      }
+    }
+
     res.status(500).json({ message: 'Server error fetching book content' });
   }
 };
