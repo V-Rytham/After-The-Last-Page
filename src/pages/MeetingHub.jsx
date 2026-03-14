@@ -488,6 +488,10 @@ const MeetingHub = () => {
   };
 
   const handleTalkToBookFriend = async () => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('leave_matchmaking');
+    }
+
     setBookFriendLoading(true);
     setMatchNotice('');
 

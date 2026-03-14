@@ -1,10 +1,17 @@
 export default function registerSocketEvents(io) {
   const queues = {};
+  const removeSocketFromQueues = (socketId) => {
+    for (const key in queues) {
+      queues[key] = queues[key].filter((id) => id !== socketId);
+    }
+  };
 
   io.on('connection', (socket) => {
     console.log(`[SOCKET] User connected: ${socket.id}`);
 
     socket.on('join_matchmaking', ({ bookId, prefType }) => {
+      removeSocketFromQueues(socket.id);
+
       const queueKey = `${bookId}_${prefType}`;
 
       if (!queues[queueKey]) {
@@ -42,6 +49,11 @@ export default function registerSocketEvents(io) {
       }
     });
 
+    socket.on('leave_matchmaking', () => {
+      removeSocketFromQueues(socket.id);
+      console.log(`[SOCKET] ${socket.id} removed from matchmaking queue`);
+    });
+
     socket.on('send_message', ({ roomId, message, senderId }) => {
       socket.to(roomId).emit('receive_message', { message, senderId, timestamp: new Date() });
     });
@@ -60,9 +72,7 @@ export default function registerSocketEvents(io) {
 
     socket.on('disconnect', () => {
       console.log(`[SOCKET] User disconnected: ${socket.id}`);
-      for (const key in queues) {
-        queues[key] = queues[key].filter((id) => id !== socket.id);
-      }
+      removeSocketFromQueues(socket.id);
     });
   });
 }
