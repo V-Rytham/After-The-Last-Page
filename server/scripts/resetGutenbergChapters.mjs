@@ -80,3 +80,5 @@ run()
       // Best effort cleanup.
     }
   });
+    try { await mongoose.connection.close(); } catch {}
+  });
