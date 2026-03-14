@@ -1,3 +1,4 @@
+import { resolveLlmProvider } from '../config/env.js';
 const buildUserPrompt = ({ bookMeta, retrievedChunks, history, userMessage }) => {
   const formattedChunks = (retrievedChunks || [])
     .map((chunk, index) => `(${index + 1}) [chapter ${chunk.chapterIndex ?? 'unknown'}] ${chunk.text}`)

@@ -1,14 +1,15 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
+import { loadBookFriendEnv, resolveLlmProvider } from './config/env.js';
 import agentRoutes from './routes/agentRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+
+loadBookFriendEnv();
 
 const app = express();
 app.use(cors());
