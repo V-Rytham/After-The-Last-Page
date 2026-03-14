@@ -27,12 +27,11 @@ const buildMockResponse = ({ userMessage, bookMeta }) => {
 };
 
 export const generateAgentReply = async ({ systemPrompt, bookMeta, retrievedChunks, history, userMessage }) => {
-  const { provider, source } = resolveLlmProvider();
+  const provider = (process.env.BOOKFRIEND_LLM_PROVIDER || 'mock').toLowerCase();
   const prompt = buildUserPrompt({ bookMeta, retrievedChunks, history, userMessage });
 
   if (provider === 'ollama') {
-    const ollamaUrl = process.env.BOOKFRIEND_OLLAMA_URL || 'http://127.0.0.1:11434/api/chat';
-    const response = await fetch(ollamaUrl, {
+    const response = await fetch(process.env.BOOKFRIEND_OLLAMA_URL || 'http://127.0.0.1:11434/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -95,6 +94,6 @@ export const generateAgentReply = async ({ systemPrompt, bookMeta, retrievedChun
   }
 
   throw new Error(
-    `Unsupported BOOKFRIEND_LLM_PROVIDER="${provider}" (source: ${source}). Use one of: mock, ollama, openai.`,
+    `Unsupported BOOKFRIEND_LLM_PROVIDER="${provider}". Use one of: mock, ollama, openai.`,
   );
 };
