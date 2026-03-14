@@ -88,5 +88,11 @@ export const generateAgentReply = async ({ systemPrompt, bookMeta, retrievedChun
     return data?.choices?.[0]?.message?.content?.trim() || buildMockResponse({ userMessage, bookMeta });
   }
 
-  return buildMockResponse({ userMessage, bookMeta });
+  if (provider === 'mock') {
+    return buildMockResponse({ userMessage, bookMeta });
+  }
+
+  throw new Error(
+    `Unsupported BOOKFRIEND_LLM_PROVIDER="${provider}". Use one of: mock, ollama, openai.`,
+  );
 };
