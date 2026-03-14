@@ -1,4 +1,7 @@
-import { scoreChunkOverlap, stripHtml } from '../utils/text.js';
+import { cosineSimilarity, embedTokens } from '../utils/embeddings.js';
+import { stripHtml, tokenize } from '../utils/text.js';
+
+const vectorIndexCache = new Map();
 
 const toChunkText = (chapter) => {
   const title = chapter?.title ? `${chapter.title}. ` : '';
@@ -14,6 +17,35 @@ const getCandidateChunks = (book) => {
       text: toChunkText(chapter),
     }))
     .filter((entry) => entry.text.length > 0);
+};
+
+const getBookCacheKey = (book) => {
+  if (book?._id) {
+    return `id:${book._id}`;
+  }
+
+  if (book?.gutenbergId != null) {
+    return `gutenberg:${book.gutenbergId}`;
+  }
+
+  return `title:${String(book?.title || 'unknown')}`;
+};
+
+const getOrBuildChunkVectors = (book, chunks) => {
+  const cacheKey = getBookCacheKey(book);
+  const signature = chunks.map((chunk) => `${chunk.chapterIndex ?? 'na'}:${chunk.text.length}`).join('|');
+  const cached = vectorIndexCache.get(cacheKey);
+  if (cached?.signature === signature) {
+    return cached.vectors;
+  }
+
+  const vectors = chunks.map((chunk) => ({
+    ...chunk,
+    vector: embedTokens(tokenize(chunk.text)),
+  }));
+
+  vectorIndexCache.set(cacheKey, { signature, vectors, updatedAt: Date.now() });
+  return vectors;
 };
 
 export const retrieveRelevantChunks = ({ book, userMessage, chapterProgress, limit = 4 }) => {
@@ -34,8 +66,11 @@ export const retrieveRelevantChunks = ({ book, userMessage, chapterProgress, lim
     return [{ chapterIndex: null, text: String(book.synopsis) }];
   }
 
-  return chunks
-    .map((chunk) => ({ ...chunk, score: scoreChunkOverlap(userMessage, chunk.text) }))
+  const chunkVectors = getOrBuildChunkVectors(book, chunks);
+  const queryVector = embedTokens(tokenize(userMessage));
+
+  return chunkVectors
+    .map((chunk) => ({ ...chunk, score: cosineSimilarity(queryVector, chunk.vector) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, Math.max(1, limit))
     .map(({ chapterIndex, text }) => ({ chapterIndex, text: text.slice(0, 1400) }));

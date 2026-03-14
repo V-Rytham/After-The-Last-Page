@@ -26,7 +26,40 @@ const buildMockResponse = ({ userMessage, bookMeta }) => {
 };
 
 export const generateAgentReply = async ({ systemPrompt, bookMeta, retrievedChunks, history, userMessage }) => {
-  const provider = (process.env.BOOKFRIEND_LLM_PROVIDER || 'mock').toLowerCase();
+  const provider = String(process.env.BOOKFRIEND_LLM_PROVIDER || 'mock')
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .toLowerCase();
+  const prompt = buildUserPrompt({ bookMeta, retrievedChunks, history, userMessage });
+
+  if (provider === 'ollama') {
+    const ollamaUrl = process.env.BOOKFRIEND_OLLAMA_URL || 'http://127.0.0.1:11434/api/chat';
+    const response = await fetch(ollamaUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: process.env.BOOKFRIEND_OLLAMA_MODEL || 'llama3.1:8b-instruct-q4_K_M',
+        stream: false,
+        options: {
+          temperature: 0.8,
+        },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Ollama request failed: ${response.status} ${text}`);
+    }
+
+    const data = await response.json();
+    return data?.message?.content?.trim() || buildMockResponse({ userMessage, bookMeta });
+  }
 
   if (provider === 'openai') {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -45,7 +78,7 @@ export const generateAgentReply = async ({ systemPrompt, bookMeta, retrievedChun
         temperature: 0.8,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: buildUserPrompt({ bookMeta, retrievedChunks, history, userMessage }) },
+          { role: 'user', content: prompt },
         ],
       }),
     });
@@ -59,5 +92,11 @@ export const generateAgentReply = async ({ systemPrompt, bookMeta, retrievedChun
     return data?.choices?.[0]?.message?.content?.trim() || buildMockResponse({ userMessage, bookMeta });
   }
 
-  return buildMockResponse({ userMessage, bookMeta });
+  if (provider === 'mock') {
+    return buildMockResponse({ userMessage, bookMeta });
+  }
+
+  throw new Error(
+    `Unsupported BOOKFRIEND_LLM_PROVIDER="${provider}". Use one of: mock, ollama, openai.`,
+  );
 };

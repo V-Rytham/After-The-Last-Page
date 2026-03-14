@@ -15,7 +15,23 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'bookfriend-agent-server' });
+  const provider = String(process.env.BOOKFRIEND_LLM_PROVIDER || 'mock')
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .toLowerCase();
+
+  const modelByProvider = {
+    openai: process.env.BOOKFRIEND_OPENAI_MODEL || 'gpt-4o-mini',
+    ollama: process.env.BOOKFRIEND_OLLAMA_MODEL || 'llama3.1:8b-instruct-q4_K_M',
+    mock: 'mock',
+  };
+
+  res.json({
+    status: 'ok',
+    service: 'bookfriend-agent-server',
+    llm_provider: provider,
+    llm_model: modelByProvider[provider] || null,
+  });
 });
 
 app.use('/agent', agentRoutes);
@@ -24,8 +40,14 @@ const port = process.env.PORT || 5050;
 
 connectDB()
   .then(() => {
+    const provider = String(process.env.BOOKFRIEND_LLM_PROVIDER || 'mock')
+      .trim()
+      .replace(/^['"]|['"]$/g, '')
+      .toLowerCase();
+
     app.listen(port, () => {
       console.log(`[BOOKFRIEND] Agent server listening on ${port}`);
+      console.log(`[BOOKFRIEND] LLM provider: ${provider}`);
     });
   })
   .catch((error) => {

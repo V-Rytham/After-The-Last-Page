@@ -27,16 +27,18 @@ bookfriend-server/
 - `POST /agent/end` immediately deletes the whole session from memory.
 - No persistent conversation logging is implemented.
 
-## Retrieval Strategy (RAG scaffold)
+## Retrieval Strategy (RAG with local vector index)
 
-Current retrieval is lightweight and local:
+Current retrieval is vector-based and local-first:
 
 1. Load book metadata + chapters from MongoDB.
 2. Convert chapter HTML into plain text chunks.
-3. Score relevance by lexical overlap between question tokens and chunk tokens.
-4. Inject top chunks into prompt payload.
+3. Build deterministic hashed embeddings for each chunk.
+4. Store chunk vectors in an in-memory vector index cache per book.
+5. Embed the user query with the same embedding function.
+6. Rank chunks with cosine similarity and inject top chunks into the prompt payload.
 
-This is implemented behind retrieval services so it can be swapped with a vector database later.
+This keeps infrastructure free (no hosted vector DB required) while preserving a pluggable retrieval layer.
 
 ## API (BookFriend server)
 
@@ -97,11 +99,14 @@ In the Meet page:
 ### BookFriend server (`bookfriend-server/.env`)
 - `PORT` (default: `5050`)
 - `MONGODB_URI`
-- `BOOKFRIEND_LLM_PROVIDER` (`mock` or `openai`)
+- `BOOKFRIEND_LLM_PROVIDER` (`mock`, `ollama`, or `openai`)
 - `BOOKFRIEND_OPENAI_MODEL` (when OpenAI is used)
 - `OPENAI_API_KEY` (when OpenAI is used)
+- `BOOKFRIEND_OLLAMA_URL` (when Ollama is used)
+- `BOOKFRIEND_OLLAMA_MODEL` (when Ollama is used)
 - `BOOKFRIEND_MAX_HISTORY`
 - `BOOKFRIEND_RETRIEVAL_LIMIT`
+- `BOOKFRIEND_EMBEDDING_DIM`
 
 ## Local run
 
