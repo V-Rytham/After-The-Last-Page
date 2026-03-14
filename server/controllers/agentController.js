@@ -168,6 +168,21 @@ export const startAgentSession = async (req, res) => {
 
 export const sendAgentMessage = async (req, res) => {
   try {
+    const { session_id: sessionId, message, chapter_progress: chapterProgress } = req.body || {};
+
+    if (!sessionId || !message) {
+      return res.status(400).json({ message: 'session_id and message are required.' });
+    }
+
+    const localSession = localSessionStore.get(sessionId);
+    if (localSession) {
+      localSession.messages.push({ role: 'user', content: String(message), timestamp: new Date().toISOString() });
+      getRetrievedChunks(localSession.book, message, chapterProgress);
+      const response = buildLocalAgentReply({ userMessage: message, bookTitle: localSession.book?.title || 'this book' });
+      localSession.messages.push({ role: 'assistant', content: response, timestamp: new Date().toISOString() });
+      return res.json({ response, mode: 'local-fallback' });
+    }
+
     let data;
 
     try {
@@ -175,12 +190,6 @@ export const sendAgentMessage = async (req, res) => {
     } catch (error) {
       if (!error.serviceUnavailable) {
         throw error;
-      }
-
-      const { session_id: sessionId, message, chapter_progress: chapterProgress } = req.body || {};
-
-      if (!sessionId || !message) {
-        return res.status(400).json({ message: 'session_id and message are required.' });
       }
 
       const session = localSessionStore.get(sessionId);
@@ -208,6 +217,15 @@ export const sendAgentMessage = async (req, res) => {
 
 export const endAgentSession = async (req, res) => {
   try {
+    const { session_id: sessionId } = req.body || {};
+    if (!sessionId) {
+      return res.status(400).json({ message: 'session_id is required.' });
+    }
+
+    if (localSessionStore.delete(sessionId)) {
+      return res.json({ message: 'Session deleted.', mode: 'local-fallback' });
+    }
+
     let data;
 
     try {
@@ -217,16 +235,7 @@ export const endAgentSession = async (req, res) => {
         throw error;
       }
 
-      const { session_id: sessionId } = req.body || {};
-      if (!sessionId) {
-        return res.status(400).json({ message: 'session_id is required.' });
-      }
-
-      if (!localSessionStore.delete(sessionId)) {
-        return res.status(404).json({ message: 'Session not found.' });
-      }
-
-      data = { message: 'Session deleted.', mode: 'local-fallback' };
+      return res.status(404).json({ message: 'Session not found.' });
     }
 
     res.json(data);
