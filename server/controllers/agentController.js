@@ -5,6 +5,11 @@ import { Book } from '../models/Book.js';
 const getBookFriendBaseUrl = () => (process.env.BOOKFRIEND_SERVER_URL || 'http://127.0.0.1:5050').replace(/\/$/, '');
 const localSessionStore = new Map();
 
+const isLocalFallbackEnabled = () => {
+  const raw = String(process.env.BOOKFRIEND_ALLOW_LOCAL_FALLBACK || 'false').trim().toLowerCase();
+  return raw === 'true' || raw === '1' || raw === 'yes';
+};
+
 const parseBookId = (bookId) => {
   const raw = String(bookId || '').trim();
   const gutenbergMatch = raw.match(/^g?(\d+)$/i);
@@ -140,6 +145,16 @@ export const startAgentSession = async (req, res) => {
         throw error;
       }
 
+      if (!isLocalFallbackEnabled()) {
+        return res.status(503).json({
+          message: 'BookFriend service is unreachable. Local fallback is disabled.',
+          target: getBookFriendBaseUrl(),
+          hint: 'Start bookfriend-server and verify /health, or set BOOKFRIEND_ALLOW_LOCAL_FALLBACK=true.',
+        });
+      }
+
+      console.warn('[AGENT] BookFriend unavailable, using local fallback mode for start.');
+
       const book = await findBookForAgent(bookId);
       if (!book) {
         return res.status(404).json({ message: 'Book not found for this session.' });
@@ -176,6 +191,16 @@ export const sendAgentMessage = async (req, res) => {
       if (!error.serviceUnavailable) {
         throw error;
       }
+
+      if (!isLocalFallbackEnabled()) {
+        return res.status(503).json({
+          message: 'BookFriend service is unreachable. Local fallback is disabled.',
+          target: getBookFriendBaseUrl(),
+          hint: 'Start bookfriend-server and verify /health, or set BOOKFRIEND_ALLOW_LOCAL_FALLBACK=true.',
+        });
+      }
+
+      console.warn('[AGENT] BookFriend unavailable, using local fallback mode for message.');
 
       const { session_id: sessionId, message, chapter_progress: chapterProgress } = req.body || {};
 
@@ -216,6 +241,16 @@ export const endAgentSession = async (req, res) => {
       if (!error.serviceUnavailable) {
         throw error;
       }
+
+      if (!isLocalFallbackEnabled()) {
+        return res.status(503).json({
+          message: 'BookFriend service is unreachable. Local fallback is disabled.',
+          target: getBookFriendBaseUrl(),
+          hint: 'Start bookfriend-server and verify /health, or set BOOKFRIEND_ALLOW_LOCAL_FALLBACK=true.',
+        });
+      }
+
+      console.warn('[AGENT] BookFriend unavailable, using local fallback mode for end.');
 
       const { session_id: sessionId } = req.body || {};
       if (!sessionId) {
