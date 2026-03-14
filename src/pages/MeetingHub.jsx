@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ShieldCheck, ArrowRight, Video, MessageSquare, Mic, User, Send, LockKeyhole } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Video, MessageSquare, Mic, User, Send, LockKeyhole, Bot } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../utils/api';
 import { getFallbackBookById } from '../utils/bookFallback';
@@ -40,6 +40,9 @@ const MeetingHub = () => {
   const [socketReady, setSocketReady] = useState(false);
   const [matchNotice, setMatchNotice] = useState('');
   const [searchHint, setSearchHint] = useState('');
+  const [bookFriendOffered, setBookFriendOffered] = useState(false);
+  const [bookFriendSessionId, setBookFriendSessionId] = useState(null);
+  const [bookFriendLoading, setBookFriendLoading] = useState(false);
   const socketRef = useRef(null);
 
   const peerRef = useRef(null);
@@ -123,6 +126,7 @@ const MeetingHub = () => {
     });
 
     socketRef.current.on('match_found', ({ roomId: matchedRoomId, role }) => {
+      setBookFriendOffered(false);
       setRoomId(matchedRoomId);
       setMatchRole(role || null);
       setPhase('connected');
@@ -415,19 +419,33 @@ const MeetingHub = () => {
   useEffect(() => {
     if (phase !== 'searching') {
       setSearchHint('');
+      setBookFriendOffered(false);
       return undefined;
     }
 
     setSearchHint(`Waiting for another reader who chose ${prefType}.`);
 
-    const timeoutId = window.setTimeout(() => {
-      setSearchHint('Still waiting. Try again later, or step into the community thread.');
+    const reminderTimeoutId = window.setTimeout(() => {
+      setSearchHint('Still searching for a reader.');
     }, 12000);
 
+    const bookFriendTimeoutId = window.setTimeout(() => {
+      setBookFriendOffered(true);
+      setSearchHint('No reader joined yet. You can start a text chat with BookFriend.');
+    }, 30000);
+
     return () => {
-      window.clearTimeout(timeoutId);
+      window.clearTimeout(reminderTimeoutId);
+      window.clearTimeout(bookFriendTimeoutId);
     };
   }, [phase, prefType]);
+
+
+  useEffect(() => () => {
+    if (bookFriendSessionId) {
+      api.post('/agent/end', { session_id: bookFriendSessionId }).catch(() => {});
+    }
+  }, [bookFriendSessionId]);
 
   if (loading) return <div className="p-10 text-center mt-20 font-serif">Deep in the archives... Seeking your book.</div>;
   if (!book) return <div className="p-10 text-center mt-20 font-serif">Book not found. Perhaps it's still being written?</div>;
@@ -467,6 +485,70 @@ const MeetingHub = () => {
       prefType,
       anonymousId: `user_${Math.random().toString(36).slice(2, 11)}`,
     });
+  };
+
+  const handleTalkToBookFriend = async () => {
+    setBookFriendLoading(true);
+    setMatchNotice('');
+
+    try {
+      const { data } = await api.post('/agent/start', {
+        book_id: book._id || book.id || bookId,
+      });
+
+      setBookFriendSessionId(data.session_id);
+      setMessages([]);
+      setPhase('bookfriend');
+    } catch (error) {
+      console.error('Failed to start BookFriend session:', error);
+      setMatchNotice('BookFriend is unavailable right now. Please try again shortly.');
+    } finally {
+      setBookFriendLoading(false);
+    }
+  };
+
+  const sendBookFriendMessage = async (event) => {
+    event.preventDefault();
+    const trimmed = chatInput.trim();
+
+    if (!trimmed || !bookFriendSessionId) {
+      return;
+    }
+
+    setMessages((prev) => [...prev, { text: trimmed, sender: 'me', timestamp: new Date() }]);
+    setChatInput('');
+
+    try {
+      const { data } = await api.post('/agent/message', {
+        session_id: bookFriendSessionId,
+        message: trimmed,
+      });
+
+      setMessages((prev) => [...prev, { text: data.response, sender: 'bookfriend', timestamp: new Date() }]);
+    } catch (error) {
+      console.error('BookFriend reply failed:', error);
+      setMessages((prev) => [...prev, {
+        text: 'Sorry, I lost the thread for a moment. Could you try that again?',
+        sender: 'bookfriend',
+        timestamp: new Date(),
+      }]);
+    }
+  };
+
+  const endBookFriendSession = async () => {
+    if (bookFriendSessionId) {
+      try {
+        await api.post('/agent/end', { session_id: bookFriendSessionId });
+      } catch (error) {
+        console.error('Failed to end BookFriend session:', error);
+      }
+    }
+
+    setBookFriendSessionId(null);
+    setMessages([]);
+    setChatInput('');
+    setBookFriendOffered(false);
+    setPhase('preferences');
   };
 
   const sendMessage = (event) => {
@@ -604,7 +686,59 @@ const MeetingHub = () => {
           <h2 className="font-serif">Searching the cosmos...</h2>
           <p className="text-muted mt-2">Looking for someone who just finished <em>{book.title}</em></p>
           {searchHint && <p className="text-muted">{searchHint}</p>}
-          <button className="btn-secondary mt-8" onClick={() => setPhase('preferences')}>Cancel Search</button>
+          {bookFriendOffered && (
+            <button className="btn-primary mt-6" onClick={handleTalkToBookFriend} disabled={bookFriendLoading}>
+              <Bot size={18} /> {bookFriendLoading ? 'Starting BookFriend...' : 'Talk to BookFriend'}
+            </button>
+          )}
+          <button className="btn-secondary mt-8" onClick={() => { setBookFriendOffered(false); setPhase('preferences'); }}>Cancel Search</button>
+        </div>
+      )}
+
+
+      {phase === 'bookfriend' && (
+        <div className="room-container animate-fade-in">
+          <div className="room-header glass-panel">
+            <div className="partner-info">
+              <div className="partner-avatar bg-gradient" />
+              <div>
+                <h3 className="font-serif">BookFriend Connected</h3>
+                <p className="text-xs text-muted">Text-only reading companion for {book.title}</p>
+              </div>
+            </div>
+            <div className="room-actions">
+              <button type="button" className="btn-secondary sm" onClick={endBookFriendSession}>
+                End Chat
+              </button>
+            </div>
+          </div>
+
+          <div className="room-main glass-panel">
+            <div className="chat-interface">
+              <div className="chat-messages">
+                {messages.map((msg, index) => (
+                  <div key={index} className={`message ${msg.sender === 'me' ? 'sent' : 'received'}`}>
+                    <div className="msg-bubble">{msg.text}</div>
+                  </div>
+                ))}
+                {messages.length === 0 && (
+                  <div className="text-center text-muted p-10">
+                    Hi, I'm BookFriend. What stood out most to you in this book?
+                  </div>
+                )}
+              </div>
+              <form className="chat-input-area" onSubmit={sendBookFriendMessage}>
+                <input
+                  type="text"
+                  placeholder="Share a thought about the book..."
+                  className="chat-input"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                />
+                <button type="submit" className="send-btn bg-gradient"><Send size={20} /></button>
+              </form>
+            </div>
+          </div>
         </div>
       )}
 
