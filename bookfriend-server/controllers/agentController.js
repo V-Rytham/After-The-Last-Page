@@ -52,7 +52,7 @@ export const sendAgentMessage = async (req, res) => {
 
     appendMessage({ sessionId, role: 'user', content: String(message) });
 
-    const retrievedChunks = retrieveRelevantChunks({
+    const retrievedChunks = await retrieveRelevantChunks({
       book: session.book,
       userMessage: message,
       chapterProgress,

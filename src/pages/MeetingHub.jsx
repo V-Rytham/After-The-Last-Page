@@ -25,6 +25,34 @@ const socketServer = (() => {
   return 'http://127.0.0.1:5000';
 })();
 
+const sanitizeChatText = (value) => {
+  const input = String(value || '').trim();
+
+  const rawJsonMatch = input.match(/^```json\s*([\s\S]*?)\s*```$/i);
+  const maybeJson = rawJsonMatch ? rawJsonMatch[1] : input;
+  if (maybeJson.startsWith('{') && maybeJson.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(maybeJson);
+      const candidate = parsed?.response || parsed?.message || parsed?.final || parsed?.content;
+      if (candidate) {
+        return sanitizeChatText(candidate);
+      }
+    } catch {
+      // fall through and use cleanup below
+    }
+  }
+
+  return input
+    .replace(/<think>[\s\S]*?<\/think>/gi, ' ')
+    .replace(/<analysis>[\s\S]*?<\/analysis>/gi, ' ')
+    .replace(/<(meta|debug|payload|context|tool)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/^\s*(payload|metadata|mode|source)\s*:\s*.*$/gim, ' ')
+    .replace(/^\s*(assistant|final|response)\s*:\s*/i, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
 const MeetingHub = () => {
   const { bookId } = useParams();
   const navigate = useNavigate();
@@ -60,7 +88,8 @@ const MeetingHub = () => {
   const [isCameraOff, setIsCameraOff] = useState(false);
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [currentAnswer, setCurrentAnswer] = useState('');
+  const [selectedAnswers, setSelectedAnswers] = useState({});
+  const [quizNotice, setQuizNotice] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [prefType, setPrefType] = useState('text');
   const accessMode = location.state?.accessMode || null;
@@ -71,17 +100,19 @@ const MeetingHub = () => {
   }, [roomId]);
 
   useEffect(() => {
-    const buildQuiz = (selectedBook) => {
-      if (!selectedBook) {
+    const loadQuizQuestions = async (targetBookId) => {
+      try {
+        const { data } = await api.get(`/books/${targetBookId}/questions?limit=5`);
+        const questions = Array.isArray(data?.questions) ? data.questions : [];
+        setQuizQuestions(questions);
+        setSelectedAnswers({});
+        setCurrentQuestionIndex(0);
+        setQuizNotice('');
+      } catch (error) {
+        console.error('Failed to load quiz questions:', error);
         setQuizQuestions([]);
-        return;
+        setQuizNotice('Quiz questions are not available for this book yet.');
       }
-
-      setQuizQuestions([
-        { text: `What was the most striking moment in ${selectedBook.title} for you?` },
-        { text: `How did the author's style influence your reading pace?` },
-        { text: 'Which character did you relate to most?' }
-      ]);
     };
 
     const fetchData = async () => {
@@ -93,12 +124,12 @@ const MeetingHub = () => {
       try {
         const { data } = await api.get(`/books/${bookId}`);
         setBook(data);
-        buildQuiz(data);
+        await loadQuizQuestions(bookId);
       } catch (error) {
         const fallbackBook = getFallbackBookById(bookId);
         console.error('Fetch error, using local fallback:', error);
         setBook(fallbackBook);
-        buildQuiz(fallbackBook);
+        await loadQuizQuestions(bookId);
       } finally {
         setLoading(false);
       }
@@ -133,7 +164,7 @@ const MeetingHub = () => {
     });
 
     socketRef.current.on('receive_message', ({ message }) => {
-      setMessages((prev) => [...prev, { text: message, sender: 'partner', timestamp: new Date() }]);
+      setMessages((prev) => [...prev, { text: sanitizeChatText(message), sender: 'partner', timestamp: new Date() }]);
     });
 
     socketRef.current.on('webrtc_offer', async ({ offer }) => {
@@ -451,10 +482,52 @@ const MeetingHub = () => {
   if (!book) return <div className="p-10 text-center mt-20 font-serif">Book not found. Perhaps it's still being written?</div>;
 
   const handleNextQuestion = async () => {
+    const currentQuestion = quizQuestions[currentQuestionIndex];
+    if (!currentQuestion) {
+      return;
+    }
+
+    const selectedOption = selectedAnswers[currentQuestion.question_id];
+    if (!selectedOption) {
+      setQuizNotice('Please select an option to continue.');
+      return;
+    }
+
     if (currentQuestionIndex < quizQuestions.length - 1) {
       setCurrentQuestionIndex((index) => index + 1);
-      setCurrentAnswer('');
+      setQuizNotice('');
     } else {
+      const payload = quizQuestions.map((question) => ({
+        question_id: question.question_id,
+        selected_option: selectedAnswers[question.question_id],
+      }));
+
+      let verification;
+      try {
+        const { data } = await api.post(`/books/${bookId}/questions/verify`, {
+          answers: payload,
+          pass_threshold: 0.6,
+        });
+        verification = data;
+      } catch (error) {
+        console.error('Failed to verify quiz answers:', error);
+        setQuizNotice('We could not verify your answers right now. Please try again.');
+        return;
+      }
+
+      if (!verification?.passed) {
+        setQuizNotice(`You scored ${verification?.correct_count || 0}/${verification?.total || 5}. Try another set of questions.`);
+        try {
+          const { data } = await api.get(`/books/${bookId}/questions?limit=5`);
+          setQuizQuestions(Array.isArray(data?.questions) ? data.questions : []);
+          setSelectedAnswers({});
+          setCurrentQuestionIndex(0);
+        } catch (error) {
+          console.error('Failed to reload quiz questions:', error);
+        }
+        return;
+      }
+
       const accessState = markQuizAsPassed(book._id || book.id);
       syncSingleBookAccess(book._id || book.id, accessState).catch((error) => {
         console.error('Failed to sync quiz progress:', error);
@@ -468,7 +541,7 @@ const MeetingHub = () => {
         return;
       }
       setPhase('preferences');
-      setCurrentAnswer('');
+      setQuizNotice('');
     }
   };
 
@@ -524,7 +597,11 @@ const MeetingHub = () => {
         message: trimmed,
       });
 
-      setMessages((prev) => [...prev, { text: data.response, sender: 'bookfriend', timestamp: new Date() }]);
+      setMessages((prev) => [...prev, {
+        text: sanitizeChatText(data?.response) || 'I could not parse that response properly. Could you try again?',
+        sender: 'bookfriend',
+        timestamp: new Date(),
+      }]);
     } catch (error) {
       console.error('BookFriend reply failed:', error);
       setMessages((prev) => [...prev, {
@@ -589,21 +666,43 @@ const MeetingHub = () => {
             </div>
 
             <div className="quiz-question-area animate-fade-in" key={currentQuestionIndex}>
-              <h3 className="question-text">{quizQuestions[currentQuestionIndex]?.text}</h3>
-              <textarea
-                className="quiz-input"
-                placeholder="Type your answer here... (Accuracy isn't strict, we just want to verify you've read it)"
-                value={currentAnswer}
-                onChange={(e) => setCurrentAnswer(e.target.value)}
-                autoFocus
-              />
+              <h3 className="question-text">{quizQuestions[currentQuestionIndex]?.question}</h3>
+              <div className="flex-column-center gap-2 mt-4">
+                {(quizQuestions[currentQuestionIndex]?.options || []).map((option) => {
+                  const optionValue = option.option;
+                  const selected = selectedAnswers[quizQuestions[currentQuestionIndex]?.question_id] === optionValue;
+
+                  return (
+                    <button
+                      key={`${quizQuestions[currentQuestionIndex]?.question_id}-${optionValue}`}
+                      type="button"
+                      className={`btn-secondary w-full text-left ${selected ? 'selected' : ''}`}
+                      onClick={() => {
+                        setSelectedAnswers((prev) => ({
+                          ...prev,
+                          [quizQuestions[currentQuestionIndex]?.question_id]: optionValue,
+                        }));
+                        setQuizNotice('');
+                      }}
+                    >
+                      <strong>{optionValue.toUpperCase()}.</strong> {option.text}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
+            {quizNotice && (
+              <div className="meeting-notice" role="status">
+                {quizNotice}
+              </div>
+            )}
 
             <div className="quiz-footer">
               <button
                 className="btn-primary"
                 onClick={handleNextQuestion}
-                disabled={currentAnswer.trim().length < 3 || quizQuestions.length === 0}
+                disabled={quizQuestions.length === 0}
               >
                 {currentQuestionIndex === quizQuestions.length - 1 ? 'Submit & Enter Hub' : 'Next Question'} <ArrowRight size={18} />
               </button>

@@ -1,0 +1,4 @@
+spacy==3.8.2
+pymongo==4.10.1
+rapidfuzz==3.10.1
+python-dotenv==1.0.1

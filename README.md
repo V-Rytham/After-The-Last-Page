@@ -154,4 +154,63 @@ BookFriend is implemented as a separate service in `bookfriend-server/` and inte
 
 - See `BOOKFRIEND_INTERFACE.md` for API contracts, architecture, memory policy, and env setup.
 - Main server forwards to `BOOKFRIEND_SERVER_URL` (default `http://127.0.0.1:5050`).
+- Set `BOOKFRIEND_ALLOW_LOCAL_FALLBACK=false` in `server/.env` to avoid silent local mock fallback when BookFriend is down.
 
+### Free local LLM option (recommended)
+
+For zero API cost, run BookFriend with Ollama locally:
+
+```bash
+ollama pull llama3.1:8b-instruct-q4_K_M
+```
+
+Then in `bookfriend-server/.env`:
+
+```env
+BOOKFRIEND_LLM_PROVIDER=ollama
+BOOKFRIEND_OLLAMA_URL=http://127.0.0.1:11434/api/chat
+BOOKFRIEND_OLLAMA_MODEL=llama3.1:8b-instruct-q4_K_M
+```
+
+BookFriend retrieval uses a local in-memory vector index with deterministic hashed embeddings, so no paid vector database is required.
+
+If responses still look like mock outputs:
+
+1. Ensure these values are set in `bookfriend-server/.env` (not `server/.env`):
+   - `BOOKFRIEND_LLM_PROVIDER=ollama`
+   - `BOOKFRIEND_OLLAMA_URL=http://127.0.0.1:11434/api/chat`
+   - `BOOKFRIEND_OLLAMA_MODEL=llama3.1:8b-instruct-q4_K_M`
+2. Restart the BookFriend process after editing `.env`.
+3. Verify runtime config:
+
+```bash
+curl http://127.0.0.1:5050/health
+```
+
+You should see `"llm_provider":"ollama"` in the response. If `llm_provider_source` shows `default:fallback`, your provider variable is not being loaded from the env file you edited.
+
+If you add `console.log` inside `bookfriend-server/services/llmService.js` and still see nothing, your request is likely being handled by main-server local fallback instead of BookFriend. With `BOOKFRIEND_ALLOW_LOCAL_FALLBACK=false`, `/api/agent/*` will return a clear `503` when BookFriend is unreachable.
+
+BookFriend responses are sanitized before display to remove model-internal wrappers (e.g., `<think>...</think>`, metadata/payload sections, and JSON wrappers), so only reader-facing text is shown in chat.
+
+Book chunk vectors are now persisted in MongoDB (`book_chunks`) and reused across sessions/readers; vectors are rebuilt only when chapter content changes.
+
+## Offline Fact Extraction + MCQ Pipeline
+
+Reader authenticity quiz generation now uses an offline NLP pipeline (no cloud LLMs).
+
+- Pipeline source: `fact_pipeline/`
+- Output collections: `book_chunks`, `book_sentences`, `book_entities`, `book_facts`, `book_questions`
+- Runtime API endpoints:
+  - `GET /api/books/:id/questions?limit=5`
+  - `POST /api/books/:id/questions/verify`
+
+Run pipeline for a book:
+
+```bash
+pip install -r fact_pipeline/requirements.txt
+python -m spacy download en_core_web_sm
+python fact_pipeline/pipeline.py --book-id <MONGO_BOOK_ID>
+```
+
+The main API only serves random questions and answer verification at runtime; NLP/fact extraction happens offline.
