@@ -113,6 +113,31 @@
   border-color: var(--accent-border);
 }
 
+
+.quiz-options {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.quiz-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background: var(--surface-1);
+}
+
+.quiz-option input {
+  margin-top: 0.2rem;
+}
+
+.text-error {
+  color: #c44545;
+}
+
 .quiz-footer {
   display: flex;
   justify-content: flex-end;

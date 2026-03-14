@@ -61,6 +61,8 @@ const MeetingHub = () => {
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [currentAnswer, setCurrentAnswer] = useState('');
+  const [quizResponses, setQuizResponses] = useState([]);
+  const [quizError, setQuizError] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [prefType, setPrefType] = useState('text');
   const accessMode = location.state?.accessMode || null;
@@ -71,19 +73,6 @@ const MeetingHub = () => {
   }, [roomId]);
 
   useEffect(() => {
-    const buildQuiz = (selectedBook) => {
-      if (!selectedBook) {
-        setQuizQuestions([]);
-        return;
-      }
-
-      setQuizQuestions([
-        { text: `What was the most striking moment in ${selectedBook.title} for you?` },
-        { text: `How did the author's style influence your reading pace?` },
-        { text: 'Which character did you relate to most?' }
-      ]);
-    };
-
     const fetchData = async () => {
       const access = getBookAccessState(bookId);
       if (access.quizPassed && accessMode !== 'thread-gate') {
@@ -91,14 +80,18 @@ const MeetingHub = () => {
       }
 
       try {
-        const { data } = await api.get(`/books/${bookId}`);
-        setBook(data);
-        buildQuiz(data);
+        const [{ data: bookData }, { data: questionData }] = await Promise.all([
+          api.get(`/books/${bookId}`),
+          api.get(`/books/${bookId}/questions?limit=5`),
+        ]);
+        setBook(bookData);
+        setQuizQuestions(questionData.questions || []);
       } catch (error) {
         const fallbackBook = getFallbackBookById(bookId);
         console.error('Fetch error, using local fallback:', error);
         setBook(fallbackBook);
-        buildQuiz(fallbackBook);
+        setQuizQuestions([]);
+        setQuizError('Questions are still being prepared for this book. Please try again soon.');
       } finally {
         setLoading(false);
       }
@@ -451,14 +444,48 @@ const MeetingHub = () => {
   if (!book) return <div className="p-10 text-center mt-20 font-serif">Book not found. Perhaps it's still being written?</div>;
 
   const handleNextQuestion = async () => {
+    setQuizError('');
+    const activeQuestion = quizQuestions[currentQuestionIndex];
+    if (!activeQuestion || !currentAnswer) {
+      setQuizError('Please select an option before moving on.');
+      return;
+    }
+
+    const nextResponses = [
+      ...quizResponses.filter((entry) => entry.questionId !== activeQuestion.questionId),
+      {
+        questionId: activeQuestion.questionId,
+        selectedOption: currentAnswer,
+      },
+    ];
+    setQuizResponses(nextResponses);
+
     if (currentQuestionIndex < quizQuestions.length - 1) {
       setCurrentQuestionIndex((index) => index + 1);
       setCurrentAnswer('');
-    } else {
+      return;
+    }
+
+    try {
+      const { data } = await api.post(`/books/${bookId}/questions/verify`, {
+        answers: nextResponses,
+      });
+
+      if (!data?.passed) {
+        setQuizError(`You scored ${data?.score || 0}/${data?.total || quizQuestions.length}. Please retry with a new quiz set.`);
+        const { data: questionData } = await api.get(`/books/${bookId}/questions?limit=5`);
+        setQuizQuestions(questionData.questions || []);
+        setQuizResponses([]);
+        setCurrentQuestionIndex(0);
+        setCurrentAnswer('');
+        return;
+      }
+
       const accessState = markQuizAsPassed(book._id || book.id);
       syncSingleBookAccess(book._id || book.id, accessState).catch((error) => {
         console.error('Failed to sync quiz progress:', error);
       });
+
       if (accessMode === 'thread-gate') {
         navigate(`/thread/${bookId}`, {
           state: {
@@ -467,8 +494,12 @@ const MeetingHub = () => {
         });
         return;
       }
+
       setPhase('preferences');
       setCurrentAnswer('');
+    } catch (error) {
+      console.error('Quiz verification failed:', error);
+      setQuizError('Unable to verify answers right now. Please try again shortly.');
     }
   };
 
@@ -589,21 +620,29 @@ const MeetingHub = () => {
             </div>
 
             <div className="quiz-question-area animate-fade-in" key={currentQuestionIndex}>
-              <h3 className="question-text">{quizQuestions[currentQuestionIndex]?.text}</h3>
-              <textarea
-                className="quiz-input"
-                placeholder="Type your answer here... (Accuracy isn't strict, we just want to verify you've read it)"
-                value={currentAnswer}
-                onChange={(e) => setCurrentAnswer(e.target.value)}
-                autoFocus
-              />
+              <h3 className="question-text">{quizQuestions[currentQuestionIndex]?.question}</h3>
+              <div className="quiz-options">
+                {(quizQuestions[currentQuestionIndex]?.options || []).map((option) => (
+                  <label key={option.id} className="quiz-option">
+                    <input
+                      type="radio"
+                      name={`question-${currentQuestionIndex}`}
+                      value={option.id}
+                      checked={currentAnswer === option.id}
+                      onChange={(e) => setCurrentAnswer(e.target.value)}
+                    />
+                    <span>{option.id}. {option.text}</span>
+                  </label>
+                ))}
+              </div>
+              {quizError && <p className="text-xs text-error">{quizError}</p>}
             </div>
 
             <div className="quiz-footer">
               <button
                 className="btn-primary"
                 onClick={handleNextQuestion}
-                disabled={currentAnswer.trim().length < 3 || quizQuestions.length === 0}
+                disabled={!currentAnswer || quizQuestions.length === 0}
               >
                 {currentQuestionIndex === quizQuestions.length - 1 ? 'Submit & Enter Hub' : 'Next Question'} <ArrowRight size={18} />
               </button>
