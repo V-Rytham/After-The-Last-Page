@@ -6,6 +6,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+    "reset:gutenberg-chapters": "node scripts/resetGutenbergChapters.mjs --all"
   },
   "keywords": [],
   "author": "",
