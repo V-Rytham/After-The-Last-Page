@@ -103,6 +103,7 @@ export const convertTextToChapters = (text, { fallbackTitle = 'Chapter' } = {}) 
   const chapters = [];
   let current = null;
   let buffer = [];
+  const consumedSubtitleLineIndexes = new Set();
 
   const flush = () => {
     const content = buffer.join('\n').trim();
@@ -119,7 +120,10 @@ export const convertTextToChapters = (text, { fallbackTitle = 'Chapter' } = {}) 
       .filter(Boolean);
 
     const html = blocksToHtml(blocks);
-    if (!html) return;
+    if (!html) {
+      current = null;
+      return;
+    }
     chapters.push({
       index: current.index,
       title: current.title || `${fallbackTitle} ${current.index}`,
@@ -138,18 +142,28 @@ export const convertTextToChapters = (text, { fallbackTitle = 'Chapter' } = {}) 
       flush();
 
       let subtitle = null;
+      let subtitleLineIndex = null;
       for (let j = i + 1; j < Math.min(i + 4, lines.length); j += 1) {
         const peek = lines[j].trim();
         if (!peek) continue;
         if (isLikelyChapterHeading(peek)) break;
         if (peek.length <= 70 && (peek === peek.toUpperCase() || /^["'“]/.test(peek))) {
           subtitle = peek;
+          subtitleLineIndex = j;
         }
         break;
       }
 
+      if (subtitleLineIndex != null) {
+        consumedSubtitleLineIndexes.add(subtitleLineIndex);
+      }
+
       const title = normalizeHeading(trimmed, subtitle);
       current = { title, index: chapters.length + 1 };
+      continue;
+    }
+
+    if (consumedSubtitleLineIndexes.has(i)) {
       continue;
     }
 

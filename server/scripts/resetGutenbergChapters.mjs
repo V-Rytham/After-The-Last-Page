@@ -7,7 +7,9 @@ const args = process.argv.slice(2);
 const hasFlag = (flag) => args.includes(flag);
 const readOption = (name) => {
   const index = args.findIndex((arg) => arg === name);
-  if (index < 0 || index === args.length - 1) return null;
+  if (index < 0 || index === args.length - 1) {
+    return null;
+  }
   return args[index + 1];
 };
 
@@ -21,6 +23,10 @@ const parseIdList = (value) => {
 
 const printUsage = () => {
   console.log('Usage: node server/scripts/resetGutenbergChapters.mjs [--all | --ids <id1,id2,...>] [--dry-run]');
+  console.log('Examples:');
+  console.log('  node server/scripts/resetGutenbergChapters.mjs --all');
+  console.log('  node server/scripts/resetGutenbergChapters.mjs --ids 1184,1342');
+  console.log('  node server/scripts/resetGutenbergChapters.mjs --all --dry-run');
 };
 
 const run = async () => {
@@ -68,5 +74,11 @@ run()
     process.exitCode = 1;
   })
   .finally(async () => {
+    try {
+      await mongoose.connection.close();
+    } catch {
+      // Best effort cleanup.
+    }
+  });
     try { await mongoose.connection.close(); } catch {}
   });

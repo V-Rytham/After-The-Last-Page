@@ -14,6 +14,8 @@ const ThreadAccessHub = ({ currentUser }) => {
   const [notice, setNotice] = useState(null);
   const isMember = Boolean(currentUser && !currentUser.isAnonymous);
 
+  const getDisplayTitle = (title) => String(title || '').split(':')[0].split(';')[0].trim();
+
   useEffect(() => {
     const fetchBooks = async () => {
       try {
@@ -144,17 +146,22 @@ const ThreadAccessHub = ({ currentUser }) => {
                 </div>
 
                 <div className="thread-access-card-body">
+                  <h2 className="font-serif thread-access-title" title={book.title}>
+                    {getDisplayTitle(book.title)}
+                  </h2>
+                  <p className="thread-access-author" title={book.author}>{book.author}</p>
+                </div>
+
+                <div className="thread-access-actions">
                   <span className={`thread-status ${status.className}`}>
                     {status.icon}
                     {status.label}
                   </span>
-                  <h2 className="font-serif thread-access-title">{book.title}</h2>
-                  <p className="thread-access-author">{book.author}</p>
-                </div>
 
-                <button className="btn-primary sm thread-access-button" onClick={() => handleThreadAccess(book)}>
-                  {!isMember ? 'Sign in' : access.quizPassed ? 'Enter' : access.isRead ? 'Unlock' : 'Read first'}
-                </button>
+                  <button className="btn-primary sm thread-access-button" onClick={() => handleThreadAccess(book)}>
+                    {!isMember ? 'Sign in' : access.quizPassed ? 'Enter' : access.isRead ? 'Unlock' : 'Read first'}
+                  </button>
+                </div>
               </article>
             );
           })
