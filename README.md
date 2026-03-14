@@ -118,6 +118,13 @@ cd "D:\After The Last Page"
 npm run dev:full
 ```
 
+Run all three services (main API + BookFriend API + frontend):
+
+```bash
+cd "D:\After The Last Page"
+npm run dev:all
+```
+
 The frontend will infer the API host automatically (useful for iPad/tablets on the same Wi‑Fi). You can also set `VITE_API_URL` explicitly if you prefer.
 
 ## Project Notes
@@ -140,3 +147,11 @@ If you deploy the frontend as a static site, you must configure a rewrite so dee
 - Production-grade auth + deployment configs
 - Meeting: matching rules, anti-abuse, session UX for text/voice/video
 - Wizard merch: generation pipeline + ordering + shipping integration
+
+## BookFriend Agent Server
+
+BookFriend is implemented as a separate service in `bookfriend-server/` and integrated through proxy endpoints in the main API (`/api/agent/*`).
+
+- See `BOOKFRIEND_INTERFACE.md` for API contracts, architecture, memory policy, and env setup.
+- Main server forwards to `BOOKFRIEND_SERVER_URL` (default `http://127.0.0.1:5050`).
+

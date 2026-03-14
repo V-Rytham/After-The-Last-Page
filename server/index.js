@@ -7,6 +7,7 @@ import userRoutes from './routes/userRoutes.js';
 import bookRoutes from './routes/bookRoutes.js';
 import threadRoutes from './routes/threadRoutes.js';
 import recommenderRoutes from './routes/recommenderRoutes.js';
+import agentRoutes from './routes/agentRoutes.js';
 import registerSocketEvents from './socket/socketHandler.js';
 import { Book } from './models/Book.js';
 import { defaultBooks } from './seed/defaultBooks.js';
@@ -65,6 +66,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/threads', threadRoutes);
 app.use('/api/recommender', recommenderRoutes);
+app.use('/api/agent', agentRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Nexus Core Online' });
