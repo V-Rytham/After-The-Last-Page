@@ -136,10 +136,10 @@ The frontend will infer the API host automatically (useful for iPad/tablets on t
 
 ## Deployment note (SPA refresh)
 
-If you deploy the frontend as a static site, you must configure a rewrite so deep links like `/read/:bookId` serve `index.html` on refresh (otherwise you will see a plain `Not Found`).
+The app now uses `HashRouter`, so direct refreshes on deep links work even on static hosts without rewrite rules.
 
-- Render Blueprint: see `render.yaml` (rewrite `/*` → `/index.html`).
-- Static hosts that support it: `public/_redirects` is included and will be copied into `dist/` on build.
+- Render Blueprint still includes an SPA rewrite in `render.yaml` (safe to keep).
+- `public/_redirects` is also included for hosts that support rewrite files.
 
 ## Roadmap (High-level)
 

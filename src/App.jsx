@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import LandingPage from './pages/LandingPage';
 import BooksLibrary from './pages/BooksLibrary';
