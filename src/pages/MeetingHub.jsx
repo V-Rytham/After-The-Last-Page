@@ -5,25 +5,10 @@ import { io } from 'socket.io-client';
 import api from '../utils/api';
 import { getFallbackBookById } from '../utils/bookFallback';
 import { getBookAccessState, markQuizAsPassed, syncSingleBookAccess } from '../utils/readingAccess';
+import { getSocketServerUrl } from '../utils/serviceUrls';
 import './MeetingHub.css';
 
-const socketServer = (() => {
-  const envUrl = import.meta.env.VITE_SOCKET_URL;
-  if (envUrl) {
-    return envUrl;
-  }
-
-  if (import.meta.env.DEV && typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin;
-  }
-
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
-    return `${window.location.protocol}//${host}:5000`;
-  }
-
-  return 'http://127.0.0.1:5000';
-})();
+const socketServer = getSocketServerUrl();
 
 const MeetingHub = () => {
   const { bookId } = useParams();

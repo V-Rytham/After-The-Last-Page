@@ -1,34 +1,7 @@
 import axios from 'axios';
+import { getApiBaseUrl } from './serviceUrls';
 
-// Get backend URL from env; otherwise infer host (helps when testing from iPad/tablet on LAN).
-const baseURL = (() => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl) {
-    const normalized = envUrl.trim();
-    if (!normalized) {
-      return '/api';
-    }
-
-    const isAbsolute = /^https?:\/\//i.test(normalized);
-    if (isAbsolute || normalized.startsWith('/')) {
-      return normalized;
-    }
-
-    // Allow `VITE_API_URL=api` (common misconfig) by normalizing to a root-relative path.
-    return `/${normalized}`;
-  }
-
-  if (import.meta.env.DEV) {
-    return 'http://localhost:5000/api';
-  }
-
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
-    return `${window.location.protocol}//${host}:5000/api`;
-  }
-
-  return 'http://127.0.0.1:5000/api';
-})();
+const baseURL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL,
