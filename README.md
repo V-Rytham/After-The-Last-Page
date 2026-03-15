@@ -2,17 +2,13 @@
 
 ## Demo
 
-### Reader Interface
-
-![Reader Interface](images/reader-ui.png)
-
-### BookThread Discussion
-
-![BookThread](images/bookthread.png)
-
-### Reader Matching
-
-![Reader Matching](images/meeting.png)
+![BookThread](pic1.png)
+![BookThread](pic2.png)
+![Reader Matching](pic3.png)
+![BookThread](pic4.png)
+![BookThread](pic5.png)
+![BookThread](pic6.png)
+![BookThread](pic7.png)
 
 
 After The Last Page is a reading platform inspired by Kindle-like interfaces, but with a small social twist that activates **after you finish a book**.
