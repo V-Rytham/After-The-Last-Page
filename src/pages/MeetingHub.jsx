@@ -65,12 +65,29 @@ const MeetingHub = () => {
       }
 
       try {
-        const [{ data: bookData }, { data: questionData }] = await Promise.all([
-          api.get(`/books/${bookId}`),
-          api.get(`/books/${bookId}/questions?limit=5`),
-        ]);
-        setBook(bookData);
-        setQuizQuestions(questionData.questions || []);
+        const bookRequest = api.get(`/books/${bookId}`);
+        const questionRequest = api.get(`/books/${bookId}/questions?limit=5`);
+        const [bookResult, questionResult] = await Promise.allSettled([bookRequest, questionRequest]);
+
+        if (bookResult.status === 'rejected') {
+          throw bookResult.reason;
+        }
+
+        setBook(bookResult.value.data);
+
+        if (questionResult.status === 'fulfilled') {
+          setQuizQuestions(questionResult.value.data.questions || []);
+          return;
+        }
+
+        const questionStatus = questionResult.reason?.response?.status;
+        if (questionStatus === 404) {
+          setQuizQuestions([]);
+          setQuizError('Questions are still being prepared for this book. Please try again soon.');
+          return;
+        }
+
+        throw questionResult.reason;
       } catch (error) {
         const fallbackBook = getFallbackBookById(bookId);
         console.error('Fetch error, using local fallback:', error);
