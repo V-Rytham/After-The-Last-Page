@@ -1,229 +1,284 @@
-After The Last Page
+# After The Last Page
 
-After The Last Page is a reading platform inspired by Kindle-like interfaces, but with a small social twist that activates after you finish a book.
+## Demo
 
-GitHub Repo:
+### Reader Interface
+
+![Reader Interface](images/reader-ui.png)
+
+### BookThread Discussion
+
+![BookThread](images/bookthread.png)
+
+### Reader Matching
+
+![Reader Matching](images/meeting.png)
+
+
+After The Last Page is a reading platform inspired by Kindle-like interfaces, but with a small social twist that activates **after you finish a book**.
+
+**GitHub Repo:**  
 https://github.com/V-Rytham/After-The-Last-Page
 
-Idea Behind the Project
+---
+
+## Idea Behind the Project
 
 Often when someone finishes a great book, the first instinct is to talk about it. But in reality it’s hard to find someone who:
 
-has read the same book
-
-finished it recently
-
-is interested in discussing it in depth
+- has read the same book
+- finished it recently
+- is interested in discussing it in depth
 
 This project is an attempt to solve that problem while keeping the reading experience calm and minimal, similar to traditional e-readers.
 
-Features
-1. Book Reading (Kindle-style Interface)
+---
+
+## Features
+
+### 1. Book Reading (Kindle-style Interface)
 
 Users can read books directly inside the app.
 
 The reader interface is designed to feel similar to Kindle or Apple Books, focusing on:
 
-clean typography
-
-minimal distractions
-
-comfortable long reading sessions
+- clean typography
+- minimal distractions
+- comfortable long reading sessions
 
 Available themes:
 
-Light
+- Light
+- Sepia
+- Dark
 
-Sepia
+---
 
-Dark
-
-2. Meet Other Readers
+### 2. Meet Other Readers
 
 Once someone finishes a book, they can connect with other readers who also completed the same book recently.
 
 Communication options include:
 
-Text chat
-
-Voice conversation
-
-Video conversation
+- Text chat
+- Voice conversation
+- Video conversation
 
 Some simple checks are used to make sure the discussions remain meaningful:
 
-a minimum reading time requirement, or
-
-a short 5-question quiz about the book
+- a minimum reading time requirement, or
+- a short **5-question quiz** about the book
 
 The goal is not to test memory perfectly, but just to confirm the person actually read the book.
 
 Users also stay anonymous from our side to keep interactions more comfortable and reduce social pressure.
 
-3. BookThread (Discussion Rooms)
+---
+
+### 3. BookThread (Discussion Rooms)
 
 Each book has its own discussion space.
 
 Readers who complete the quiz can:
 
-start discussion threads
+- start discussion threads
+- reply to existing conversations
 
-reply to existing conversations
+The idea is similar to small **Reddit or Discord-style discussions**, but focused on a single book.
 
-The idea is similar to small Reddit or Discord-style discussions but focused on a single book.
+---
 
-4. Merchandise Generator (“Wizard”)
+### 4. Merchandise Generator ("Wizard")
 
-The platform also includes a small AI assistant called Wizard that helps readers create book-inspired merchandise.
+The platform also includes a small AI assistant called **Wizard** that helps readers create book-inspired merchandise.
 
 Users can:
 
-describe a design idea
-
-generate a visual concept
-
-customize it for items like t-shirts or hoodies
+- describe a design idea
+- generate a visual concept
+- customize it for items like **t-shirts or hoodies**
 
 The generated design can then be prepared for production and delivery.
 
-Tech Stack
+---
 
-Frontend
+## Tech Stack
 
-Vite
+### Frontend
+- Vite
+- React
+- React Router
 
-React
+### Backend
+- Node.js
+- Express
 
-React Router
+### Database
+- MongoDB (Mongoose)
 
-Backend
+### Realtime Communication
+- Socket.IO
 
-Node.js
+---
 
-Express
+## Running the Project Locally
 
-Database
+### Prerequisites
 
-MongoDB (Mongoose)
-
-Realtime Communication
-
-Socket.IO
-
-Running the Project Locally
-Prerequisites
-
-Node.js (LTS recommended)
-
-MongoDB running locally
+- Node.js (LTS recommended)
+- MongoDB running locally
 
 Default database connection:
 
+```
 mongodb://localhost:27017/after_the_last_page
-1. Install Dependencies
+```
+
+---
+
+### 1. Install Dependencies
 
 Frontend:
 
+```bash
 cd "D:\After The Last Page"
 npm install
+```
 
 Backend:
 
+```bash
 cd "D:\After The Last Page\server"
 npm install
-2. Setup Environment Variables
+```
+
+---
+
+### 2. Setup Environment Variables
 
 Copy the example file:
 
+```bash
 copy "D:\After The Last Page\server\.env.example" "D:\After The Last Page\server\.env"
+```
 
-Then edit values if required (JWT secret, database URL, etc).
+Then edit the values if required (JWT secret, database URL, etc).
 
-3. Start the Application
+---
+
+### 3. Start the Application
 
 Run backend:
 
+```bash
 cd "D:\After The Last Page"
 node server\index.js
+```
 
 Run frontend:
 
+```bash
 npm run dev -- --host
+```
 
-You can also start both together:
+Run both together:
 
+```bash
 npm run dev:full
+```
 
-Or run all services (main API + BookFriend + frontend):
+Run all services (main API + BookFriend + frontend):
 
+```bash
 npm run dev:all
+```
 
-The frontend usually detects the API automatically if everything is on the same network, but you can set VITE_API_URL manually if needed.
+The frontend usually detects the API automatically if everything is on the same network, but you can set `VITE_API_URL` manually if needed.
 
-Project Documentation
+---
+
+## Project Documentation
 
 Additional design and architecture notes are available in these files:
 
-DESIGN_SYSTEM.md
+- `DESIGN_SYSTEM.md`
+- `READING_INTERFACE.md`
+- `LIBRARY_INTERFACE.md`
+- `BOOKTHREAD_INTERFACE.md`
 
-READING_INTERFACE.md
+---
 
-LIBRARY_INTERFACE.md
+## Deployment Note
 
-BOOKTHREAD_INTERFACE.md
+If you deploy the frontend as a static site, make sure your host rewrites routes back to `index.html`.
 
-Deployment Note
+Otherwise refreshing routes like:
 
-If you deploy the frontend as a static site, make sure your host rewrites routes back to index.html.
+```
+/read/:bookId
+```
 
-Otherwise refreshing routes like /read/:bookId may show a Not Found error.
+may show a **Not Found** error.
 
 Example:
 
-Render configuration → see render.yaml
+- Render configuration → see `render.yaml`
+- Static hosts → `_redirects` file is included and copied during build
 
-Static hosts → _redirects file is included and copied during build
+---
 
-Planned Improvements
+## Planned Improvements
 
-Some things I plan to work on next:
+Some things planned for the next iterations:
 
-expanding the book catalog
+- expanding the book catalog
+- improving authentication and deployment setup
+- better matching logic for reader conversations
+- moderation and anti-abuse mechanisms
+- improving the merch generation pipeline
 
-improving authentication and deployment setup
+---
 
-better matching logic for reader conversations
-
-moderation and anti-abuse mechanisms
-
-improving the merch generation pipeline
-
-BookFriend Agent Server
+## BookFriend Agent Server
 
 BookFriend runs as a separate service inside:
 
+```
 bookfriend-server/
+```
 
 It connects to the main API through proxy endpoints:
 
+```
 /api/agent/*
+```
 
 More details about the architecture and API contracts can be found in:
 
+```
 BOOKFRIEND_INTERFACE.md
-Local LLM Setup (Free Option)
+```
 
-BookFriend can run using a local LLM through Ollama.
+---
+
+## Local LLM Setup (Free Option)
+
+BookFriend can run using a local LLM through **Ollama**.
 
 Install the model:
 
+```bash
 ollama pull llama3.1:8b-instruct-q4_K_M
+```
 
 Then configure:
 
-bookfriend-server/.env
+`bookfriend-server/.env`
+
+```env
 BOOKFRIEND_LLM_PROVIDER=ollama
 BOOKFRIEND_OLLAMA_URL=http://127.0.0.1:11434/api/chat
 BOOKFRIEND_OLLAMA_MODEL=llama3.1:8b-instruct-q4_K_M
+```
 
-The retrieval system uses a lightweight in-memory vector index, so no external vector database is required.
+The retrieval system uses a lightweight **in-memory vector index**, so no external vector database is required.
