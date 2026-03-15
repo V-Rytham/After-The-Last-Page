@@ -1,175 +1,229 @@
-# After The Last Page
+After The Last Page
 
-After The Last Page is a calm, Kindle-inspired reading instrument with a social layer that activates *after* you finish a book.
+After The Last Page is a reading platform inspired by Kindle-like interfaces, but with a small social twist that activates after you finish a book.
 
-Repo: `https://github.com/V-Rytham/After-The-Last-Page`
+GitHub Repo:
+https://github.com/V-Rytham/After-The-Last-Page
 
-## Vision
+Idea Behind the Project
 
-Most readers finish a great book and immediately want to talk about it—but rarely find someone who:
+Often when someone finishes a great book, the first instinct is to talk about it. But in reality it’s hard to find someone who:
 
-- has read the same book
-- finished it recently
-- wants to discuss it deeply
+has read the same book
 
-This project bridges that gap while keeping the interface quiet, typographic, and “paper-first”.
+finished it recently
 
-## Core Features
+is interested in discussing it in depth
 
-### 1) Book Reading (Kindle-style)
+This project is an attempt to solve that problem while keeping the reading experience calm and minimal, similar to traditional e-readers.
 
-- Read books from the in-app library
-- Reader UI aims for Kindle / Apple Books quality: calm layout, strong typography, minimal chrome
-- Themes (Light / Sepia / Dark) tuned for long sessions
+Features
+1. Book Reading (Kindle-style Interface)
 
-### 2) Meet People (USP)
+Users can read books directly inside the app.
 
-Once a reader genuinely completes a book, they can meet other readers who completed the same book recently via:
+The reader interface is designed to feel similar to Kindle or Apple Books, focusing on:
 
-- Text
-- Voice
-- Video
+clean typography
 
-Privacy rule: users remain anonymous to each other (from our end) to reduce social friction and protect identity.
+minimal distractions
 
-Integrity rule (anti-spam + quality): meeting access is gated by:
+comfortable long reading sessions
 
-- Minimum read time (per book), or
-- A short book quiz (5 questions; “near-right” is acceptable—this verifies familiarity, not perfection)
+Available themes:
 
-Quality rule: user rating + limits on rapid switching help keep conversations respectful and worth returning to.
+Light
 
-### 3) BookThread
+Sepia
 
-Per-book discussion rooms (in the spirit of Reddit/Discord) where readers can:
+Dark
 
-- create threads
-- reply to ongoing threads
+2. Meet Other Readers
 
-Threads unlock after the reader passes the quiz gate (same “genuine reader” principle).
+Once someone finishes a book, they can connect with other readers who also completed the same book recently.
 
-### 4) Merchandise Creation (“Wizard”)
+Communication options include:
 
-Readers can generate and customize book-referenced merch (t-shirts / hoodies) via an AI assistant (“Wizard”):
+Text chat
 
-- turn a reader’s idea into a design
-- prepare it for fulfillment
-- ship to their address
+Voice conversation
 
-## Tech Stack
+Video conversation
 
-- Frontend: Vite + React + React Router
-- Backend: Node.js + Express + MongoDB (Mongoose)
-- Realtime: Socket.IO
+Some simple checks are used to make sure the discussions remain meaningful:
 
-## Local Development
+a minimum reading time requirement, or
 
-### Prerequisites
+a short 5-question quiz about the book
 
-- Node.js (recent LTS recommended)
-- MongoDB running locally (default `mongodb://localhost:27017/after_the_last_page`)
+The goal is not to test memory perfectly, but just to confirm the person actually read the book.
 
-### 1) Install dependencies
+Users also stay anonymous from our side to keep interactions more comfortable and reduce social pressure.
+
+3. BookThread (Discussion Rooms)
+
+Each book has its own discussion space.
+
+Readers who complete the quiz can:
+
+start discussion threads
+
+reply to existing conversations
+
+The idea is similar to small Reddit or Discord-style discussions but focused on a single book.
+
+4. Merchandise Generator (“Wizard”)
+
+The platform also includes a small AI assistant called Wizard that helps readers create book-inspired merchandise.
+
+Users can:
+
+describe a design idea
+
+generate a visual concept
+
+customize it for items like t-shirts or hoodies
+
+The generated design can then be prepared for production and delivery.
+
+Tech Stack
+
+Frontend
+
+Vite
+
+React
+
+React Router
+
+Backend
+
+Node.js
+
+Express
+
+Database
+
+MongoDB (Mongoose)
+
+Realtime Communication
+
+Socket.IO
+
+Running the Project Locally
+Prerequisites
+
+Node.js (LTS recommended)
+
+MongoDB running locally
+
+Default database connection:
+
+mongodb://localhost:27017/after_the_last_page
+1. Install Dependencies
 
 Frontend:
 
-```bash
 cd "D:\After The Last Page"
 npm install
-```
 
 Backend:
 
-```bash
 cd "D:\After The Last Page\server"
 npm install
-```
+2. Setup Environment Variables
 
-### 2) Configure environment
+Copy the example file:
 
-Copy the example env:
-
-```bash
 copy "D:\After The Last Page\server\.env.example" "D:\After The Last Page\server\.env"
-```
 
-Edit values if needed (JWT secret, DB URL, etc).
+Then edit values if required (JWT secret, database URL, etc).
 
-### 3) Run
+3. Start the Application
 
-Backend (API):
+Run backend:
 
-```bash
 cd "D:\After The Last Page"
 node server\index.js
-```
 
-Frontend:
+Run frontend:
 
-```bash
-cd "D:\After The Last Page"
 npm run dev -- --host
-```
 
-Or run both together:
+You can also start both together:
 
-```bash
-cd "D:\After The Last Page"
 npm run dev:full
-```
 
-Run all three services (main API + BookFriend API + frontend):
+Or run all services (main API + BookFriend + frontend):
 
-```bash
-cd "D:\After The Last Page"
 npm run dev:all
-```
 
-The frontend will infer the API host automatically (useful for iPad/tablets on the same Wi‑Fi). You can also set `VITE_API_URL` explicitly if you prefer.
+The frontend usually detects the API automatically if everything is on the same network, but you can set VITE_API_URL manually if needed.
 
-## Project Notes
+Project Documentation
 
-- Design system + tokens: `DESIGN_SYSTEM.md`
-- Reader goals and constraints: `READING_INTERFACE.md`
-- Library goals and constraints: `LIBRARY_INTERFACE.md`
-- BookThread notes: `BOOKTHREAD_INTERFACE.md`
+Additional design and architecture notes are available in these files:
 
-## Deployment note (SPA refresh)
+DESIGN_SYSTEM.md
 
-The app now uses `HashRouter`, so direct refreshes on deep links work even on static hosts without rewrite rules.
+READING_INTERFACE.md
 
-- Render Blueprint still includes an SPA rewrite in `render.yaml` (safe to keep).
-- `public/_redirects` is also included for hosts that support rewrite files.
+LIBRARY_INTERFACE.md
 
-## Roadmap (High-level)
+BOOKTHREAD_INTERFACE.md
 
-- Expand book catalog + real pagination content pipeline
-- Production-grade auth + deployment configs
-- Meeting: matching rules, anti-abuse, session UX for text/voice/video
-- Wizard merch: generation pipeline + ordering + shipping integration
+Deployment Note
 
-## BookFriend Agent Server
+If you deploy the frontend as a static site, make sure your host rewrites routes back to index.html.
 
-BookFriend is implemented as a separate service in `bookfriend-server/` and integrated through proxy endpoints in the main API (`/api/agent/*`).
+Otherwise refreshing routes like /read/:bookId may show a Not Found error.
 
-- See `BOOKFRIEND_INTERFACE.md` for API contracts, architecture, memory policy, and env setup.
-- Main server forwards to `BOOKFRIEND_SERVER_URL` (default `http://127.0.0.1:5050`).
-- Set `BOOKFRIEND_ALLOW_LOCAL_FALLBACK=false` in `server/.env` to avoid silent local mock fallback when BookFriend is down.
+Example:
 
-### Free local LLM option (recommended)
+Render configuration → see render.yaml
 
-For zero API cost, run BookFriend with Ollama locally:
+Static hosts → _redirects file is included and copied during build
 
-```bash
+Planned Improvements
+
+Some things I plan to work on next:
+
+expanding the book catalog
+
+improving authentication and deployment setup
+
+better matching logic for reader conversations
+
+moderation and anti-abuse mechanisms
+
+improving the merch generation pipeline
+
+BookFriend Agent Server
+
+BookFriend runs as a separate service inside:
+
+bookfriend-server/
+
+It connects to the main API through proxy endpoints:
+
+/api/agent/*
+
+More details about the architecture and API contracts can be found in:
+
+BOOKFRIEND_INTERFACE.md
+Local LLM Setup (Free Option)
+
+BookFriend can run using a local LLM through Ollama.
+
+Install the model:
+
 ollama pull llama3.1:8b-instruct-q4_K_M
-```
 
-Then in `bookfriend-server/.env`:
+Then configure:
 
-```env
+bookfriend-server/.env
 BOOKFRIEND_LLM_PROVIDER=ollama
 BOOKFRIEND_OLLAMA_URL=http://127.0.0.1:11434/api/chat
 BOOKFRIEND_OLLAMA_MODEL=llama3.1:8b-instruct-q4_K_M
-```
 
-BookFriend retrieval uses a local in-memory vector index with deterministic hashed embeddings, so no paid vector database is required.
+The retrieval system uses a lightweight in-memory vector index, so no external vector database is required.
