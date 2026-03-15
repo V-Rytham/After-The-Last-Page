@@ -10,6 +10,12 @@ const normalizeConfiguredUrl = (value, fallbackPath) => {
     return configured;
   }
 
+  // Accept host-like values such as "alp-api.onrender.com/api" without forcing a relative path.
+  if (/^[a-z0-9.-]+(?::\d+)?(?:\/.*)?$/i.test(configured)) {
+    const isLocalHost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:\/.*)?$/i.test(configured);
+    return `${isLocalHost ? 'http' : 'https'}://${configured}`;
+  }
+
   return `/${configured}`;
 };
 
