@@ -1,12 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import api from '../utils/api';
+import axios from 'axios';
 import QuestionCard from '../components/verification/QuestionCard';
 import ProgressBar from '../components/verification/ProgressBar';
 import './VerifyReading.css';
 
 const PROCESSING_MESSAGE = 'Questions for this book are being generated. Please try again shortly.';
 const FAIL_MESSAGE = 'You need at least 3 correct answers to unlock discussions for this book.';
+const verificationApi = axios.create({
+  baseURL: 'https://deterministic-question-engine.onrender.com',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 const VerifyReading = () => {
   const { isbn } = useParams();
@@ -24,7 +30,7 @@ const VerifyReading = () => {
     setLoading(true);
     setError('');
     try {
-      const { data } = await api.post(`/verification/start/${isbn}`);
+      const { data } = await verificationApi.post(`/verification/start/${isbn}`);
       if (data.alreadyVerified) {
         navigate('/threads', { replace: true });
         return;
@@ -62,7 +68,7 @@ const VerifyReading = () => {
     setSubmitting(true);
     setError('');
     try {
-      const { data } = await api.post('/verification/submit', {
+      const { data } = await verificationApi.post('/verification/submit', {
         attemptId,
         answers,
       });
