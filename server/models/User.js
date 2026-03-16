@@ -35,8 +35,6 @@ const userSchema = new mongoose.Schema({
     bookId: { type: String, required: true },
     hoursSimulated: Number,
     completedAt: Date,
-    quizPassed: { type: Boolean, default: false },
-    quizPassedAt: Date,
   }],
   preferences: {
     theme: { type: String, default: 'dark' },

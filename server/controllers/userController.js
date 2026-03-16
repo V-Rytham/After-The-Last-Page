@@ -152,10 +152,6 @@ export const updateUserBookAccess = async (req, res) => {
         completedAt: entry.isRead
           ? (entry.completedAt || existing?.completedAt || new Date())
           : (existing?.completedAt || null),
-        quizPassed: Boolean(entry.quizPassed ?? existing?.quizPassed ?? false),
-        quizPassedAt: entry.quizPassed
-          ? (entry.quizPassedAt || existing?.quizPassedAt || new Date())
-          : (existing?.quizPassedAt || null),
       };
 
       if (existingIndex >= 0) {

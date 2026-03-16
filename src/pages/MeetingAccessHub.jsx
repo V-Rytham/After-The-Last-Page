@@ -45,7 +45,7 @@ const MeetingAccessHub = ({ currentUser }) => {
     return books
       .filter((book) => {
         const access = accessMap[book._id || book.id];
-        return access?.isRead && access?.quizPassed;
+        return access?.isRead;
       })
       .map((book) => ({
         ...book,
@@ -73,7 +73,7 @@ const MeetingAccessHub = ({ currentUser }) => {
 
           <div className="meeting-access-gate-footnote">
             <ShieldCheck size={16} />
-            <span>Rooms unlock after finishing a book and passing its quiz.</span>
+            <span>Rooms unlock after finishing a book.</span>
           </div>
         </section>
 
@@ -96,7 +96,7 @@ const MeetingAccessHub = ({ currentUser }) => {
         <h1 className="font-serif">Readers who finished the book are already talking.</h1>
         <p>Join discussions with people who reached the same final page.</p>
         <div className="meeting-access-hint">
-          <ShieldCheck size={16} /> Rooms appear here after you finish a book and pass its quiz once.
+          <ShieldCheck size={16} /> Rooms appear here after you finish a book.
         </div>
       </header>
 
@@ -120,7 +120,7 @@ const MeetingAccessHub = ({ currentUser }) => {
               <div className="meeting-access-body">
                 <span className="meeting-access-status">
                   <ShieldCheck size={16} />
-                  Verified
+                  Ready
                 </span>
                 <h2 className="font-serif meeting-access-title">{book.title}</h2>
                 <p className="meeting-access-author">{book.author}</p>
@@ -139,7 +139,7 @@ const MeetingAccessHub = ({ currentUser }) => {
       ) : (
         <section className="meeting-access-empty glass-panel">
           <h2 className="font-serif">No unlocked meeting rooms yet.</h2>
-          <p>Finish a book and pass its quiz once. After that, its room will appear here.</p>
+          <p>Finish a book and its room will appear here.</p>
           <button type="button" className="btn-primary" onClick={() => navigate('/desk')}>
             Open The Desk
           </button>
