@@ -53,6 +53,23 @@ const MeetingAccessHub = ({ currentUser }) => {
       }));
   }, [books, isMember]);
 
+  const handleEnterBook = async (book) => {
+    const bookId = book._id || book.id;
+    try {
+      const { data } = await api.get(`/verification/status/book/${bookId}`);
+      if (data?.verified) {
+        navigate(`/meet/${bookId}`);
+        return;
+      }
+
+      if (data?.isbn) {
+        navigate(`/verify-reading/${encodeURIComponent(data.isbn)}`);
+      }
+    } catch (error) {
+      console.error('Failed to verify discussion access:', error);
+    }
+  };
+
   if (!isMember) {
     return (
       <div className="meeting-access-page is-gated animate-fade-in">
@@ -129,7 +146,7 @@ const MeetingAccessHub = ({ currentUser }) => {
               <button
                 type="button"
                 className="btn-primary sm meeting-access-button"
-                onClick={() => navigate(`/meet/${book._id || book.id}`)}
+                onClick={() => handleEnterBook(book)}
               >
                 Enter <ArrowRight size={16} />
               </button>

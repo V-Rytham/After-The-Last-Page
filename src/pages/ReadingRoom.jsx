@@ -121,7 +121,7 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
     [clampedChapter, totalChapters],
   );
 
-  const nextBookPath = book ? `/meet/${book._id || book.id}` : '/desk';
+  const nextBookPath = book?.isbn ? `/verify-reading/${encodeURIComponent(book.isbn)}` : (book ? `/meet/${book._id || book.id}` : '/desk');
   const sourceUrl = book?.sourceUrl || (book?.gutenbergId ? `${GUTENBERG_HOST}/ebooks/${book.gutenbergId}` : null);
   const sourceLabel = book?.gutenbergId ? `Project Gutenberg (eBook #${book.gutenbergId})` : 'Project Gutenberg';
 

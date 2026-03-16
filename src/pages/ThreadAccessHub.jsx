@@ -61,11 +61,39 @@ const ThreadAccessHub = ({ currentUser }) => {
       return;
     }
 
-    navigate(`/thread/${bookId}`, {
-      state: {
-        notice: `Welcome back. You have full access to ${book.title}'s thread.`,
-      },
-    });
+    api.get(`/verification/status/book/${bookId}`)
+      .then(({ data }) => {
+        if (data?.verified) {
+          navigate(`/thread/${bookId}`, {
+            state: {
+              notice: `Welcome back. You have full access to ${book.title}'s thread.`,
+            },
+          });
+          return;
+        }
+
+        if (data?.isbn) {
+          navigate(`/verify-reading/${encodeURIComponent(data.isbn)}`);
+          return;
+        }
+
+        setNotice({
+          type: 'warning',
+          title: 'Verification required',
+          message: 'Complete the verification quiz to unlock this thread.',
+          actionLabel: 'Try again',
+          action: () => handleThreadAccess(book),
+        });
+      })
+      .catch(() => {
+        setNotice({
+          type: 'warning',
+          title: 'Verification check failed',
+          message: 'Unable to verify access right now. Please try again.',
+          actionLabel: 'Retry',
+          action: () => handleThreadAccess(book),
+        });
+      });
   };
 
   return (
