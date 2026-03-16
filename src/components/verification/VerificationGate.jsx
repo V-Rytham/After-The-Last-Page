@@ -24,12 +24,8 @@ const VerificationGate = ({ children }) => {
     return <div className="text-center p-10 mt-20">Checking book verification...</div>;
   }
 
-  if (!state.allowed && state.isbn) {
-    return <Navigate to={`/verify-reading/${encodeURIComponent(state.isbn)}`} replace state={{ from: location.pathname }} />;
-  }
-
   if (!state.allowed) {
-    return <div className="text-center p-10 mt-20">Verification required before accessing this book discussion.</div>;
+    return <Navigate to={`/verify-reading/book/${encodeURIComponent(bookId)}`} replace state={{ from: location.pathname }} />;
   }
 
   return children;

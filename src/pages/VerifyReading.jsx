@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import api from '../utils/api';
 import QuestionCard from '../components/verification/QuestionCard';
 import ProgressBar from '../components/verification/ProgressBar';
@@ -9,7 +9,8 @@ const PROCESSING_MESSAGE = 'Questions for this book are being generated. Please 
 const FAIL_MESSAGE = 'You need at least 3 correct answers to unlock discussions for this book.';
 
 const VerifyReading = () => {
-  const { isbn } = useParams();
+  const { isbn, bookId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [attemptId, setAttemptId] = useState(null);
@@ -20,13 +21,23 @@ const VerifyReading = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const redirectTarget = location.state?.from || (bookId ? `/meet/${bookId}` : '/threads');
+
+  const getStartPath = useCallback(() => {
+    if (bookId) {
+      return `/verification/start/book/${encodeURIComponent(bookId)}`;
+    }
+
+    return `/verification/start/${encodeURIComponent(String(isbn || ''))}`;
+  }, [bookId, isbn]);
+
   const loadQuestions = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const { data } = await api.post(`/verification/start/${isbn}`);
+      const { data } = await api.post(getStartPath());
       if (data.alreadyVerified) {
-        navigate('/threads', { replace: true });
+        navigate(redirectTarget, { replace: true });
         return;
       }
       setAttemptId(data.attemptId);
@@ -42,7 +53,7 @@ const VerifyReading = () => {
     } finally {
       setLoading(false);
     }
-  }, [isbn, navigate]);
+  }, [getStartPath, navigate, redirectTarget]);
 
   useEffect(() => {
     loadQuestions();
@@ -68,10 +79,7 @@ const VerifyReading = () => {
       });
 
       if (data.passed) {
-        navigate('/threads', {
-          replace: true,
-          state: { notice: 'Verification passed. Discussion features unlocked.' },
-        });
+        navigate(redirectTarget, { replace: true });
         return;
       }
 

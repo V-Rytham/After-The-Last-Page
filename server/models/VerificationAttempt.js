@@ -17,6 +17,11 @@ const verificationAttemptSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    bookId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Book',
+      index: true,
+    },
     isbn: {
       type: String,
       required: true,

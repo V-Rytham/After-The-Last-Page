@@ -8,9 +8,13 @@ const userBookVerificationSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    bookId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Book',
+      index: true,
+    },
     isbn: {
       type: String,
-      required: true,
       trim: true,
       index: true,
     },
@@ -26,6 +30,7 @@ const userBookVerificationSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-userBookVerificationSchema.index({ userId: 1, isbn: 1 }, { unique: true });
+userBookVerificationSchema.index({ userId: 1, bookId: 1 }, { unique: true, sparse: true });
+userBookVerificationSchema.index({ userId: 1, isbn: 1 }, { unique: true, sparse: true });
 
 export const UserBookVerification = mongoose.model('UserBookVerification', userBookVerificationSchema);
