@@ -62,9 +62,7 @@ const MeetingAccessHub = ({ currentUser }) => {
         return;
       }
 
-      if (data?.isbn) {
-        navigate(`/verify-reading/${encodeURIComponent(data.isbn)}`);
-      }
+      navigate(`/verify-reading/book/${encodeURIComponent(bookId)}`);
     } catch (error) {
       console.error('Failed to verify discussion access:', error);
     }

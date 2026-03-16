@@ -72,17 +72,8 @@ const ThreadAccessHub = ({ currentUser }) => {
           return;
         }
 
-        if (data?.isbn) {
-          navigate(`/verify-reading/${encodeURIComponent(data.isbn)}`);
-          return;
-        }
-
-        setNotice({
-          type: 'warning',
-          title: 'Verification required',
-          message: 'Complete the verification quiz to unlock this thread.',
-          actionLabel: 'Try again',
-          action: () => handleThreadAccess(book),
+        navigate(`/verify-reading/book/${encodeURIComponent(bookId)}`, {
+          state: { from: `/thread/${bookId}` },
         });
       })
       .catch(() => {

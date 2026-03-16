@@ -56,6 +56,7 @@ const AppShell = ({ currentUser, onLogout, uiTheme, onThemeChange, onAuthSuccess
           <Route path="/profile" element={<RequireMember currentUser={currentUser}><ProfilePage currentUser={currentUser} /></RequireMember>} />
           <Route path="/settings" element={<RequireMember currentUser={currentUser}><SettingsPage uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember>} />
           <Route path="/read/:bookId" element={<RequireMember currentUser={currentUser}><ReadingRoom uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember>} />
+          <Route path="/verify-reading/book/:bookId" element={<RequireMember currentUser={currentUser}><VerifyReading /></RequireMember>} />
           <Route path="/verify-reading/:isbn" element={<RequireMember currentUser={currentUser}><VerifyReading /></RequireMember>} />
           <Route path="/meet/:bookId" element={<RequireMember currentUser={currentUser}><VerificationGate><MeetingHub /></VerificationGate></RequireMember>} />
           <Route path="/thread/:bookId" element={<RequireMember currentUser={currentUser}><VerificationGate><BookThread /></VerificationGate></RequireMember>} />

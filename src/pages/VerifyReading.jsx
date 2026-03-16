@@ -15,7 +15,8 @@ const verificationApi = axios.create({
 });
 
 const VerifyReading = () => {
-  const { isbn } = useParams();
+  const { isbn, bookId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [attemptId, setAttemptId] = useState(null);
@@ -26,13 +27,23 @@ const VerifyReading = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const redirectTarget = location.state?.from || (bookId ? `/meet/${bookId}` : '/threads');
+
+  const getStartPath = useCallback(() => {
+    if (bookId) {
+      return `/verification/start/book/${encodeURIComponent(bookId)}`;
+    }
+
+    return `/verification/start/${encodeURIComponent(String(isbn || ''))}`;
+  }, [bookId, isbn]);
+
   const loadQuestions = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const { data } = await verificationApi.post(`/verification/start/${isbn}`);
       if (data.alreadyVerified) {
-        navigate('/threads', { replace: true });
+        navigate(redirectTarget, { replace: true });
         return;
       }
       setAttemptId(data.attemptId);
@@ -48,7 +59,7 @@ const VerifyReading = () => {
     } finally {
       setLoading(false);
     }
-  }, [isbn, navigate]);
+  }, [getStartPath, navigate, redirectTarget]);
 
   useEffect(() => {
     loadQuestions();
@@ -74,10 +85,7 @@ const VerifyReading = () => {
       });
 
       if (data.passed) {
-        navigate('/threads', {
-          replace: true,
-          state: { notice: 'Verification passed. Discussion features unlocked.' },
-        });
+        navigate(redirectTarget, { replace: true });
         return;
       }
 

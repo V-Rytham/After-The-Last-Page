@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import { VerificationAttempt } from '../models/VerificationAttempt.js';
 import { UserBookVerification } from '../models/UserBookVerification.js';
 import { fetchQuestionsByIsbn } from '../services/questionService.js';
-import { resolveBookAndIsbn, isUserVerifiedForIsbn } from '../utils/verification.js';
+import { resolveBookAndIsbn, isUserVerifiedForBook, isUserVerifiedForIsbn } from '../utils/verification.js';
 
 const REQUIRED_CORRECT = 3;
 
@@ -67,6 +67,55 @@ export const startVerificationByIsbn = async (req, res) => {
   }
 };
 
+export const startVerificationByBookId = async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(bookId)) {
+      return res.status(400).json({ message: 'Invalid book reference.' });
+    }
+
+    const { book, isbn } = await resolveBookAndIsbn(bookId);
+    if (!book) {
+      return res.status(404).json({ message: 'Book not found.' });
+    }
+
+    const alreadyVerified = await isUserVerifiedForBook({ userId: req.user._id, bookId: book._id, isbn });
+    if (alreadyVerified) {
+      return res.json({ bookId: String(book._id), isbn, verified: true, alreadyVerified: true });
+    }
+
+    const questionKey = isbn || `book-${book._id}`;
+    const questionPayload = await fetchQuestionsByIsbn(questionKey);
+    if (questionPayload.status === 'processing') {
+      return res.status(202).json({ status: 'processing' });
+    }
+
+    const questions = questionPayload.questions.map((q) => ({
+      question: q.question,
+      options: q.options,
+      correctIndex: q.correct_index,
+    }));
+
+    const attempt = await VerificationAttempt.create({
+      userId: req.user._id,
+      bookId: book._id,
+      isbn: questionKey,
+      questions,
+    });
+
+    return res.status(201).json({
+      bookId: String(book._id),
+      isbn,
+      attemptId: attempt._id,
+      questions: toPublicQuestions(questions),
+      totalQuestions: questions.length,
+      requiredCorrect: REQUIRED_CORRECT,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to start verification.', error: error.message });
+  }
+};
+
 export const submitVerificationAttempt = async (req, res) => {
   try {
     const { attemptId, answers } = req.body;
@@ -92,9 +141,11 @@ export const submitVerificationAttempt = async (req, res) => {
 
     if (passed) {
       await UserBookVerification.findOneAndUpdate(
-        { userId: req.user._id, isbn: attempt.isbn },
+        { userId: req.user._id, ...(attempt.bookId ? { bookId: attempt.bookId } : { isbn: attempt.isbn }) },
         {
           $set: {
+            bookId: attempt.bookId || undefined,
+            isbn: attempt.isbn,
             verified: true,
             verifiedAt: new Date(),
           },
@@ -132,12 +183,8 @@ export const getBookVerificationByBookId = async (req, res) => {
       return res.status(404).json({ message: 'Book not found.' });
     }
 
-    if (!isbn) {
-      return res.json({ verified: true, reason: 'missing_isbn' });
-    }
-
-    const verified = await isUserVerifiedForIsbn(req.user._id, isbn);
-    return res.json({ verified, isbn });
+    const verified = await isUserVerifiedForBook({ userId: req.user._id, bookId: book._id, isbn });
+    return res.json({ verified, isbn, bookId: String(book._id) });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to get book verification.', error: error.message });
   }
