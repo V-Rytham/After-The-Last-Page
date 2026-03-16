@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { Thread } from '../models/Thread.js';
-import { resolveBookAndIsbn, isUserVerifiedForIsbn } from '../utils/verification.js';
+import { resolveBookAndIsbn, isUserVerifiedForBook } from '../utils/verification.js';
 
 const buildSortQuery = (sort) => {
   if (sort === 'top' || sort === 'hot') {
@@ -32,11 +32,7 @@ const ensureVerifiedAccess = async ({ userId, bookId }) => {
     return { ok: false, status: 404, message: 'Book not found.' };
   }
 
-  if (!isbn) {
-    return { ok: true };
-  }
-
-  const isVerified = await isUserVerifiedForIsbn(userId, isbn);
+  const isVerified = await isUserVerifiedForBook({ userId, bookId: book._id, isbn });
   if (!isVerified) {
     return { ok: false, status: 403, message: 'Complete and pass reading verification to access this discussion.' };
   }

@@ -770,6 +770,31 @@
   font-size: 1.6rem;
 }
 
+.finish-badge {
+  margin: 0 0 0.55rem;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.74;
+}
+
+.finish-book-meta {
+  margin-top: 0.9rem;
+  font-size: 0.94rem;
+}
+
+.finish-actions {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.finish-actions .meet-people-btn,
+.finish-actions .btn-secondary {
+  width: 100%;
+}
+
 @media (max-width: 560px) {
   .reader-toolbar {
     width: calc(100vw - 1rem);
