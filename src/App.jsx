@@ -13,6 +13,8 @@ import WizardMerch from './pages/WizardMerch';
 import AuthPage from './pages/AuthPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
+import VerifyReading from './pages/VerifyReading';
+import VerificationGate from './components/verification/VerificationGate';
 import api from './utils/api';
 import { clearAuthSession, getStoredToken, getStoredUser, saveAuthSession, updateStoredUser } from './utils/auth';
 import { getCurrentActorAccessState, hydrateBookAccessForUser, syncCurrentAccessState } from './utils/readingAccess';
@@ -54,8 +56,9 @@ const AppShell = ({ currentUser, onLogout, uiTheme, onThemeChange, onAuthSuccess
           <Route path="/profile" element={<RequireMember currentUser={currentUser}><ProfilePage currentUser={currentUser} /></RequireMember>} />
           <Route path="/settings" element={<RequireMember currentUser={currentUser}><SettingsPage uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember>} />
           <Route path="/read/:bookId" element={<RequireMember currentUser={currentUser}><ReadingRoom uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember>} />
-          <Route path="/meet/:bookId" element={<MeetingHub />} />
-          <Route path="/thread/:bookId" element={<BookThread />} />
+          <Route path="/verify-reading/:isbn" element={<RequireMember currentUser={currentUser}><VerifyReading /></RequireMember>} />
+          <Route path="/meet/:bookId" element={<RequireMember currentUser={currentUser}><VerificationGate><MeetingHub /></VerificationGate></RequireMember>} />
+          <Route path="/thread/:bookId" element={<RequireMember currentUser={currentUser}><VerificationGate><BookThread /></VerificationGate></RequireMember>} />
           <Route path="/merch" element={<WizardMerch />} />
         </Routes>
       </main>
