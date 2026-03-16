@@ -39,9 +39,7 @@ export const hydrateBookAccessForUser = (user, options = {}) => {
   const remoteState = (user.booksRead || []).reduce((acc, entry) => {
     acc[entry.bookId] = {
       isRead: Boolean(entry.completedAt),
-      quizPassed: Boolean(entry.quizPassed),
       lastReadAt: entry.completedAt || null,
-      quizPassedAt: entry.quizPassedAt || null,
     };
     return acc;
   }, {});
@@ -57,7 +55,6 @@ export const hydrateBookAccessForUser = (user, options = {}) => {
               ...existingState[bookId],
               ...remoteState[bookId],
               isRead: Boolean(remoteState[bookId]?.isRead || existingState[bookId]?.isRead),
-              quizPassed: Boolean(remoteState[bookId]?.quizPassed || existingState[bookId]?.quizPassed),
             },
           ]),
         ),
@@ -84,7 +81,7 @@ const setCurrentActorBookAccessState = (bookId, updates) => {
 
 export const getBookAccessState = (bookId) => {
   const actorState = getCurrentActorAccessState();
-  return actorState[bookId] || { isRead: false, quizPassed: false };
+  return actorState[bookId] || { isRead: false };
 };
 
 export const markBookAsRead = (bookId) => (
@@ -94,26 +91,15 @@ export const markBookAsRead = (bookId) => (
   })
 );
 
-export const markQuizAsPassed = (bookId) => (
-  setCurrentActorBookAccessState(bookId, {
-    isRead: true,
-    quizPassed: true,
-    quizPassedAt: new Date().toISOString(),
-    lastReadAt: new Date().toISOString(),
-  })
-);
-
 export const getAllBookAccessStates = () => getCurrentActorAccessState();
 
 export const convertAccessStateToRecords = (records) =>
   Object.entries(records)
-    .filter(([, value]) => value?.isRead || value?.quizPassed)
+    .filter(([, value]) => value?.isRead)
     .map(([bookId, value]) => ({
       bookId,
       isRead: Boolean(value.isRead),
       completedAt: value.lastReadAt || new Date().toISOString(),
-      quizPassed: Boolean(value.quizPassed),
-      quizPassedAt: value.quizPassed ? (value.quizPassedAt || new Date().toISOString()) : null,
     }));
 
 export const syncBookAccessRecords = async (records) => {

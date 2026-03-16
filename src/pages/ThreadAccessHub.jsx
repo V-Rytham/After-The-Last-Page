@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, LockKeyhole, MessageSquare, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, LockKeyhole, MessageSquare } from 'lucide-react';
 import api from '../utils/api';
 import { getFallbackBooks } from '../utils/bookFallback';
 import { getBookAccessState } from '../utils/readingAccess';
@@ -61,16 +61,6 @@ const ThreadAccessHub = ({ currentUser }) => {
       return;
     }
 
-    if (!access.quizPassed) {
-      navigate(`/meet/${bookId}`, {
-        state: {
-          accessMode: 'thread-gate',
-          notice: 'Please provide the answer to quiz questions to get access to threads.',
-        },
-      });
-      return;
-    }
-
     navigate(`/thread/${bookId}`, {
       state: {
         notice: `Welcome back. You have full access to ${book.title}'s thread.`,
@@ -87,7 +77,7 @@ const ThreadAccessHub = ({ currentUser }) => {
             <span>Reader discussion access</span>
           </div>
           <h1 className="font-serif">Step into the reader-only thread.</h1>
-          <p>Finish the book, pass the quiz once, and join the calm conversation.</p>
+          <p>Finish the book and join the calm conversation.</p>
         </div>
       </section>
 
@@ -114,23 +104,17 @@ const ThreadAccessHub = ({ currentUser }) => {
         ) : (
           bookCards.map(({ book, access }) => {
             const bookId = book._id || book.id;
-            const status = access.quizPassed
+            const status = access.isRead
               ? {
                   label: 'Thread unlocked',
                   icon: <CheckCircle2 size={16} />,
                   className: 'unlocked',
                 }
-              : access.isRead
-                ? {
-                    label: 'Quiz required',
-                    icon: <ShieldCheck size={16} />,
-                    className: 'quiz-required',
-                  }
-                : {
-                    label: 'Read required',
-                    icon: <LockKeyhole size={16} />,
-                    className: 'read-required',
-                  };
+              : {
+                  label: 'Read required',
+                  icon: <LockKeyhole size={16} />,
+                  className: 'read-required',
+                };
 
             return (
               <article key={bookId} className="thread-access-card glass-panel">
@@ -159,7 +143,7 @@ const ThreadAccessHub = ({ currentUser }) => {
                   </span>
 
                   <button className="btn-primary sm thread-access-button" onClick={() => handleThreadAccess(book)}>
-                    {!isMember ? 'Sign in' : access.quizPassed ? 'Enter' : access.isRead ? 'Unlock' : 'Read first'}
+                    {!isMember ? 'Sign in' : access.isRead ? 'Enter' : 'Read first'}
                   </button>
                 </div>
               </article>
