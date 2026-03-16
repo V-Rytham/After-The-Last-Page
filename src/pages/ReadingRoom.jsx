@@ -5,6 +5,7 @@ import {
   CheckCircle,
   ChevronLeft,
   List,
+  RotateCcw,
   Settings2,
 } from 'lucide-react';
 import api from '../utils/api';
@@ -43,7 +44,7 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
   const [fontFamily, setFontFamily] = useState('serif');
   const [lineHeight, setLineHeight] = useState(1.72);
   const [marginScale, setMarginScale] = useState(1);
-  const [showSettings, setShowSettings] = useState(false);
+  const [activeControlPanel, setActiveControlPanel] = useState(null);
   const [chromeVisible, setChromeVisible] = useState(false);
   const [currentChapter, setCurrentChapter] = useState(1);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -170,6 +171,18 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
 
   const lastKnownBoundaryRef = useRef({ blockIndex: 0, textOffset: 0 });
   const lastAppliedLayoutSignatureRef = useRef(readerLayoutSignature);
+  const restoredSettingsForKeyRef = useRef(null);
+
+  useEffect(() => {
+    if (!readerPositionStorageKey) {
+      restoredSettingsForKeyRef.current = null;
+      return;
+    }
+
+    if (restoredSettingsForKeyRef.current !== readerPositionStorageKey) {
+      restoredSettingsForKeyRef.current = null;
+    }
+  }, [readerPositionStorageKey]);
 
   const clearChromeTimer = useCallback(() => {
     if (chromeTimeoutRef.current) {
@@ -180,14 +193,14 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
 
   const scheduleChromeHide = useCallback((delay = 2200) => {
     clearChromeTimer();
-    if (showSettings) {
+    if (activeControlPanel) {
       return;
     }
 
     chromeTimeoutRef.current = window.setTimeout(() => {
       setChromeVisible(false);
     }, delay);
-  }, [clearChromeTimer, showSettings]);
+  }, [activeControlPanel, clearChromeTimer]);
 
   const revealChrome = (delay = 2200) => {
     setChromeVisible(true);
@@ -195,8 +208,8 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
   };
 
   const toggleChrome = () => {
-    if (showSettings) {
-      setShowSettings(false);
+    if (activeControlPanel) {
+      setActiveControlPanel(null);
       return;
     }
 
@@ -314,7 +327,7 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
   const openGoTo = () => {
     setGoToDraft(String(clampedChapter));
     setGoToPageDraft(String(currentPageIndex + 1));
-    setShowSettings(true);
+    setActiveControlPanel('goto');
     window.setTimeout(() => goToInputRef.current?.focus?.(), 0);
   };
 
@@ -327,7 +340,7 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
 
     setCurrentChapter(clampNumber(desired, 1, totalChapters));
     setCurrentPageIndex(0);
-    setShowSettings(false);
+    setActiveControlPanel(null);
     clearChromeTimer();
     setChromeVisible(false);
   };
@@ -346,7 +359,7 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
     if (!result.html) return;
 
     setCurrentPageIndex(targetIndex);
-    setShowSettings(false);
+    setActiveControlPanel(null);
     clearChromeTimer();
     setChromeVisible(false);
   };
@@ -363,6 +376,7 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
   useEffect(() => {
     if (!readerPositionStorageKey) return;
     if (chapters.length === 0) return;
+    if (restoredSettingsForKeyRef.current === readerPositionStorageKey) return;
     if (pendingRestore) return;
 
     try {
@@ -389,10 +403,46 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
 
       setPendingRestore({ chapterNumber, anchor, pageIndexFallback });
       setCurrentChapter(chapterNumber);
+      restoredSettingsForKeyRef.current = readerPositionStorageKey;
     } catch (error) {
       console.warn('Failed to restore reading position:', error);
     }
   }, [chapters.length, onThemeChange, pendingRestore, readerPositionStorageKey, totalChapters, uiTheme]);
+
+  const handleDeskNavigation = useCallback(() => {
+    const fallbackToDesk = () => {
+      window.location.assign('/#/desk');
+    };
+
+    try {
+      navigate('/desk');
+      window.setTimeout(() => {
+        if (!window.location.hash.startsWith('#/desk')) {
+          fallbackToDesk();
+        }
+      }, 180);
+    } catch (error) {
+      console.warn('Router navigation to Desk failed, using fallback URL.', error);
+      fallbackToDesk();
+    }
+  }, [navigate]);
+
+  const handleStartAgain = useCallback(() => {
+    setPendingRestore(null);
+    setCurrentChapter(1);
+    setCurrentPageIndex(0);
+    setPageTurnDirection(null);
+    setActiveControlPanel(null);
+    updateReadingSession(resolvedBookId, 1, totalChapters);
+
+    if (readerPositionStorageKey) {
+      try {
+        window.localStorage.removeItem(readerPositionStorageKey);
+      } catch (error) {
+        console.warn('Failed to reset reading position while starting again:', error);
+      }
+    }
+  }, [readerPositionStorageKey, resolvedBookId, totalChapters]);
 
   useEffect(() => {
     const viewportEl = pageViewportRef.current;
@@ -617,18 +667,18 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
   }, [clearChromeTimer]);
 
   useEffect(() => {
-    if (showSettings) {
+    if (activeControlPanel) {
       clearChromeTimer();
       setChromeVisible(true);
       return;
     }
 
     scheduleChromeHide(1800);
-  }, [clearChromeTimer, scheduleChromeHide, showSettings]);
+  }, [activeControlPanel, clearChromeTimer, scheduleChromeHide]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (showSettings) return;
+      if (activeControlPanel) return;
 
       const tag = event.target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -648,7 +698,7 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
 
     window.addEventListener('keydown', handleKeyDown, { passive: false });
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNextPage, handlePrevPage, showSettings]);
+  }, [activeControlPanel, handleNextPage, handlePrevPage]);
 
   useEffect(() => {
     if (!pageTurnDirection) return undefined;
@@ -663,8 +713,8 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
 
   return (
     <div className={`reader-root theme-${uiTheme} animate-fade-in`}>
-      <div className={`reader-toolbar ${chromeVisible ? 'is-visible' : ''} ${showSettings ? 'settings-open' : ''}`}>
-        <button type="button" onClick={() => navigate('/desk')} className="back-btn">
+      <div className={`reader-toolbar ${chromeVisible ? 'is-visible' : ''} ${activeControlPanel ? 'settings-open' : ''}`}>
+        <button type="button" onClick={handleDeskNavigation} className="back-btn">
           <ChevronLeft size={18} /> The Desk
         </button>
 
@@ -679,13 +729,7 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
 
           <button
             type="button"
-            onClick={() => setShowSettings((prev) => {
-              const next = !prev;
-              if (next) {
-                setGoToDraft(String(clampedChapter));
-              }
-              return next;
-            })}
+            onClick={() => setActiveControlPanel((prev) => (prev === 'settings' ? null : 'settings'))}
             className="settings-btn"
             title="Reading settings"
           >
@@ -694,21 +738,23 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
         </div>
       </div>
 
-      {showSettings && (
-        <div className="settings-backdrop" onClick={() => setShowSettings(false)}>
+      {activeControlPanel && (
+        <div className="settings-backdrop" onClick={() => setActiveControlPanel(null)}>
           <div className="settings-panel glass-panel" onClick={(event) => event.stopPropagation()}>
             <div className="settings-panel-header">
               <div>
-                <span className="settings-label">Reading settings</span>
-                <h3 className="font-serif">Tune the page, then let it disappear.</h3>
+                <span className="settings-label">{activeControlPanel === 'goto' ? 'Navigate' : 'Reading settings'}</span>
+                <h3 className="font-serif">{activeControlPanel === 'goto' ? 'Jump to chapter or page.' : 'Tune the page, then let it disappear.'}</h3>
               </div>
-              <button type="button" className="settings-close" onClick={() => setShowSettings(false)}>
+              <button type="button" className="settings-close" onClick={() => setActiveControlPanel(null)}>
                 Done
               </button>
             </div>
 
-            <div className="settings-group">
-              <span className="settings-label">Go to chapter</span>
+            {activeControlPanel === 'goto' && (
+              <>
+                <div className="settings-group">
+                  <span className="settings-label">Go to chapter</span>
               <form className="goto-form" onSubmit={handleGoToSubmit}>
                 <input
                   ref={goToInputRef}
@@ -743,8 +789,13 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
               </form>
             </div>
 
-            <div className="settings-group">
-              <span className="settings-label">Theme</span>
+              </>
+            )}
+
+            {activeControlPanel === 'settings' && (
+              <>
+                <div className="settings-group">
+                  <span className="settings-label">Theme</span>
               <div className="theme-toggles">
                 <button
                   type="button"
@@ -821,6 +872,9 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
               </div>
             </div>
 
+              </>
+            )}
+
             {sourceUrl && (
               <div className="settings-group">
                 <span className="settings-label">Source</span>
@@ -853,12 +907,26 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
         <div className="finish-overlay animate-fade-in" role="dialog" aria-label="Finished book">
           <div className="finish-banner">
             <CheckCircle size={48} className="finish-icon" />
-            <h3>You've reached the last page.</h3>
-            <p>The story ends, but the conversation is just beginning.</p>
+            <p className="finish-badge">Reading completed ✓</p>
+            <h3>You've finished the book.</h3>
+            <p>The story ends, but the conversation begins.</p>
+            <p className="finish-book-meta">
+              You finished:<br />
+              <strong>{book.title}</strong>
+              {book.author ? <> by {book.author}</> : null}
+            </p>
 
-            <Link to={nextBookPath} className="meet-people-btn mt-6">
-              Continue to discussion <ArrowRight size={20} />
-            </Link>
+            <div className="finish-actions">
+              <Link to={nextBookPath} className="meet-people-btn">
+                Continue to discussion <ArrowRight size={20} />
+              </Link>
+              <button type="button" className="btn-secondary" onClick={handleStartAgain}>
+                Start Again <RotateCcw size={18} />
+              </button>
+              <button type="button" className="btn-secondary" onClick={handleDeskNavigation}>
+                Back to Desk
+              </button>
+            </div>
           </div>
         </div>
       )}
