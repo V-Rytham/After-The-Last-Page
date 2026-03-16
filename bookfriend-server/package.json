@@ -7,7 +7,6 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "after-the-last-page": "file:..",
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
     "express": "^5.1.0",

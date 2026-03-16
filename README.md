@@ -2,13 +2,13 @@
 
 ## Demo
 
-![BookThread](pic1.png)
-![BookThread](pic2.png)
-![Reader Matching](pic3.png)
-![BookThread](pic4.png)
-![BookThread](pic5.png)
-![BookThread](pic6.png)
-![BookThread](pic7.png)
+![BookThread](docs/assets/images/pic1.png)
+![BookThread](docs/assets/images/pic2.png)
+![Reader Matching](docs/assets/images/pic3.png)
+![BookThread](docs/assets/images/pic4.png)
+![BookThread](docs/assets/images/pic5.png)
+![BookThread](docs/assets/images/pic6.png)
+![BookThread](docs/assets/images/pic7.png)
 
 
 After The Last Page is a reading platform inspired by Kindle-like interfaces, but with a small social twist that activates **after you finish a book**.
