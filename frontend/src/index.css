@@ -20,7 +20,9 @@
 
   --measure-reading: 72ch;
   --measure-narrow: 56ch;
-  --page-max-width: 84rem;
+  --page-max-width: 92rem;
+  --discussion-max-width: 68rem;
+  --profile-max-width: 76rem;
   --reading-max-width: 46rem;
 
   --space-1: 0.25rem;
@@ -33,8 +35,8 @@
   --space-8: 4.5rem;
   --space-9: 6rem;
 
-  --page-gutter: clamp(1rem, 3vw, 2rem);
-  --section-space: clamp(3rem, 8vw, 6rem);
+  --page-gutter: clamp(0.9rem, 2.2vw, 1.6rem);
+  --section-space: clamp(2.5rem, 7vw, 5.25rem);
   --chrome-height: 4.5rem;
 
   --radius-sm: 0.75rem;
@@ -185,6 +187,10 @@ textarea,
 select {
   font: inherit;
   color: inherit;
+}
+
+textarea {
+  resize: vertical;
 }
 
 img {
