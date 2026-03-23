@@ -3,7 +3,44 @@ import mongoose from 'mongoose';
 import { Book } from '../models/Book.js';
 import { buildSafeErrorBody, isProd } from '../utils/runtime.js';
 
-const getBookFriendBaseUrl = () => (process.env.BOOKFRIEND_SERVER_URL || 'http://127.0.0.1:5050').replace(/\/$/, '');
+const trimTrailingSlash = (value) => String(value || '').replace(/\/$/, '');
+
+const inferRenderBookFriendUrl = (req) => {
+  if (!isProd()) {
+    return null;
+  }
+
+  const hostCandidates = [
+    req?.get?.('x-forwarded-host'),
+    req?.get?.('host'),
+    req?.headers?.host,
+    process.env.RENDER_EXTERNAL_HOSTNAME,
+    process.env.CLIENT_URL,
+  ].filter(Boolean);
+
+  for (const candidate of hostCandidates) {
+    const normalized = String(candidate).trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
+    if (normalized.endsWith('-api.onrender.com')) {
+      return `https://${normalized.slice(0, -'-api.onrender.com'.length)}-bookfriend.onrender.com`;
+    }
+  }
+
+  return null;
+};
+
+const getBookFriendBaseUrl = (req) => {
+  const configured = trimTrailingSlash(process.env.BOOKFRIEND_SERVER_URL);
+  if (configured) {
+    return configured;
+  }
+
+  const inferredRenderUrl = inferRenderBookFriendUrl(req);
+  if (inferredRenderUrl) {
+    return inferredRenderUrl;
+  }
+
+  return 'http://127.0.0.1:5050';
+};
 const localSessionStore = new Map();
 
 const isLocalFallbackEnabled = () => {
@@ -98,13 +135,14 @@ const isServiceUnavailableError = (error) => {
     || error.code === 'ETIMEDOUT';
 };
 
-const forwardToBookFriend = async (path, payload) => {
+const forwardToBookFriend = async (req, path, payload) => {
   let response;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
+  const targetBaseUrl = getBookFriendBaseUrl(req);
 
   try {
-    response = await fetch(`${getBookFriendBaseUrl()}${path}`, {
+    response = await fetch(`${targetBaseUrl}${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -114,6 +152,7 @@ const forwardToBookFriend = async (path, payload) => {
     });
   } catch (error) {
     error.serviceUnavailable = isServiceUnavailableError(error);
+    error.targetBaseUrl = targetBaseUrl;
     throw error;
   } finally {
     clearTimeout(timeout);
@@ -126,6 +165,7 @@ const forwardToBookFriend = async (path, payload) => {
     const error = new Error(message);
     error.statusCode = response.status;
     error.payload = data;
+    error.targetBaseUrl = targetBaseUrl;
     throw error;
   }
 
@@ -145,7 +185,7 @@ export const startAgentSession = async (req, res) => {
     let data;
 
     try {
-      data = await forwardToBookFriend('/agent/start', {
+      data = await forwardToBookFriend(req, '/agent/start', {
         user_id: userId,
         book_id: bookId,
         chapter_progress: chapterProgress,
@@ -158,7 +198,7 @@ export const startAgentSession = async (req, res) => {
       if (!isLocalFallbackEnabled()) {
         const body = { message: 'BookFriend service is unavailable.' };
         if (!isProd()) {
-          body.target = getBookFriendBaseUrl();
+          body.target = error.targetBaseUrl || getBookFriendBaseUrl(req);
           body.hint = 'Start bookfriend-server and verify /health, or set BOOKFRIEND_ALLOW_LOCAL_FALLBACK=true.';
         }
         return res.status(503).json(body);
@@ -197,7 +237,7 @@ export const sendAgentMessage = async (req, res) => {
     let data;
 
     try {
-      data = await forwardToBookFriend('/agent/message', req.body || {});
+      data = await forwardToBookFriend(req, '/agent/message', req.body || {});
     } catch (error) {
       if (!error.serviceUnavailable) {
         throw error;
@@ -206,7 +246,7 @@ export const sendAgentMessage = async (req, res) => {
       if (!isLocalFallbackEnabled()) {
         const body = { message: 'BookFriend service is unavailable.' };
         if (!isProd()) {
-          body.target = getBookFriendBaseUrl();
+          body.target = error.targetBaseUrl || getBookFriendBaseUrl(req);
           body.hint = 'Start bookfriend-server and verify /health, or set BOOKFRIEND_ALLOW_LOCAL_FALLBACK=true.';
         }
         return res.status(503).json(body);
@@ -248,7 +288,7 @@ export const endAgentSession = async (req, res) => {
     let data;
 
     try {
-      data = await forwardToBookFriend('/agent/end', req.body || {});
+      data = await forwardToBookFriend(req, '/agent/end', req.body || {});
     } catch (error) {
       if (!error.serviceUnavailable) {
         throw error;
@@ -257,23 +297,17 @@ export const endAgentSession = async (req, res) => {
       if (!isLocalFallbackEnabled()) {
         const body = { message: 'BookFriend service is unavailable.' };
         if (!isProd()) {
-          body.target = getBookFriendBaseUrl();
+          body.target = error.targetBaseUrl || getBookFriendBaseUrl(req);
           body.hint = 'Start bookfriend-server and verify /health, or set BOOKFRIEND_ALLOW_LOCAL_FALLBACK=true.';
         }
         return res.status(503).json(body);
       }
 
-      console.warn('[AGENT] BookFriend unavailable, using local fallback mode for end.');
-
+      console.warn('[AGENT] BookFriend unavailable, ending local fallback session.');
       const { session_id: sessionId } = req.body || {};
-      if (!sessionId) {
-        return res.status(400).json({ message: 'session_id is required.' });
+      if (sessionId) {
+        localSessionStore.delete(sessionId);
       }
-
-      if (!localSessionStore.delete(sessionId)) {
-        return res.status(404).json({ message: 'Session not found.' });
-      }
-
       data = { message: 'Session deleted.', mode: 'local-fallback' };
     }
 

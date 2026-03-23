@@ -191,6 +191,8 @@ npm run dev:all
 
 The frontend usually detects the API automatically if everything is on the same network, but you can set `VITE_API_URL` manually if needed.
 
+For Render deployments, make sure the main API can reach the BookFriend service with `BOOKFRIEND_SERVER_URL`. If that variable is omitted, local development still works because the backend falls back to `http://127.0.0.1:5050`, but deployed containers need the public Render URL (for this blueprint, `https://alp-bookfriend.onrender.com`).
+
 ---
 
 ## Project Documentation

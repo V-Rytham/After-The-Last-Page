@@ -16,9 +16,9 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CLIENT_URL
-        sync: false
+        value: https://alp-web.onrender.com
       - key: BOOKFRIEND_SERVER_URL
-        sync: false
+        value: https://alp-bookfriend.onrender.com
       - key: QUIZ_QUESTION_ENGINE_URL
         value: https://deterministic-question-engine-3sd2.onrender.com
       - key: QUIZ_PASS_THRESHOLD_PERCENT
@@ -38,6 +38,10 @@ services:
         value: 5050
       - key: MONGODB_URI
         sync: false
+      - key: CLIENT_URL
+        value: https://alp-web.onrender.com
+      - key: BACKEND_URL
+        value: https://alp-api.onrender.com
       - key: BOOKFRIEND_LLM_PROVIDER
         value: groq
       - key: BOOKFRIEND_GROQ_MODEL
