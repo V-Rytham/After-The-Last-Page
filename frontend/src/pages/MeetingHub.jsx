@@ -207,7 +207,25 @@ const MeetingHub = () => {
       pc.onicecandidate = (event) => {
         if (event.candidate) socketRef.current?.emit('webrtc_ice_candidate', { roomId: roomIdRef.current, candidate: event.candidate });
       };
-      if (matchRole === 'offerer') {
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') {
+          setMediaStatus('connected');
+        } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+          setMediaStatus('failed');
+        }
+      };
+
+      if (pendingOfferRef.current) {
+        await pc.setRemoteDescription(pendingOfferRef.current);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socketRef.current?.emit('webrtc_answer', { roomId: roomIdRef.current, answer: pc.localDescription });
+        pendingOfferRef.current = null;
+        setMediaStatus('connecting');
+        return;
+      }
+
+      if (matchRole === 'caller') {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socketRef.current?.emit('webrtc_offer', { roomId: roomIdRef.current, offer: pc.localDescription });
@@ -255,6 +273,12 @@ const MeetingHub = () => {
       }
     };
   }, [phase, prefType]);
+
+  const closeBookFriendSession = useCallback(() => {
+    if (!bookFriendSessionId) return;
+    api.post('/agent/end', { session_id: bookFriendSessionId }).catch(() => {});
+    setBookFriendSessionId(null);
+  }, [bookFriendSessionId]);
 
   useEffect(() => () => {
     if (bookFriendSessionId) api.post('/agent/end', { session_id: bookFriendSessionId }).catch(() => {});
@@ -432,7 +456,16 @@ const MeetingHub = () => {
               </div>
             </div>
             <div className="room-actions">
-              <button type="button" className="btn-secondary sm" onClick={() => setPhase('preferences')}>
+              <button
+                type="button"
+                className="btn-secondary sm"
+                onClick={() => {
+                  closeBookFriendSession();
+                  setMessages([]);
+                  setChatInput('');
+                  setPhase('preferences');
+                }}
+              >
                 Leave
               </button>
             </div>

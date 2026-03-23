@@ -4,8 +4,9 @@ services:
     name: alp-api
     runtime: node
     plan: starter
-    buildCommand: npm ci --prefix backend
-    startCommand: node backend/index.js
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: node index.js
     healthCheckPath: /api/health
     envVars:
       - key: PORT
@@ -28,8 +29,9 @@ services:
     name: alp-bookfriend
     runtime: node
     plan: starter
-    buildCommand: npm ci --prefix bookfriend-server
-    startCommand: node bookfriend-server/server.js
+    rootDir: bookfriend-server
+    buildCommand: npm ci
+    startCommand: node server.js
     healthCheckPath: /health
     envVars:
       - key: PORT
@@ -47,8 +49,9 @@ services:
   - type: web
     name: alp-web
     runtime: static
-    buildCommand: npm ci && npm run build
-    staticPublishPath: frontend/dist
+    rootDir: frontend
+    buildCommand: npm ci --prefix .. && npm run build --prefix ..
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*
