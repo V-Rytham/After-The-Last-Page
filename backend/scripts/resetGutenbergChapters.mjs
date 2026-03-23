@@ -57,12 +57,8 @@ const run = async () => {
 
   await connectDB();
 
-  const query = idList.length > 0
-    ? { gutenbergId: { $in: idList } }
-    : {
-      gutenbergId: { $exists: true },
-      $expr: { $ne: ['$gutenbergId', null] },
-    };
+  const query = buildGutenbergQuery(idList);
+  const matchingBooks = await query.select('_id');
 
   const matchingIds = matchingBooks.map((book) => book._id);
   const matchingCount = matchingIds.length;
