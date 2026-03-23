@@ -173,29 +173,21 @@ const seedBooksIfEmpty = async () => {
     return;
   }
 
-  try {
-    // Use Mongoose's query builder for `$exists` on numeric schema paths so
-    // the operator is not cast as a literal Number.
-    const existingBooks = await Book.find()
-      .where('gutenbergId')
-      .exists(true)
-      .select('gutenbergId')
-      .lean();
+  const existingBooks = await Book.find({ gutenbergId: { $exists: true } }).select('gutenbergId');
+  const existingGutenbergIds = new Set(
+    existingBooks
+      .map((book) => Number(book.gutenbergId))
+      .filter((id) => Number.isFinite(id)),
+  );
 
-    const existingGutenbergIds = new Set(
-      existingBooks
-        .map((book) => Number(book.gutenbergId))
-        .filter((id) => Number.isFinite(id)),
-    );
+  const missingBooks = defaultBooks.filter((book) => {
+    const gutenbergId = Number(book.gutenbergId);
+    return Number.isFinite(gutenbergId) && !existingGutenbergIds.has(gutenbergId);
+  });
 
-    const missingBooks = defaultBooks.filter((book) => {
-      const gutenbergId = Number(book.gutenbergId);
-      return Number.isFinite(gutenbergId) && !existingGutenbergIds.has(gutenbergId);
-    });
-
-    if (!missingBooks.length) {
-      return;
-    }
+  if (!missingBooks.length) {
+    return;
+  }
 
     await Book.insertMany(missingBooks, { ordered: false });
     console.log(`[SEED] Inserted ${missingBooks.length} missing starter books.`);
