@@ -29,6 +29,21 @@ const printUsage = () => {
   console.log('  node backend/scripts/resetGutenbergChapters.mjs --all --dry-run');
 };
 
+const buildGutenbergQuery = (idList) => {
+  if (idList.length > 0) {
+    return Book.find()
+      .where('gutenbergId')
+      .in(idList);
+  }
+
+  // Use `.where(...).exists(true)` so Mongoose keeps `$exists` as an operator
+  // instead of trying to cast `{ $exists: true }` to the Number schema type.
+  return Book.find()
+    .where('gutenbergId')
+    .exists(true)
+    .gt(0);
+};
+
 const run = async () => {
   const isDryRun = hasFlag('--dry-run');
   const includeAll = hasFlag('--all');
@@ -42,11 +57,12 @@ const run = async () => {
 
   await connectDB();
 
-  const query = idList.length > 0
-    ? { gutenbergId: { $in: idList } }
-    : { gutenbergId: { $exists: true, $ne: null } };
+  const matchingBooks = await buildGutenbergQuery(idList)
+    .select('_id')
+    .lean();
 
-  const matchingCount = await Book.countDocuments(query);
+  const matchingIds = matchingBooks.map((book) => book._id);
+  const matchingCount = matchingIds.length;
 
   if (matchingCount === 0) {
     console.log('[RESET] No matching Gutenberg books found. Nothing to do.');
@@ -58,7 +74,7 @@ const run = async () => {
     return;
   }
 
-  const result = await Book.updateMany(query, {
+  const result = await Book.updateMany({ _id: { $in: matchingIds } }, {
     $set: {
       chapters: [],
       textContent: '',
