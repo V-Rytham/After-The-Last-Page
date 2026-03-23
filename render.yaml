@@ -49,8 +49,9 @@ services:
   - type: web
     name: alp-web
     runtime: static
-    buildCommand: npm ci && npm run build
-    staticPublishPath: frontend/dist
+    rootDir: frontend
+    buildCommand: npm ci --prefix .. && npm run build --prefix ..
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*
