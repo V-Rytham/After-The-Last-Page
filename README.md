@@ -219,6 +219,7 @@ may show a **Not Found** error.
 Example:
 
 - Render configuration → see `render.yaml`
+- Render should use `backend` and `bookfriend-server` as the two Node service root directories; the static frontend can build from the repo root and publish `frontend/dist`
 - Static hosts → `_redirects` file is included and copied during build
 
 ---
