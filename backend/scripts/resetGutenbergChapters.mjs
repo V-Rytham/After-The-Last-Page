@@ -44,7 +44,10 @@ const run = async () => {
 
   const query = idList.length > 0
     ? { gutenbergId: { $in: idList } }
-    : { gutenbergId: { $exists: true, $ne: null } };
+    : {
+      gutenbergId: { $exists: true },
+      $expr: { $ne: ['$gutenbergId', null] },
+    };
 
   const matchingCount = await Book.countDocuments(query);
 

@@ -173,7 +173,7 @@ const seedBooksIfEmpty = async () => {
     return;
   }
 
-  const existingBooks = await Book.find({ gutenbergId: { $exists: true, $ne: null } }).select('gutenbergId');
+  const existingBooks = await Book.find({ gutenbergId: { $exists: true } }).select('gutenbergId');
   const existingGutenbergIds = new Set(
     existingBooks
       .map((book) => Number(book.gutenbergId))
