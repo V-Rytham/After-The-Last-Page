@@ -5,6 +5,20 @@ import { buildSafeErrorBody, isProd } from '../utils/runtime.js';
 
 const trimTrailingSlash = (value) => String(value || '').replace(/\/$/, '');
 
+const normalizeBookFriendBaseUrl = (value) => {
+  const trimmed = trimTrailingSlash(value);
+  if (!trimmed) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.origin;
+  } catch {
+    return trimmed.replace(/\/(api|agent|health)(?:\/.*)?$/i, '');
+  }
+};
+
 const inferRenderBookFriendUrl = (req) => {
   if (!isProd()) {
     return null;
@@ -29,7 +43,7 @@ const inferRenderBookFriendUrl = (req) => {
 };
 
 const getBookFriendBaseUrl = (req) => {
-  const configured = trimTrailingSlash(process.env.BOOKFRIEND_SERVER_URL);
+  const configured = normalizeBookFriendBaseUrl(process.env.BOOKFRIEND_SERVER_URL);
   if (configured) {
     return configured;
   }

@@ -11,7 +11,6 @@ const MeetingAccessHub = ({ currentUser }) => {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [quizAllowedIds, setQuizAllowedIds] = useState(() => new Set());
 
   const isMember = Boolean(currentUser && !currentUser.isAnonymous);
 
@@ -37,49 +36,17 @@ const MeetingAccessHub = ({ currentUser }) => {
     fetchBooks();
   }, [isMember]);
 
-  useEffect(() => {
-    if (!isMember || loading) {
-      setQuizAllowedIds(new Set());
-      return;
-    }
-
-    const finishedBookIds = getFinishedBookIds();
-    if (!finishedBookIds.length) {
-      setQuizAllowedIds(new Set());
-      return;
-    }
-
-    let cancelled = false;
-    api.post('/access/check-batch', { bookIds: finishedBookIds })
-      .then(({ data }) => {
-        if (cancelled) return;
-        const allowed = Array.isArray(data?.allowedBookIds) ? data.allowedBookIds : [];
-        setQuizAllowedIds(new Set(allowed.map((id) => String(id))));
-      })
-      .catch((error) => {
-        console.error('Failed to fetch quiz access list:', error);
-        if (!cancelled) {
-          setQuizAllowedIds(new Set());
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isMember, loading]);
-
-  const eligibleBooks = useMemo(() => {
+  const finishedBooks = useMemo(() => {
     if (!isMember) {
       return [];
     }
 
-    const finishedSet = new Set(getFinishedBookIds().map((id) => String(id)));
-    return books
-      .filter((book) => {
-        const bookId = String(book._id || book.id || '').trim();
-        return Boolean(bookId && finishedSet.has(bookId) && quizAllowedIds.has(bookId));
-      });
-  }, [books, isMember, quizAllowedIds]);
+    const finishedSet = new Set(getFinishedBookIds().map((id) => String(id).trim()));
+    return books.filter((book) => {
+      const bookId = String(book._id || book.id || '').trim();
+      return Boolean(bookId && finishedSet.has(bookId));
+    });
+  }, [books, isMember]);
 
   const handleEnterBook = async (book) => {
     const bookId = book._id || book.id;
@@ -134,9 +101,9 @@ const MeetingAccessHub = ({ currentUser }) => {
 
       {loading ? (
         <div className="meeting-access-loading glass-panel">Loading your meeting rooms...</div>
-      ) : eligibleBooks.length > 0 ? (
+      ) : finishedBooks.length > 0 ? (
         <section className="meeting-access-grid">
-          {eligibleBooks.map((book, index) => (
+          {finishedBooks.map((book, index) => (
             <article key={book._id || book.id} className="meeting-access-card glass-panel" style={{ '--card-order': index }}>
               <div className="meeting-access-mini-cover" style={{ '--book-accent': book.coverColor || '#6f614d' }}>
                 <BookCoverArt
@@ -152,7 +119,7 @@ const MeetingAccessHub = ({ currentUser }) => {
               <div className="meeting-access-body">
                 <span className="meeting-access-status">
                   <ShieldCheck size={16} />
-                  Verified room
+                  Finished book
                 </span>
                 <h2 className="font-serif meeting-access-title">{book.title}</h2>
                 <p className="meeting-access-author">{book.author}</p>
@@ -171,7 +138,7 @@ const MeetingAccessHub = ({ currentUser }) => {
       ) : (
         <section className="meeting-access-empty glass-panel">
           <h2 className="font-serif">No meeting rooms yet.</h2>
-          <p>Finish a book and pass its quiz to unlock the Meet room.</p>
+          <p>Finish a book to see it here. We will check quiz access when you enter the room.</p>
           <button type="button" className="btn-primary" onClick={() => navigate('/desk')}>
             Open The Desk
           </button>

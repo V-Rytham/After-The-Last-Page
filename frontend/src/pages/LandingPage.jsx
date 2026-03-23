@@ -9,11 +9,6 @@ import './LandingPage.css';
 
 const getBookId = (book) => book._id || book.id;
 
-const countReplies = (comments = []) => comments.reduce(
-  (sum, comment) => sum + 1 + countReplies(comment.replies || []),
-  0,
-);
-
 const renderCover = (book) => (
   <BookCoverArt
     book={book}
@@ -108,56 +103,8 @@ export default function LandingPage({ currentUser }) {
   }, [books, featuredBooks, previewThread, resumeBook]);
 
   useEffect(() => {
-    if (!books.length) {
-      setSampleThreads([]);
-      setThreadError(false);
-      return;
-    }
-
-    const seedBooks = books.slice(0, 4);
-    let isCancelled = false;
-
-    const fetchThreads = async () => {
-      try {
-        const results = await Promise.allSettled(
-          seedBooks.map((book) => api.get(`/threads/${getBookId(book)}?sort=hot`)),
-        );
-
-        if (isCancelled) {
-          return;
-        }
-
-        const nextThreads = results.flatMap((result, index) => {
-          if (result.status !== 'fulfilled') {
-            return [];
-          }
-
-          const book = seedBooks[index];
-          return (result.value.data || []).map((thread) => ({
-            ...thread,
-            bookId: getBookId(book),
-            bookTitle: book.title,
-            replyCount: countReplies(thread.comments || []),
-          }));
-        });
-
-        nextThreads.sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
-        setSampleThreads(nextThreads.slice(0, threadPreviewCount));
-        setThreadError(results.every((result) => result.status !== 'fulfilled'));
-      } catch (error) {
-        if (!isCancelled) {
-          console.error('Failed to fetch sample discussions:', error);
-          setSampleThreads([]);
-          setThreadError(true);
-        }
-      }
-    };
-
-    fetchThreads();
-
-    return () => {
-      isCancelled = true;
-    };
+    setSampleThreads([]);
+    setThreadError(false);
   }, [books, threadPreviewCount]);
 
   if (loading) {
