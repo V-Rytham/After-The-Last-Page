@@ -189,8 +189,11 @@ const seedBooksIfEmpty = async () => {
     return;
   }
 
-  await Book.insertMany(missingBooks, { ordered: false });
-  console.log(`[SEED] Inserted ${missingBooks.length} missing starter books.`);
+    await Book.insertMany(missingBooks, { ordered: false });
+    console.log(`[SEED] Inserted ${missingBooks.length} missing starter books.`);
+  } catch (error) {
+    console.error('[SEED] Failed to query existing Gutenberg books:', error);
+  }
 };
 
 await connectDB();
