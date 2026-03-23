@@ -144,7 +144,7 @@ npm install
 Backend:
 
 ```bash
-cd "D:\After The Last Page\server"
+cd "D:\After The Last Page\backend"
 npm install
 ```
 
@@ -155,7 +155,7 @@ npm install
 Copy the example file:
 
 ```bash
-copy "D:\After The Last Page\server\.env.example" "D:\After The Last Page\server\.env"
+copy "D:\After The Last Page\backend\.env.example" "D:\After The Last Page\backend\.env"
 ```
 
 Then edit the values if required (JWT secret, database URL, etc).
@@ -168,7 +168,7 @@ Run backend:
 
 ```bash
 cd "D:\After The Last Page"
-node server\index.js
+node backend\index.js
 ```
 
 Run frontend:
@@ -278,3 +278,17 @@ BOOKFRIEND_OLLAMA_MODEL=llama3.1:8b-instruct-q4_K_M
 ```
 
 The retrieval system uses a lightweight **in-memory vector index**, so no external vector database is required.
+
+---
+
+## Groq LLM Setup (Hosted Option)
+
+BookFriend can also run against Groq's OpenAI-compatible chat endpoint.
+
+Create `bookfriend-server/.env`:
+
+```env
+BOOKFRIEND_LLM_PROVIDER=groq
+BOOKFRIEND_GROQ_MODEL=llama-3.1-8b-instant
+GROQ_API_KEY=your_key_here
+```

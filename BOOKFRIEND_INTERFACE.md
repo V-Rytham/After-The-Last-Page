@@ -93,13 +93,15 @@ In the Meet page:
 
 ## Environment Variables
 
-### Main server (`server/.env`)
+### Main server (`backend/.env`)
 - `BOOKFRIEND_SERVER_URL` (default: `http://127.0.0.1:5050`)
 
 ### BookFriend server (`bookfriend-server/.env`)
 - `PORT` (default: `5050`)
 - `MONGODB_URI`
-- `BOOKFRIEND_LLM_PROVIDER` (`mock`, `ollama`, or `openai`)
+- `BOOKFRIEND_LLM_PROVIDER` (`mock`, `ollama`, `groq`, or `openai`)
+- `BOOKFRIEND_GROQ_MODEL` (when Groq is used)
+- `GROQ_API_KEY` (when Groq is used)
 - `BOOKFRIEND_OPENAI_MODEL` (when OpenAI is used)
 - `OPENAI_API_KEY` (when OpenAI is used)
 - `BOOKFRIEND_OLLAMA_URL` (when Ollama is used)

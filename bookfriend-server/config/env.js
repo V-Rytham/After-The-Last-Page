@@ -46,6 +46,10 @@ export const resolveLlmProvider = () => {
     return { provider: 'ollama', source: 'inferred:ollama-env' };
   }
 
+  if (process.env.GROQ_API_KEY || process.env.BOOKFRIEND_GROQ_API_KEY) {
+    return { provider: 'groq', source: 'inferred:groq-key' };
+  }
+
   if (process.env.OPENAI_API_KEY) {
     return { provider: 'openai', source: 'inferred:openai-key' };
   }

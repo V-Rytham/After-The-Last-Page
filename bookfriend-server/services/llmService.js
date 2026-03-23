@@ -1,4 +1,6 @@
 import { resolveLlmProvider } from '../config/env.js';
+
+const getGroqApiKey = () => process.env.GROQ_API_KEY || process.env.BOOKFRIEND_GROQ_API_KEY;
 const buildUserPrompt = ({ bookMeta, retrievedChunks, history, userMessage }) => {
   const formattedChunks = (retrievedChunks || [])
     .map((chunk, index) => `(${index + 1}) [chapter ${chunk.chapterIndex ?? 'unknown'}] ${chunk.text}`)
@@ -27,8 +29,8 @@ const buildMockResponse = ({ userMessage, bookMeta }) => {
 };
 
 export const generateAgentReply = async ({ systemPrompt, bookMeta, retrievedChunks, history, userMessage }) => {
-  const provider = (process.env.BOOKFRIEND_LLM_PROVIDER || 'mock').toLowerCase();
-  console.log(provider);
+  const { provider, source } = resolveLlmProvider();
+  console.log(`[BOOKFRIEND] LLM provider: ${provider} (${source})`);
 
   const prompt = buildUserPrompt({ bookMeta, retrievedChunks, history, userMessage });
 
@@ -58,6 +60,37 @@ export const generateAgentReply = async ({ systemPrompt, bookMeta, retrievedChun
 
     const data = await response.json();
     return data?.message?.content?.trim() || buildMockResponse({ userMessage, bookMeta });
+  }
+
+  if (provider === 'groq') {
+    const apiKey = getGroqApiKey();
+    if (!apiKey) {
+      throw new Error('GROQ_API_KEY is missing for BOOKFRIEND_LLM_PROVIDER=groq.');
+    }
+
+    const response = await fetch(process.env.BOOKFRIEND_GROQ_BASE_URL || 'https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: process.env.BOOKFRIEND_GROQ_MODEL || 'llama-3.1-8b-instant',
+        temperature: 0.8,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Groq request failed: ${response.status} ${text}`);
+    }
+
+    const data = await response.json();
+    return data?.choices?.[0]?.message?.content?.trim() || buildMockResponse({ userMessage, bookMeta });
   }
 
   if (provider === 'openai') {
@@ -96,6 +129,6 @@ export const generateAgentReply = async ({ systemPrompt, bookMeta, retrievedChun
   }
 
   throw new Error(
-    `Unsupported BOOKFRIEND_LLM_PROVIDER="${provider}". Use one of: mock, ollama, openai.`,
+    `Unsupported BOOKFRIEND_LLM_PROVIDER="${provider}". Use one of: mock, ollama, groq, openai.`,
   );
 };
