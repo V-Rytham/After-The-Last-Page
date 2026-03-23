@@ -128,13 +128,13 @@ const MoreMenu = ({ isOpen, isActive, onToggle, onClose }) => {
   );
 };
 
-const ProfileMenu = ({ displayName, onLogout, isOpen, onToggle, onClose }) => {
+const ProfileMenu = ({ displayName, username, onLogout, isOpen, onToggle, onClose }) => {
   const wrapperRef = useRef(null);
   useCloseOnPointerDownOutside(isOpen, wrapperRef, onClose);
   const initials = useMemo(() => {
-    const base = (displayName || 'Reader').trim();
+    const base = (displayName || username || 'Reader').trim();
     return base ? base[0].toUpperCase() : 'R';
-  }, [displayName]);
+  }, [displayName, username]);
 
   return (
     <div className="profile-menu" ref={wrapperRef}>
@@ -152,6 +152,11 @@ const ProfileMenu = ({ displayName, onLogout, isOpen, onToggle, onClose }) => {
 
       {isOpen && (
         <div className="profile-popover glass-panel" role="menu" aria-label="Profile">
+          <div className="profile-popover-head">
+            <strong>{displayName}</strong>
+            {username && <span>@{username}</span>}
+          </div>
+
           <Link to="/profile" className="menu-item" role="menuitem" onClick={onClose}>
             <User size={18} strokeWidth={2.1} aria-hidden="true" />
             <span>Profile</span>
@@ -204,7 +209,8 @@ const Navbar = ({ currentUser, onLogout, uiTheme, onThemeChange }) => {
 
   const displayName = currentUser?.isAnonymous
     ? currentUser.anonymousId
-    : currentUser?.name || currentUser?.email || 'Reader';
+    : currentUser?.name || currentUser?.username || currentUser?.email || 'Reader';
+  const publicHandle = currentUser?.isAnonymous ? '' : (currentUser?.username || '');
 
   const handleLogout = () => {
     onLogout();
@@ -268,11 +274,10 @@ const Navbar = ({ currentUser, onLogout, uiTheme, onThemeChange }) => {
             isOpen={isThemeOpen}
             onToggle={() => {
               setIsThemeOpen((open) => !open);
-              setIsMoreOpen(false);
               setIsProfileOpen(false);
+              setIsMoreOpen(false);
             }}
             onClose={() => setIsThemeOpen(false)}
-            className="is-primary"
           />
 
           {currentUser ? (
@@ -280,6 +285,7 @@ const Navbar = ({ currentUser, onLogout, uiTheme, onThemeChange }) => {
               {!currentUser.isAnonymous && (
                 <ProfileMenu
                   displayName={displayName}
+                  username={publicHandle}
                   onLogout={handleLogout}
                   isOpen={isProfileOpen}
                   onToggle={() => {
@@ -312,22 +318,24 @@ const Navbar = ({ currentUser, onLogout, uiTheme, onThemeChange }) => {
               <span>Sign in</span>
             </Link>
           )}
-        </div>
 
-        <button
-          className="mobile-menu-btn"
-          onClick={() => {
-            setIsMenuOpen((open) => !open);
-            setIsThemeOpen(false);
-            setIsMoreOpen(false);
-            setIsProfileOpen(false);
-          }}
-          type="button"
-          aria-label="Open menu"
-        >
-          <Menu size={22} strokeWidth={2.1} />
-        </button>
+          <button
+            type="button"
+            className="mobile-menu-btn"
+            onClick={() => {
+              setIsMenuOpen((open) => !open);
+              setIsThemeOpen(false);
+              setIsMoreOpen(false);
+              setIsProfileOpen(false);
+            }}
+            aria-expanded={isMenuOpen}
+            aria-label="Open menu"
+          >
+            <Menu size={18} strokeWidth={2.1} aria-hidden="true" />
+          </button>
+        </div>
       </div>
+
 
       {isMenuOpen && (
         <div className="mobile-menu glass-panel">

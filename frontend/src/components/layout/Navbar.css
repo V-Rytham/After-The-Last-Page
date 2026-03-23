@@ -13,7 +13,7 @@
   width: min(100%, var(--page-max-width));
   margin: 0 auto;
   min-height: calc(var(--chrome-height) - 0.5rem);
-  padding: 0 var(--page-gutter);
+  padding: 0 max(var(--page-gutter), 0.9rem);
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
@@ -243,6 +243,24 @@
 .profile-popover .menu-item {
   justify-content: flex-start;
 }
+
+
+.profile-popover-head {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.5rem 0.85rem 0.65rem;
+}
+
+.profile-popover-head strong {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+}
+
+.profile-popover-head span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
 
 .theme-trigger {
   display: inline-flex;

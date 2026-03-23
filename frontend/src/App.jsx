@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import LandingPage from './pages/LandingPage';
@@ -33,7 +33,7 @@ const RequireMember = ({ currentUser, children }) => {
   return children;
 };
 
-const AppShell = ({ currentUser, onLogout, uiTheme, onThemeChange, onAuthSuccess }) => {
+const AppShell = ({ currentUser, onLogout, onUserUpdate, uiTheme, onThemeChange, onAuthSuccess }) => {
   const location = useLocation();
   const hideNavbar = location.pathname.startsWith('/read/');
 
@@ -51,7 +51,7 @@ const AppShell = ({ currentUser, onLogout, uiTheme, onThemeChange, onAuthSuccess
           <Route path="/books" element={<Navigate to="/desk" replace />} />
           <Route path="/meet" element={<MeetingAccessHub currentUser={currentUser} />} />
           <Route path="/threads" element={<ThreadAccessHub currentUser={currentUser} />} />
-          <Route path="/profile" element={<RequireMember currentUser={currentUser}><ProfilePage currentUser={currentUser} /></RequireMember>} />
+          <Route path="/profile" element={<RequireMember currentUser={currentUser}><ProfilePage currentUser={currentUser} onUserUpdate={onUserUpdate} /></RequireMember>} />
           <Route path="/settings" element={<RequireMember currentUser={currentUser}><SettingsPage uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember>} />
           <Route path="/read/:bookId" element={<RequireMember currentUser={currentUser}><ReadingRoom uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember>} />
           <Route path="/quiz/:bookId" element={<RequireMember currentUser={currentUser}><BookQuiz /></RequireMember>} />
@@ -112,9 +112,14 @@ const App = () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, uiTheme);
   }, [uiTheme]);
 
-  const handleAuthSuccess = (user) => {
+  const handleAuthSuccess = useCallback((user) => {
     setCurrentUser(user);
-  };
+  }, []);
+
+  const handleUserUpdate = useCallback((userPatch) => {
+    const nextUser = updateStoredUser(userPatch) || userPatch;
+    setCurrentUser((prev) => ({ ...(prev || {}), ...nextUser }));
+  }, []);
 
   const handleLogout = async () => {
     clearAuthSession();
@@ -134,6 +139,7 @@ const App = () => {
       <AppShell
         currentUser={currentUser}
         onLogout={handleLogout}
+        onUserUpdate={handleUserUpdate}
         uiTheme={uiTheme}
         onThemeChange={setUiTheme}
         onAuthSuccess={handleAuthSuccess}

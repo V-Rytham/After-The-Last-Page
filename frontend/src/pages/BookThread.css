@@ -7,10 +7,10 @@
 }
 
 .thread-shell {
-  width: min(100%, 52rem);
+  width: min(100%, var(--discussion-max-width));
   margin: 0 auto;
   display: grid;
-  gap: 1.2rem;
+  gap: 1rem;
 }
 
 .salon-header,
@@ -24,7 +24,7 @@
 
 .salon-header {
   display: grid;
-  gap: 1.1rem;
+  gap: 0.95rem;
   padding-bottom: 1.1rem;
   border-bottom: 1px solid var(--border-soft);
 }
@@ -32,7 +32,7 @@
 .salon-book-anchor {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 1.1rem;
+  gap: 0.95rem;
   align-items: start;
 }
 

@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, LogIn, UserPlus, Sparkles } from 'lucide-react';
+import { ArrowRight, CheckCircle2, LoaderCircle, LogIn, Sparkles, UserPlus } from 'lucide-react';
 import api from '../utils/api';
 import { saveAuthSession } from '../utils/auth';
 import './AuthPage.css';
 
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
+
 const initialSignupState = {
   name: '',
+  username: '',
+  bio: '',
   email: '',
   password: '',
   confirmPassword: '',
@@ -15,6 +19,22 @@ const initialSignupState = {
 const initialLoginState = {
   email: '',
   password: '',
+};
+
+const normalizeUsername = (value) => String(value || '').trim();
+
+const getUsernameValidationMessage = (username) => {
+  const normalized = normalizeUsername(username);
+
+  if (!normalized) {
+    return '';
+  }
+
+  if (!USERNAME_RE.test(normalized)) {
+    return 'Use 3-20 letters, numbers, or underscores.';
+  }
+
+  return '';
 };
 
 export default function AuthPage({ onAuthSuccess, currentUser }) {
@@ -26,9 +46,11 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [serverOnline, setServerOnline] = useState(true);
+  const [usernameState, setUsernameState] = useState({ status: 'idle', message: '' });
 
   const isGuest = currentUser?.isAnonymous;
   const redirectPath = location.state?.from || '/desk';
+  const normalizedSignupUsername = normalizeUsername(signupForm.username);
 
   useEffect(() => {
     if (currentUser && !currentUser.isAnonymous) {
@@ -58,9 +80,60 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (mode !== 'signup') {
+      setUsernameState({ status: 'idle', message: '' });
+      return undefined;
+    }
+
+    const validationMessage = getUsernameValidationMessage(signupForm.username);
+    if (!normalizedSignupUsername) {
+      setUsernameState({ status: 'idle', message: '' });
+      return undefined;
+    }
+
+    if (validationMessage) {
+      setUsernameState({ status: 'invalid', message: validationMessage });
+      return undefined;
+    }
+
+    setUsernameState({ status: 'checking', message: 'Checking username…' });
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const { data } = await api.get('/users/username-availability', {
+          params: { username: normalizedSignupUsername },
+        });
+
+        if (!cancelled) {
+          setUsernameState({
+            status: data.available ? 'available' : 'taken',
+            message: data.message,
+          });
+        }
+      } catch (requestError) {
+        if (cancelled) {
+          return;
+        }
+
+        setUsernameState({
+          status: 'invalid',
+          message: requestError.response?.data?.message || 'Could not validate that username right now.',
+        });
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [mode, normalizedSignupUsername, signupForm.username]);
+
   const introCopy = useMemo(() => {
     if (isGuest) {
-      return 'Save your identity, keep your reading history, and sign in from any device.';
+      return 'Save your identity, keep your reading history, and carry your presence into every room.';
     }
     return 'Create an account or sign in to keep your reading identity with you.';
   }, [isGuest]);
@@ -106,11 +179,24 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
       return;
     }
 
+    const usernameValidationMessage = getUsernameValidationMessage(signupForm.username);
+    if (usernameValidationMessage) {
+      setError(usernameValidationMessage);
+      return;
+    }
+
+    if (usernameState.status === 'taken') {
+      setError('Choose a different username before continuing.');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       const payload = {
         name: signupForm.name,
+        username: normalizedSignupUsername,
+        bio: signupForm.bio,
         email: signupForm.email,
         password: signupForm.password,
       };
@@ -143,15 +229,15 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
           <div className="auth-points">
             <div className="auth-point">
               <span className="auth-point-dot" />
-              <span>Save your profile beyond a guest session</span>
+              <span>Claim a public username for threads and book conversations</span>
             </div>
             <div className="auth-point">
               <span className="auth-point-dot" />
-              <span>Reuse the same identity for discussion and matching</span>
+              <span>Add a short bio so your profile feels lived in, not blank</span>
             </div>
             <div className="auth-point">
               <span className="auth-point-dot" />
-              <span>Sign back in instead of starting over</span>
+              <span>Keep your progress and discussion presence across devices</span>
             </div>
           </div>
         </section>
@@ -196,23 +282,44 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
             </form>
           ) : (
             <form className="auth-form" onSubmit={handleSignup}>
+              <div className="auth-form-grid auth-form-grid-split">
+                <label className="auth-label">
+                  <span>Name</span>
+                  <input name="name" type="text" value={signupForm.name} onChange={handleSignupChange} className="auth-input" required />
+                </label>
+                <label className="auth-label">
+                  <span>Username</span>
+                  <input name="username" type="text" value={signupForm.username} onChange={handleSignupChange} className="auth-input" minLength={3} maxLength={20} autoCapitalize="none" autoCorrect="off" required />
+                </label>
+              </div>
+
+              <div className={`auth-field-note ${usernameState.status}`} aria-live="polite">
+                {usernameState.status === 'checking' && <LoaderCircle size={14} className="auth-note-icon auth-spin" />}
+                {usernameState.status === 'available' && <CheckCircle2 size={14} className="auth-note-icon" />}
+                <span>{usernameState.message || 'Your username will appear publicly on your profile and in discussion spaces.'}</span>
+              </div>
+
               <label className="auth-label">
-                <span>Name</span>
-                <input name="name" type="text" value={signupForm.name} onChange={handleSignupChange} className="auth-input" required />
+                <span>Bio <em>(optional)</em></span>
+                <textarea name="bio" value={signupForm.bio} onChange={handleSignupChange} className="auth-input auth-textarea" maxLength={160} rows={3} placeholder="A short note about what you read or how you show up in discussion." />
               </label>
+              <div className="auth-character-count">{signupForm.bio.length}/160</div>
+
               <label className="auth-label">
                 <span>Email</span>
                 <input name="email" type="email" value={signupForm.email} onChange={handleSignupChange} className="auth-input" required />
               </label>
-              <label className="auth-label">
-                <span>Password</span>
-                <input name="password" type="password" value={signupForm.password} onChange={handleSignupChange} className="auth-input" minLength={6} required />
-              </label>
-              <label className="auth-label">
-                <span>Confirm password</span>
-                <input name="confirmPassword" type="password" value={signupForm.confirmPassword} onChange={handleSignupChange} className="auth-input" minLength={6} required />
-              </label>
-              <button type="submit" className="btn-primary auth-submit" disabled={submitting}>
+              <div className="auth-form-grid auth-form-grid-split">
+                <label className="auth-label">
+                  <span>Password</span>
+                  <input name="password" type="password" value={signupForm.password} onChange={handleSignupChange} className="auth-input" minLength={6} required />
+                </label>
+                <label className="auth-label">
+                  <span>Confirm password</span>
+                  <input name="confirmPassword" type="password" value={signupForm.confirmPassword} onChange={handleSignupChange} className="auth-input" minLength={6} required />
+                </label>
+              </div>
+              <button type="submit" className="btn-primary auth-submit" disabled={submitting || usernameState.status === 'checking'}>
                 {submitting ? 'Creating account...' : 'Create account'} <ArrowRight size={18} />
               </button>
             </form>
