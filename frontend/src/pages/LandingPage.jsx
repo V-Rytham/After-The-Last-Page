@@ -268,9 +268,10 @@ export default function LandingPage({ currentUser }) {
                 <div className="home-resume-copy">
                   <p className="home-kicker">Continue reading</p>
                   <h2 className="font-serif">{resumeBook.title}</h2>
-                  <p>{getResumeProgressLabel(resumeBook)}</p>
-                  <Link to={`/read/${getBookId(resumeBook)}`} className="btn-primary sm">Resume</Link>
+                  <p className="home-resume-author">{resumeBook.author}</p>
+                  <p className="home-resume-progress">{getResumeProgressLabel(resumeBook)} · Pick up where you left off.</p>
                 </div>
+                <Link to={`/read/${getBookId(resumeBook)}`} className="btn-primary sm">Resume</Link>
               </div>
             ) : isMember ? (
               <div className="home-callout">
