@@ -161,7 +161,7 @@ export default function LandingPage({ currentUser }) {
     <div className="home-page animate-fade-in">
       <div className="layout-shell home-shell">
         <header className="layout-section home-hero" aria-label="Home">
-          <div className="layout-content layout-content--narrow home-hero-inner">
+          <div className="layout-content home-hero-inner">
             <div className="home-hero-copy home-hero-centered">
             <h1 className="home-title font-serif">
               <span className="home-title-line">Finish the book.</span>
@@ -199,21 +199,10 @@ export default function LandingPage({ currentUser }) {
 
         <section className="layout-section home-progress home-progress-priority home-progress-full surface-card" aria-label="Continue reading">
           <div className="layout-content home-progress-inner">
-            <div className="home-progress-card">
-              {isMember && resumeBook ? (
-              <div className="home-resume">
-                <div className="home-resume-cover" style={{ '--book-accent': resumeBook.coverColor || '#6f614d' }}>
-                  {renderCover(resumeBook)}
-                </div>
-                <div className="home-resume-copy">
-                  <span className="home-resume-kicker">Continue reading</span>
-                  <h2 className="font-serif">{resumeBook.title}</h2>
-                  <p>{resumeBook.author || 'Unknown author'}</p>
-                  <span className="home-resume-progress">{getResumeProgressLabel(resumeBook)}</span>
-                </div>
-                <Link to={`/read/${getBookId(resumeBook)}`} className="btn-primary sm">
-                  Resume <MoveRight size={16} />
-                </Link>
+            {isMember && resumeBook ? (
+            <div className="home-resume">
+              <div className="home-resume-cover" style={{ '--book-accent': resumeBook.coverColor || '#6f614d' }}>
+                {renderCover(resumeBook)}
               </div>
             ) : isMember ? (
               <div className="home-callout">
