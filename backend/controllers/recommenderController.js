@@ -22,6 +22,10 @@ export const getRecommendations = async (req, res) => {
       ? Math.max(1, Math.min(20, Number(req.body.limitPerShelf)))
       : 10;
 
+    if (readBookIds.length > 120) {
+      return res.status(400).json({ message: 'Too many readBookIds requested at once.' });
+    }
+
     const recommendations = await recommendFromDatabase({
       currentBookId,
       readBookIds,
@@ -33,7 +37,7 @@ export const getRecommendations = async (req, res) => {
       recommendations,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error generating recommendations', error: error.message });
+    console.error('[RECOMMENDER] Failed to generate recommendations:', error?.message || error);
+    res.status(500).json({ message: 'Server error generating recommendations.' });
   }
 };
-

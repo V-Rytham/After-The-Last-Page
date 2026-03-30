@@ -39,10 +39,32 @@ const createVirtualGutenbergBook = (routeId) => {
 
 export const getBooks = async (req, res) => {
   try {
-    const books = await Book.find({}).select('-textContent -chapters');
+    const page = Number.parseInt(String(req.query?.page ?? '1'), 10);
+    const requestedLimit = Number.parseInt(String(req.query?.limit ?? '24'), 10);
+
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const safeLimit = Number.isFinite(requestedLimit)
+      ? Math.min(50, Math.max(1, requestedLimit))
+      : 24;
+
+    const [books, totalCount] = await Promise.all([
+      Book.find({})
+        .select('-textContent -chapters')
+        .sort({ title: 1, _id: 1 })
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit)
+        .lean(),
+      Book.countDocuments({}),
+    ]);
+
+    res.setHeader('X-Page', String(safePage));
+    res.setHeader('X-Limit', String(safeLimit));
+    res.setHeader('X-Total-Count', String(totalCount));
+    res.setHeader('X-Has-More', String(safePage * safeLimit < totalCount));
     res.json(books);
-  } catch {
-    res.status(500).json({ message: 'Server error fetching books' });
+  } catch (error) {
+    console.error('[BOOK] Failed to fetch books list:', error?.message || error);
+    res.status(500).json({ message: 'Server error fetching books.' });
   }
 };
 
