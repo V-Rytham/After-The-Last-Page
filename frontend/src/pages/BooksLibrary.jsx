@@ -402,8 +402,10 @@ const BooksLibrary = () => {
   if (loading) {
     return (
       <div className="library-page">
-        <div className="library-hero">
-          <h1 className="library-title animate-fade-in" style={{ textAlign: 'center', maxWidth: 'none' }}>Loading library...</h1>
+        <div className="content-container library-shell">
+          <div className="library-hero">
+            <h1 className="library-title animate-fade-in" style={{ textAlign: 'center', maxWidth: 'none' }}>Loading library...</h1>
+          </div>
         </div>
       </div>
     );

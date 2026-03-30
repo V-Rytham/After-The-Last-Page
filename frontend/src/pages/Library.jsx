@@ -39,13 +39,16 @@ const LibraryPage = () => {
   if (loading) {
     return (
       <div className="library-page">
-        <div className="loading">Loading library...</div>
+        <div className="content-container library-shell">
+          <div className="loading">Loading library...</div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="library-page">
+      <div className="content-container library-shell">
       <div className="library-hero">
         <div className="library-copy">
           <h1 className="library-title">Library</h1>
@@ -89,6 +92,7 @@ const LibraryPage = () => {
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

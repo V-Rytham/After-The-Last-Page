@@ -149,7 +149,9 @@ export default function LandingPage({ currentUser }) {
     return (
       <div className="home-page animate-fade-in">
         <div className="home-shell">
-          <p className="home-status">Preparing the reading desk...</p>
+          <div className="content-container">
+            <p className="home-status">Preparing the reading desk...</p>
+          </div>
         </div>
       </div>
     );
@@ -159,7 +161,8 @@ export default function LandingPage({ currentUser }) {
     <div className="home-page animate-fade-in">
       <div className="home-shell">
         <header className="home-hero" aria-label="Home">
-          <div className="home-hero-copy home-hero-centered">
+          <div className="content-container home-hero-inner">
+            <div className="home-hero-copy home-hero-centered">
             <h1 className="home-title font-serif">
               <span className="home-title-line">Finish the book.</span>
               <span className="home-title-line">Enter the conversation.</span>
@@ -186,14 +189,18 @@ export default function LandingPage({ currentUser }) {
                 Rooms unlock per book after a quick 5-question check — <Link to="/auth">sign in</Link> to keep your place across visits.
               </p>
             )}
+            </div>
           </div>
         </header>
 
-        <div className="home-hero-divider" aria-hidden="true" />
+        <div className="content-container">
+          <div className="home-hero-divider" aria-hidden="true" />
+        </div>
 
-        <section className="home-progress home-progress-priority" aria-label="Continue reading">
-          {isMember && resumeBook ? (
-            <div className="home-resume surface-card">
+        <section className="home-progress home-progress-priority home-progress-full surface-card" aria-label="Continue reading">
+          <div className="content-container home-progress-inner">
+            {isMember && resumeBook ? (
+            <div className="home-resume">
               <div className="home-resume-cover" style={{ '--book-accent': resumeBook.coverColor || '#6f614d' }}>
                 {renderCover(resumeBook)}
               </div>
@@ -208,7 +215,7 @@ export default function LandingPage({ currentUser }) {
               </Link>
             </div>
           ) : isMember ? (
-            <div className="home-callout surface-card">
+            <div className="home-callout">
               <div className="home-callout-copy">
                 <h2 className="font-serif">Pick up a book.</h2>
                 <p>Choose a story from your desk. Discussion rooms unlock after you finish.</p>
@@ -216,7 +223,7 @@ export default function LandingPage({ currentUser }) {
               <Link to="/desk" className="btn-primary sm">Go to desk</Link>
             </div>
           ) : (
-            <div className="home-callout surface-card">
+            <div className="home-callout">
               <div className="home-callout-copy">
                 <h2 className="font-serif">Keep your place.</h2>
                 <p>Sign in to save progress and unlock reader-only conversation rooms after you finish.</p>
@@ -224,8 +231,10 @@ export default function LandingPage({ currentUser }) {
               <Link to="/auth" className="btn-primary sm">Sign in</Link>
             </div>
           )}
+          </div>
         </section>
 
+        <div className="content-container home-sections">
         <section className="home-section home-shelf-section" aria-labelledby="featured-heading">
           <div className="home-section-head">
             <div className="home-section-copy">
@@ -297,6 +306,7 @@ export default function LandingPage({ currentUser }) {
             })}
           </div>
         </section>
+        </div>
       </div>
     </div>
   );

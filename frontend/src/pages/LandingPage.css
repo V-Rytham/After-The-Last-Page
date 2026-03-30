@@ -1,12 +1,10 @@
 .home-page {
-  width: min(100%, var(--page-max-width));
-  margin: 0 auto;
-  padding: clamp(0.95rem, 2.2vw, 1.35rem) var(--page-gutter) var(--section-space);
+  width: 100%;
+  padding: clamp(0.95rem, 2.2vw, 1.35rem) 0 var(--section-space);
 }
 
 .home-shell {
-  width: min(100%, var(--page-max-width));
-  margin: 0 auto;
+  width: 100%;
   display: grid;
   gap: clamp(2rem, 5.8vw, 4.6rem);
 }
@@ -17,6 +15,10 @@
 }
 
 .home-hero {
+  width: 100%;
+}
+
+.home-hero-inner {
   display: grid;
   grid-template-columns: minmax(0, 42rem) minmax(16rem, 24rem);
   row-gap: clamp(1.1rem, 3.2vw, 2.35rem);
@@ -983,8 +985,8 @@
 .home-hero-divider {
   height: 1px;
   background: var(--border-soft);
-  width: min(100%, var(--page-max-width));
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   opacity: 0.75;
 }
 
@@ -1003,16 +1005,28 @@
   margin-top: clamp(1.2rem, 3.2vw, 2.1rem);
 }
 
+.home-progress-full.surface-card {
+  width: 100%;
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  box-shadow: none;
+}
+
+.home-progress-inner {
+  padding: 1.1rem 0;
+}
+
+.home-sections {
+  display: grid;
+  gap: clamp(2rem, 5.8vw, 4.6rem);
+}
+
 .home-shelf-section {
   padding-top: 3.25rem;
 }
 
-.home-resume.surface-card,
-.home-callout.surface-card {
-  padding: 1.1rem 1.15rem;
-}
-
-.home-resume.surface-card {
+.home-resume {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1040,7 +1054,7 @@
   color: var(--text-muted);
 }
 
-.home-callout.surface-card {
+.home-callout {
   display: flex;
   align-items: center;
   justify-content: space-between;
