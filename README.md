@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # After The Last Page
 
 ## Demo
