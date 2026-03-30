@@ -27,7 +27,6 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     unique: true,
     sparse: true,
-    index: true,
   },
   bio: {
     type: String,
