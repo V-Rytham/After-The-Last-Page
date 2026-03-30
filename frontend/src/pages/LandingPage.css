@@ -1290,3 +1290,87 @@
     border-radius: 1.1rem;
   }
 }
+
+/* --- Homepage structural refactor (layout + spacing) --- */
+.home-page {
+  padding-top: 0;
+}
+
+.home-page .layout-content {
+  max-width: none;
+}
+
+.home-shell {
+  gap: clamp(1.6rem, 4vw, 3.2rem);
+}
+
+.home-hero {
+  padding: 0;
+}
+
+.home-hero-inner {
+  min-height: clamp(26rem, calc(100vh - var(--chrome-height) - 2.5rem), 42rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-hero-copy.home-hero-centered {
+  width: min(100%, 74rem);
+  margin-inline: auto;
+  padding: clamp(2.4rem, 5.5vw, 5.2rem) clamp(1.2rem, 4.8vw, 4.5rem);
+}
+
+.home-hero-divider {
+  opacity: 0.6;
+}
+
+.home-progress-priority {
+  margin-top: 0;
+}
+
+.home-progress-inner {
+  padding: 0.95rem 0;
+}
+
+.home-resume {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(0.9rem, 2vw, 1.6rem);
+  padding: clamp(0.9rem, 2.2vw, 1.25rem);
+}
+
+.home-resume-copy {
+  gap: 0.2rem;
+}
+
+.home-resume-author {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.home-resume-progress {
+  margin: 0.1rem 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-1);
+}
+
+.home-sections {
+  gap: clamp(2.2rem, 4.8vw, 4rem);
+}
+
+.home-shelf-section {
+  padding-top: 0;
+}
+
+@media (max-width: 820px) {
+  .home-resume {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .home-resume .btn-primary {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}

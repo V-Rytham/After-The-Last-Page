@@ -275,7 +275,7 @@ body.is-reading-room::before {
 .main-content {
   min-height: calc(100vh - var(--chrome-height));
   width: 100%;
-  padding-top: 0.4rem;
+  padding-top: clamp(0.625rem, 1.1vw, 0.875rem);
 }
 
 .content-container {
