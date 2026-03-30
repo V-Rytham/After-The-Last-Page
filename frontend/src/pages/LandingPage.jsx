@@ -204,33 +204,24 @@ export default function LandingPage({ currentUser }) {
               <div className="home-resume-cover" style={{ '--book-accent': resumeBook.coverColor || '#6f614d' }}>
                 {renderCover(resumeBook)}
               </div>
-              <div className="home-resume-copy">
-                <span className="home-resume-kicker">Continue reading</span>
-                <h2 className="font-serif">{resumeBook.title}</h2>
-                <p>{resumeBook.author || 'Unknown author'}</p>
-                <span className="home-resume-progress">{getResumeProgressLabel(resumeBook)}</span>
+            ) : isMember ? (
+              <div className="home-callout">
+                <div className="home-callout-copy">
+                  <h2 className="font-serif">Pick up a book.</h2>
+                  <p>Choose a story from your desk. Discussion rooms unlock after you finish.</p>
+                </div>
+                <Link to="/desk" className="btn-primary sm">Go to desk</Link>
               </div>
-              <Link to={`/read/${getBookId(resumeBook)}`} className="btn-primary sm">
-                Resume <MoveRight size={16} />
-              </Link>
-            </div>
-          ) : isMember ? (
-            <div className="home-callout">
-              <div className="home-callout-copy">
-                <h2 className="font-serif">Pick up a book.</h2>
-                <p>Choose a story from your desk. Discussion rooms unlock after you finish.</p>
+            ) : (
+              <div className="home-callout">
+                <div className="home-callout-copy">
+                  <h2 className="font-serif">Keep your place.</h2>
+                  <p>Sign in to save progress and unlock reader-only conversation rooms after you finish.</p>
+                </div>
+                <Link to="/auth" className="btn-primary sm">Sign in</Link>
               </div>
-              <Link to="/desk" className="btn-primary sm">Go to desk</Link>
+            )}
             </div>
-          ) : (
-            <div className="home-callout">
-              <div className="home-callout-copy">
-                <h2 className="font-serif">Keep your place.</h2>
-                <p>Sign in to save progress and unlock reader-only conversation rooms after you finish.</p>
-              </div>
-              <Link to="/auth" className="btn-primary sm">Sign in</Link>
-            </div>
-          )}
           </div>
         </section>
 
