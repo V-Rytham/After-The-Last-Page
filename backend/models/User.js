@@ -60,8 +60,6 @@ const userSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
-userSchema.index({ usernameLower: 1 }, { unique: true, sparse: true });
-
 userSchema.pre('save', async function save() {
   if (this.isModified('username')) {
     this.usernameLower = this.username ? String(this.username).trim().toLowerCase() : undefined;
