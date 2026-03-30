@@ -212,11 +212,17 @@ class GutenbergIngestionService {
   }
 
   async enqueuePendingBooks() {
-    const pendingBooks = await Book.find({ status: { $in: ['pending', 'failed'] } })
-      .select('gutenbergId status')
-      .lean();
+    const [pendingBooks, failedBooks] = await Promise.all([
+      Book.find({ status: 'pending' })
+        .select('gutenbergId status')
+        .lean(),
+      Book.find({ status: 'failed' })
+        .select('gutenbergId status')
+        .lean(),
+    ]);
+    const booksToEnqueue = [...pendingBooks, ...failedBooks];
 
-    pendingBooks.forEach((book) => {
+    booksToEnqueue.forEach((book) => {
       if (book?.gutenbergId) {
         this.enqueue(book.gutenbergId);
       }
