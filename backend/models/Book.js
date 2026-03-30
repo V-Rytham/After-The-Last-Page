@@ -35,6 +35,9 @@ const bookSchema = new mongoose.Schema({
   chapters: [chapterSchema],
 });
 
+bookSchema.index({ gutenbergId: 1 }, { unique: true, sparse: true });
+bookSchema.index({ title: 1 });
+
 bookSchema.pre('save', async function () {
   if (this.isModified('tags')) {
     this.tags = normalizeTags(this.tags || []);

@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { connectDB } from './config/db.js';
@@ -20,6 +21,7 @@ import { rateLimit } from './middleware/rateLimit.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import { isProd } from './utils/runtime.js';
 import { RealtimeSessionManager } from './services/realtimeSessionManager.js';
+import { requestTracing } from './middleware/requestLogging.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -123,12 +125,17 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
   maxAge: 600,
 }));
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'same-site' },
+  contentSecurityPolicy: false,
+}));
 app.use(securityHeaders);
+app.use(requestTracing);
 app.use(express.json({ limit: '200kb' }));
 app.use(express.urlencoded({ extended: false, limit: '200kb' }));
 
 // Baseline abuse protection for all endpoints.
-app.use(rateLimit({ windowMs: 60_000, max: 300 }));
+app.use(rateLimit({ windowMs: 15 * 60_000, max: 100 }));
 // Tighten common abuse targets.
 app.use('/api/users/login', rateLimit({ windowMs: 60_000, max: 20 }));
 app.use('/api/users/signup', rateLimit({ windowMs: 60_000, max: 15 }));

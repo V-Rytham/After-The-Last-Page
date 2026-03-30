@@ -61,6 +61,11 @@ const toggleLike = (entity, actorId) => {
 export const getThreadsByBook = async (req, res) => {
   try {
     const bookId = String(req.params.bookId || '').trim();
+    const requestedLimit = Number.parseInt(String(req.query?.limit ?? '25'), 10);
+    const requestedPage = Number.parseInt(String(req.query?.page ?? '1'), 10);
+    const safeLimit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(50, requestedLimit)) : 25;
+    const safePage = Number.isFinite(requestedPage) ? Math.max(1, Math.min(100, requestedPage)) : 1;
+
     if (!mongoose.Types.ObjectId.isValid(bookId)) {
       return res.status(400).json({ message: 'Invalid book reference.' });
     }
@@ -71,7 +76,8 @@ export const getThreadsByBook = async (req, res) => {
 
     const threads = await Thread.find({ bookId })
       .sort(buildSortQuery(req.query.sort))
-      .limit(50);
+      .skip((safePage - 1) * safeLimit)
+      .limit(safeLimit);
 
     res.json(threads);
   } catch (error) {
@@ -90,6 +96,14 @@ export const createThread = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(bookId)) {
       return res.status(400).json({ message: 'Invalid book reference.' });
+    }
+
+    if (String(title).trim().length > 100) {
+      return res.status(400).json({ message: 'Title must be 100 characters or fewer.' });
+    }
+
+    if (String(content).trim().length > 3_000) {
+      return res.status(400).json({ message: 'Thread content must be 3000 characters or fewer.' });
     }
 
     const accessCheck = await ensureQuizAccess({ userId: req.user?._id, bookId });
@@ -118,7 +132,12 @@ export const createThread = async (req, res) => {
 
 export const addComment = async (req, res) => {
   try {
-    const thread = await Thread.findById(req.params.id);
+    const threadId = String(req.params.id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(threadId)) {
+      return res.status(400).json({ message: 'Invalid thread reference.' });
+    }
+
+    const thread = await Thread.findById(threadId);
     if (!thread) {
       return res.status(404).json({ message: 'Thread not found' });
     }
@@ -131,6 +150,9 @@ export const addComment = async (req, res) => {
     const content = req.body.content?.trim();
     if (!content) {
       return res.status(400).json({ message: 'Comment content is required.' });
+    }
+    if (content.length > 1_200) {
+      return res.status(400).json({ message: 'Comment content must be 1200 characters or fewer.' });
     }
 
     const newComment = {
@@ -161,7 +183,12 @@ export const addComment = async (req, res) => {
 
 export const likeThread = async (req, res) => {
   try {
-    const thread = await Thread.findById(req.params.id);
+    const threadId = String(req.params.id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(threadId)) {
+      return res.status(400).json({ message: 'Invalid thread reference.' });
+    }
+
+    const thread = await Thread.findById(threadId);
     if (!thread) {
       return res.status(404).json({ message: 'Thread not found' });
     }
@@ -182,7 +209,13 @@ export const likeThread = async (req, res) => {
 
 export const likeComment = async (req, res) => {
   try {
-    const thread = await Thread.findById(req.params.threadId);
+    const threadId = String(req.params.threadId || '').trim();
+    const commentId = String(req.params.commentId || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(threadId) || !mongoose.Types.ObjectId.isValid(commentId)) {
+      return res.status(400).json({ message: 'Invalid comment reference.' });
+    }
+
+    const thread = await Thread.findById(threadId);
     if (!thread) {
       return res.status(404).json({ message: 'Thread not found' });
     }
@@ -192,7 +225,7 @@ export const likeComment = async (req, res) => {
       return res.status(accessCheck.status).json({ message: accessCheck.message });
     }
 
-    const comment = findCommentById(thread.comments, req.params.commentId);
+    const comment = findCommentById(thread.comments, commentId);
     if (!comment) {
       return res.status(404).json({ message: 'Comment not found' });
     }

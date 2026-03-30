@@ -87,6 +87,37 @@ const findBookForAgent = async (bookId) => {
     .lean();
 };
 
+const validateStartPayload = (body) => {
+  const bookId = String(body?.book_id || '').trim();
+  if (!bookId) {
+    const error = new Error('book_id is required.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const chapterProgress = Number.parseInt(String(body?.chapter_progress ?? ''), 10);
+  if (body?.chapter_progress != null && (!Number.isFinite(chapterProgress) || chapterProgress < 0 || chapterProgress > 10_000)) {
+    const error = new Error('chapter_progress must be a valid non-negative integer.');
+    error.statusCode = 400;
+    throw error;
+  }
+};
+
+const validateMessagePayload = (body) => {
+  const sessionId = String(body?.session_id || '').trim();
+  const message = String(body?.message || '').trim();
+  if (!sessionId || !message) {
+    const error = new Error('session_id and message are required.');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (message.length > 2_000) {
+    const error = new Error('message is too large.');
+    error.statusCode = 400;
+    throw error;
+  }
+};
+
 const scoreChunkOverlap = (userMessage, chunkText) => {
   const normalize = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
   const msgTokens = new Set(normalize(userMessage).split(/\s+/).filter((token) => token.length > 2));
@@ -188,6 +219,7 @@ const forwardToBookFriend = async (req, path, payload) => {
 
 export const startAgentSession = async (req, res) => {
   try {
+    validateStartPayload(req.body || {});
     const { book_id: explicitBookId, chapter_progress: chapterProgress } = req.body || {};
     const userId = req.user?._id?.toString() || req.user?.anonymousId;
     const bookId = explicitBookId;
@@ -248,6 +280,7 @@ export const startAgentSession = async (req, res) => {
 
 export const sendAgentMessage = async (req, res) => {
   try {
+    validateMessagePayload(req.body || {});
     let data;
 
     try {
