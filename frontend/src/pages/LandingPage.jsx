@@ -148,8 +148,8 @@ export default function LandingPage({ currentUser }) {
   if (loading) {
     return (
       <div className="home-page animate-fade-in">
-        <div className="home-shell">
-          <div className="content-container">
+        <div className="layout-shell home-shell">
+          <div className="layout-content">
             <p className="home-status">Preparing the reading desk...</p>
           </div>
         </div>
@@ -159,9 +159,9 @@ export default function LandingPage({ currentUser }) {
 
   return (
     <div className="home-page animate-fade-in">
-      <div className="home-shell">
-        <header className="home-hero" aria-label="Home">
-          <div className="content-container home-hero-inner">
+      <div className="layout-shell home-shell">
+        <header className="layout-section home-hero" aria-label="Home">
+          <div className="layout-content layout-content--narrow home-hero-inner">
             <div className="home-hero-copy home-hero-centered">
             <h1 className="home-title font-serif">
               <span className="home-title-line">Finish the book.</span>
@@ -193,48 +193,50 @@ export default function LandingPage({ currentUser }) {
           </div>
         </header>
 
-        <div className="content-container">
+        <div className="layout-content">
           <div className="home-hero-divider" aria-hidden="true" />
         </div>
 
-        <section className="home-progress home-progress-priority home-progress-full surface-card" aria-label="Continue reading">
-          <div className="content-container home-progress-inner">
-            {isMember && resumeBook ? (
-            <div className="home-resume">
-              <div className="home-resume-cover" style={{ '--book-accent': resumeBook.coverColor || '#6f614d' }}>
-                {renderCover(resumeBook)}
+        <section className="layout-section home-progress home-progress-priority home-progress-full surface-card" aria-label="Continue reading">
+          <div className="layout-content home-progress-inner">
+            <div className="home-progress-card">
+              {isMember && resumeBook ? (
+              <div className="home-resume">
+                <div className="home-resume-cover" style={{ '--book-accent': resumeBook.coverColor || '#6f614d' }}>
+                  {renderCover(resumeBook)}
+                </div>
+                <div className="home-resume-copy">
+                  <span className="home-resume-kicker">Continue reading</span>
+                  <h2 className="font-serif">{resumeBook.title}</h2>
+                  <p>{resumeBook.author || 'Unknown author'}</p>
+                  <span className="home-resume-progress">{getResumeProgressLabel(resumeBook)}</span>
+                </div>
+                <Link to={`/read/${getBookId(resumeBook)}`} className="btn-primary sm">
+                  Resume <MoveRight size={16} />
+                </Link>
               </div>
-              <div className="home-resume-copy">
-                <span className="home-resume-kicker">Continue reading</span>
-                <h2 className="font-serif">{resumeBook.title}</h2>
-                <p>{resumeBook.author || 'Unknown author'}</p>
-                <span className="home-resume-progress">{getResumeProgressLabel(resumeBook)}</span>
+            ) : isMember ? (
+              <div className="home-callout">
+                <div className="home-callout-copy">
+                  <h2 className="font-serif">Pick up a book.</h2>
+                  <p>Choose a story from your desk. Discussion rooms unlock after you finish.</p>
+                </div>
+                <Link to="/desk" className="btn-primary sm">Go to desk</Link>
               </div>
-              <Link to={`/read/${getBookId(resumeBook)}`} className="btn-primary sm">
-                Resume <MoveRight size={16} />
-              </Link>
+            ) : (
+              <div className="home-callout">
+                <div className="home-callout-copy">
+                  <h2 className="font-serif">Keep your place.</h2>
+                  <p>Sign in to save progress and unlock reader-only conversation rooms after you finish.</p>
+                </div>
+                <Link to="/auth" className="btn-primary sm">Sign in</Link>
+              </div>
+            )}
             </div>
-          ) : isMember ? (
-            <div className="home-callout">
-              <div className="home-callout-copy">
-                <h2 className="font-serif">Pick up a book.</h2>
-                <p>Choose a story from your desk. Discussion rooms unlock after you finish.</p>
-              </div>
-              <Link to="/desk" className="btn-primary sm">Go to desk</Link>
-            </div>
-          ) : (
-            <div className="home-callout">
-              <div className="home-callout-copy">
-                <h2 className="font-serif">Keep your place.</h2>
-                <p>Sign in to save progress and unlock reader-only conversation rooms after you finish.</p>
-              </div>
-              <Link to="/auth" className="btn-primary sm">Sign in</Link>
-            </div>
-          )}
           </div>
         </section>
 
-        <div className="content-container home-sections">
+        <div className="layout-content home-sections">
         <section className="home-section home-shelf-section" aria-labelledby="featured-heading">
           <div className="home-section-head">
             <div className="home-section-copy">
