@@ -27,7 +27,6 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     unique: true,
     sparse: true,
-    index: true,
   },
   bio: {
     type: String,
@@ -60,8 +59,6 @@ const userSchema = new mongoose.Schema({
     defaultMatchMedium: { type: String, enum: ['text', 'voice', 'video'], default: 'text' },
   },
 }, { timestamps: true });
-
-userSchema.index({ usernameLower: 1 }, { unique: true, sparse: true });
 
 userSchema.pre('save', async function save() {
   if (this.isModified('username')) {
