@@ -5,6 +5,7 @@ import api from '../utils/api';
 import './RequestBookPage.css';
 
 const RequestBookPage = () => {
+  const isDev = import.meta.env.DEV;
   const [gutenbergId, setGutenbergId] = useState('');
   const [debouncedGutenbergId, setDebouncedGutenbergId] = useState('');
   const [preview, setPreview] = useState(null);
