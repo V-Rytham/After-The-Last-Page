@@ -346,18 +346,15 @@ class GutenbergIngestionService {
 
   async recoverStaleProcessingBooks() {
     const staleBefore = new Date(Date.now() - PROCESSING_STALE_MS);
-    const staleBooks = await Book.find({
-      status: 'processing',
-      processingStartedAt: { $lt: staleBefore },
-    })
-      .select('gutenbergId')
+    const processingBooks = await Book.find({ status: 'processing' })
+      .select('gutenbergId processingStartedAt')
       .lean();
 
-    if (!staleBooks.length) {
-      return 0;
-    }
-
-    const staleIds = [...new Set(staleBooks
+    const staleIds = [...new Set(processingBooks
+      .filter((book) => {
+        const startedAt = book?.processingStartedAt ? new Date(book.processingStartedAt) : null;
+        return startedAt instanceof Date && !Number.isNaN(startedAt.valueOf()) && startedAt < staleBefore;
+      })
       .map((book) => parsePositiveIntStrict(book?.gutenbergId))
       .filter(Boolean))];
     if (!staleIds.length) {
@@ -367,7 +364,6 @@ class GutenbergIngestionService {
     await Book.updateMany(
       {
         status: 'processing',
-        processingStartedAt: { $lt: staleBefore },
         gutenbergId: { $in: staleIds },
       },
       {
