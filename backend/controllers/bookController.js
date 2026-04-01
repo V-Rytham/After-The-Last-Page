@@ -96,15 +96,8 @@ export const readBook = async (req, res) => {
     res.json(payload);
   } catch (error) {
     const statusCode = Number(error?.statusCode) || 500;
-    const message = statusCode === 404
-      ? 'Book not found'
-      : statusCode === 504
-        ? 'Book is taking too long to load. Try again.'
-        : statusCode === 413
-          ? 'Book too large to load'
-          : 'Something went wrong';
     res.status(statusCode).json({
-      message,
+      message: statusCode === 404 ? 'Book content not found on Gutenberg.' : 'Unable to fetch this book. Check the ID.',
     });
   }
 };
@@ -122,15 +115,8 @@ export const readGutenbergBook = async (req, res) => {
     res.json(payload);
   } catch (error) {
     const statusCode = Number(error?.statusCode) || 500;
-    const message = statusCode === 404
-      ? 'Book not found'
-      : statusCode === 504
-        ? 'Book is taking too long to load. Try again.'
-        : statusCode === 413
-          ? 'Book too large to load'
-          : 'Something went wrong';
     res.status(statusCode).json({
-      message,
+      message: statusCode === 404 ? 'Unable to fetch this book. Check the ID.' : 'Unable to fetch this book. Check the ID.',
     });
   }
 };
