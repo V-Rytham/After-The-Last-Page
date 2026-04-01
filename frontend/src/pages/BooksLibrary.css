@@ -65,12 +65,18 @@
   min-height: 2.3rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--accent-border);
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--btn-bg);
+  color: var(--btn-text);
   padding: 0 0.75rem;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
+}
+
+.btn-resume:hover,
+.btn-resume:focus-visible {
+  background: var(--btn-hover);
+  transform: translateY(-1px);
 }
 
 .btn-resume:focus-visible {

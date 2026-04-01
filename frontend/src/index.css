@@ -54,6 +54,14 @@
 }
 
 html[data-theme='light'] {
+  --btn-bg: #d9e4ff;
+  --btn-text: #2b3f73;
+  --btn-hover: #c7d7fb;
+  --accent-primary: #6b8fe8;
+  --book-card-overlay: rgba(255, 247, 236, 0.42);
+  --book-card-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 245, 227, 0.08));
+  --book-card-shadow: 0 7px 16px rgba(51, 39, 20, 0.07), 0 16px 34px rgba(51, 39, 20, 0.05);
+
   --page-bg: #f6f3ed;
   --page-bg-alt: #efe9de;
   --nav-bg: rgba(246, 243, 237, 0.9);
@@ -71,7 +79,7 @@ html[data-theme='light'] {
   --accent-soft-strong: #dde3f0;
   --accent-border: rgba(63, 73, 100, 0.24);
   --accent-warm: #8b6e38;
-  --accent: var(--accent-warm);
+  --accent: var(--accent-primary);
   --success-soft: #e6efe5;
   --warning-soft: #f2ead6;
   --danger-soft: #f5e2e0;
@@ -88,6 +96,14 @@ html[data-theme='light'] {
 }
 
 html[data-theme='sepia'] {
+  --btn-bg: #caa86c;
+  --btn-text: #2f2316;
+  --btn-hover: #bd9b5f;
+  --accent-primary: #8a6b34;
+  --book-card-overlay: rgba(246, 231, 193, 0.34);
+  --book-card-gradient: linear-gradient(180deg, rgba(255, 247, 224, 0.26), rgba(172, 127, 55, 0.08));
+  --book-card-shadow: 0 7px 16px rgba(73, 49, 24, 0.08), 0 16px 34px rgba(73, 49, 24, 0.06);
+
   --page-bg: #efe3c2;
   --page-bg-alt: #e5d5af;
   --nav-bg: rgba(239, 227, 194, 0.9);
@@ -105,7 +121,7 @@ html[data-theme='sepia'] {
   --accent-soft-strong: #d2d8e5;
   --accent-border: rgba(70, 80, 107, 0.24);
   --accent-warm: #8a6b34;
-  --accent: var(--accent-warm);
+  --accent: var(--accent-primary);
   --success-soft: #dfe8dd;
   --warning-soft: #ecdfbe;
   --danger-soft: #efd8d2;
@@ -122,6 +138,14 @@ html[data-theme='sepia'] {
 }
 
 html[data-theme='mocha'] {
+  --btn-bg: rgba(116, 92, 240, 0.32);
+  --btn-text: #efeaff;
+  --btn-hover: rgba(126, 98, 255, 0.44);
+  --accent-primary: #7e62ff;
+  --book-card-overlay: rgba(27, 27, 39, 0.62);
+  --book-card-gradient: linear-gradient(180deg, rgba(198, 184, 255, 0.12), rgba(36, 28, 68, 0.1));
+  --book-card-shadow: 0 10px 18px rgba(0, 0, 0, 0.34), 0 20px 48px rgba(0, 0, 0, 0.28);
+
   --page-bg: #101013;
   --page-bg-alt: #15151a;
   --nav-bg: rgba(16, 16, 19, 0.9);
@@ -139,7 +163,7 @@ html[data-theme='mocha'] {
   --accent-soft-strong: rgba(126, 98, 255, 0.3);
   --accent-border: rgba(126, 98, 255, 0.34);
   --accent-warm: #7e62ff;
-  --accent: var(--accent-warm);
+  --accent: var(--accent-primary);
   --success-soft: #22392c;
   --warning-soft: #463621;
   --danger-soft: #4a2b2b;
@@ -158,6 +182,14 @@ html[data-theme='mocha'] {
 }
 
 html[data-theme='dark'] {
+  --btn-bg: rgba(123, 94, 255, 0.34);
+  --btn-text: #f3efff;
+  --btn-hover: rgba(143, 115, 255, 0.46);
+  --accent-primary: #8f73ff;
+  --book-card-overlay: rgba(22, 21, 34, 0.64);
+  --book-card-gradient: linear-gradient(180deg, rgba(219, 209, 255, 0.12), rgba(34, 30, 58, 0.12));
+  --book-card-shadow: 0 10px 18px rgba(0, 0, 0, 0.34), 0 20px 48px rgba(0, 0, 0, 0.3);
+
   --page-bg: #0f0f10;
   --page-bg-alt: #141418;
   --nav-bg: rgba(15, 15, 16, 0.88);
@@ -171,7 +203,7 @@ html[data-theme='dark'] {
   --border-soft: rgba(223, 223, 255, 0.12);
   --border-strong: rgba(223, 223, 255, 0.22);
   --accent-warm: #8f73ff;
-  --accent: var(--accent-warm);
+  --accent: var(--accent-primary);
   --accent-ink: #ebe6ff;
   --accent-soft: rgba(143, 115, 255, 0.18);
   --accent-soft-strong: rgba(143, 115, 255, 0.25);
@@ -194,6 +226,14 @@ html[data-theme='dark'] {
 }
 
 html[data-theme='midnight'] {
+  --btn-bg: rgba(90, 133, 255, 0.36);
+  --btn-text: #edf3ff;
+  --btn-hover: rgba(121, 166, 255, 0.48);
+  --accent-primary: #79a6ff;
+  --book-card-overlay: rgba(15, 25, 51, 0.62);
+  --book-card-gradient: linear-gradient(180deg, rgba(214, 225, 255, 0.1), rgba(25, 42, 84, 0.13));
+  --book-card-shadow: 0 10px 18px rgba(4, 8, 21, 0.34), 0 20px 48px rgba(4, 8, 21, 0.3);
+
   --page-bg: #0b1020;
   --page-bg-alt: #101a33;
   --nav-bg: rgba(11, 16, 32, 0.86);
@@ -207,7 +247,7 @@ html[data-theme='midnight'] {
   --border-soft: rgba(231, 236, 255, 0.12);
   --border-strong: rgba(231, 236, 255, 0.22);
   --accent-warm: #79a6ff;
-  --accent: var(--accent-warm);
+  --accent: var(--accent-primary);
   --accent-ink: #cfe0ff;
   --accent-soft: rgba(121, 166, 255, 0.16);
   --accent-soft-strong: rgba(121, 166, 255, 0.22);
