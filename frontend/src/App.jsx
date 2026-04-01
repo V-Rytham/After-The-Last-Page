@@ -91,8 +91,17 @@ const App = () => {
     // HashRouter should ignore pathname, but stray prefixes (e.g. "/$#/desk") confuse users and break
     // any code that reads `window.location.pathname`. Normalize once at startup.
     try {
-      if (typeof window !== 'undefined' && window.location.hash.startsWith('#/') && window.location.pathname !== '/') {
-        window.history.replaceState(null, '', `/${window.location.hash}`);
+      if (typeof window !== 'undefined') {
+        if (window.location.hash.startsWith('#/') && window.location.pathname !== '/') {
+          window.history.replaceState(null, '', `/${window.location.hash}`);
+          return;
+        }
+
+        if (!window.location.hash && window.location.pathname && window.location.pathname !== '/') {
+          const search = window.location.search || '';
+          const nextHash = `#${window.location.pathname}${search}`;
+          window.history.replaceState(null, '', `/${nextHash}`);
+        }
       }
     } catch {
       // ignore
