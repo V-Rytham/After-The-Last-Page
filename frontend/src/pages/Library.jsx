@@ -25,21 +25,15 @@ const LibraryPage = () => {
     const loadBooks = async () => {
       try {
         const { data } = await api.get('/books');
-        if (!active) return;
+        if (!mounted) return;
         const nextBooks = Array.isArray(data) ? data : [];
         setBooks(nextBooks);
-        if (!hasLoggedLoadRef.current) {
-          console.log('Books loaded:', nextBooks.length);
-          hasLoggedLoadRef.current = true;
-        }
+        console.log('Books loaded:', nextBooks.length);
       } catch (error) {
         console.error('[LIBRARY] Failed to load books:', error);
         if (!active) return;
         setBooks([]);
-        if (!hasLoggedLoadRef.current) {
-          console.log('Books loaded:', 0);
-          hasLoggedLoadRef.current = true;
-        }
+        console.log('Books loaded:', 0);
       } finally {
         if (active) setLoading(false);
       }
