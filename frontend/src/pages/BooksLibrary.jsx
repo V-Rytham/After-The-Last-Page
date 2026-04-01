@@ -9,8 +9,8 @@ const BooksLibrary = () => {
       <header className="library-hero">
         <div className="library-controls">
           <p className="library-subtitle">Book listing is currently unavailable.</p>
-          <Link to="/read" className="request-book-cta" aria-disabled="true">
-            Add books directly in the database to continue using the reader.
+          <Link to="/request-book" className="request-book-cta">
+            Request a Gutenberg book to start reading.
           </Link>
         </div>
       </header>
