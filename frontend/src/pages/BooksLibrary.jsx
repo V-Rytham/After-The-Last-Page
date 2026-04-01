@@ -24,21 +24,6 @@ const deskDataCache = {
   recommendations: null,
 };
 
-const debounceAsync = (fn, wait = 300) => {
-  let timer = null;
-  return (...args) => new Promise((resolve, reject) => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(async () => {
-      try {
-        const result = await fn(...args);
-        resolve(result);
-      } catch (error) {
-        reject(error);
-      }
-    }, wait);
-  });
-};
-
 const getBookKey = (book) => String(book?._id || book?.gutenbergId || `${book?.title || 'book'}-${book?.author || 'unknown'}`);
 
 const getLastAccessedBook = (allBooks) => {
@@ -61,7 +46,7 @@ const BooksLibrary = () => {
   useEffect(() => {
     let mounted = true;
 
-    const fetchDeskData = debounceAsync(async () => {
+    const fetchDeskData = async () => {
       if (cache.current) return cache.current;
 
       const { data } = await api.get('/books');
@@ -70,22 +55,30 @@ const BooksLibrary = () => {
 
       let recBooks = [];
       if (readBookIds.length) {
-        const { data: recData } = await api.post('/recommender', {
-          readBookIds,
-          currentBookId: readBookIds[0] || undefined,
-          limitPerShelf: 6,
-        });
+        try {
+          const { data: recData } = await api.post('/recommender', {
+            readBookIds,
+            currentBookId: readBookIds[0] || undefined,
+            limitPerShelf: 6,
+          });
 
-        const deduped = [];
-        const seen = new Set(readBookIds.map(String));
-        getRecommendationsFromResponse(recData).forEach((book) => {
-          const key = getBookKey(book);
-          if (!seen.has(key)) {
-            seen.add(key);
-            deduped.push(book);
+          const deduped = [];
+          const seen = new Set(readBookIds.map(String));
+          getRecommendationsFromResponse(recData).forEach((book) => {
+            const key = getBookKey(book);
+            if (!seen.has(key)) {
+              seen.add(key);
+              deduped.push(book);
+            }
+          });
+          recBooks = deduped.slice(0, 8);
+        } catch (recommendationError) {
+          if (recommendationError?.statusCode === 404) {
+            console.warn('[DESK] Recommender endpoint unavailable (404). Continuing without recommendations.');
+          } else {
+            console.warn('[DESK] Recommender request failed. Continuing without recommendations.', recommendationError);
           }
-        });
-        recBooks = deduped.slice(0, 8);
+        }
       }
 
       const payload = { books: allBooks, recommendations: recBooks };
@@ -93,7 +86,7 @@ const BooksLibrary = () => {
       deskDataCache.books = allBooks;
       deskDataCache.recommendations = recBooks;
       return payload;
-    }, 300);
+    };
 
     const loadDesk = async () => {
       try {
