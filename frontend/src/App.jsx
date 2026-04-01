@@ -16,6 +16,7 @@ import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import BookQuiz from './pages/BookQuiz';
 import RequestBookPage from './pages/RequestBookPage';
+import ReadEntryPage from './pages/ReadEntryPage';
 import api from './utils/api';
 import { clearAuthSession, getStoredToken, getStoredUser, saveAuthSession, updateStoredUser } from './utils/auth';
 import { DEFAULT_UI_THEME, THEME_STORAGE_KEY, UI_THEMES } from './utils/uiThemes';
