@@ -105,14 +105,8 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
         setCurrentChapter(1);
       } catch (error) {
         console.error('Failed to load book:', error);
-        const status = Number(error?.statusCode || error?.response?.status || 0);
-        let nextMessage = 'Something went wrong';
-        if (status === 404) nextMessage = 'Book not found';
-        else if (status === 504) nextMessage = 'Book is taking too long to load. Try again.';
-        else if (status === 413) nextMessage = 'Book too large to load';
-
         setContentError(true);
-        setContentErrorMessage(nextMessage);
+        setContentErrorMessage(isGutenbergRoute ? 'Unable to fetch this book. Check the ID.' : 'Book content not available.');
       } finally {
         setLoading(false);
       }
