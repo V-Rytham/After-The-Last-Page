@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen } from 'lucide-react';
 import BookCard from '../components/books/BookCard';
@@ -19,50 +19,108 @@ const getRecommendationsFromResponse = (payload) => {
   return [];
 };
 
+const deskDataCache = {
+  books: null,
+  recommendations: null,
+};
+
+const debounceAsync = (fn, wait = 300) => {
+  let timer = null;
+  return (...args) => new Promise((resolve, reject) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(async () => {
+      try {
+        const result = await fn(...args);
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    }, wait);
+  });
+};
+
+const getBookKey = (book) => String(book?._id || book?.gutenbergId || `${book?.title || 'book'}-${book?.author || 'unknown'}`);
+
+const getLastAccessedBook = (allBooks) => {
+  if (!Array.isArray(allBooks) || allBooks.length === 0) return null;
+
+  return [...allBooks].sort((a, b) => {
+    const aDate = new Date(a?.lastAccessed || a?.updatedAt || a?.createdAt || 0).getTime();
+    const bDate = new Date(b?.lastAccessed || b?.updatedAt || b?.createdAt || 0).getTime();
+    return bDate - aDate;
+  })[0] || null;
+};
+
 const BooksLibrary = () => {
   const [books, setBooks] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
+  const cache = useRef(null);
 
   useEffect(() => {
     let mounted = true;
 
-    const loadDesk = async () => {
-      try {
-        const { data } = await api.get('/books');
-        if (!mounted) return;
-        const allBooks = Array.isArray(data) ? data : [];
-        setBooks(allBooks);
+    const fetchDeskData = debounceAsync(async () => {
+      if (cache.current) return cache.current;
 
-        const readBookIds = allBooks.map((book) => book?._id).filter(Boolean);
+      const { data } = await api.get('/books');
+      const allBooks = Array.isArray(data) ? data : [];
+      const readBookIds = allBooks.map((book) => book?._id).filter(Boolean);
+
+      let recBooks = [];
+      if (readBookIds.length) {
         const { data: recData } = await api.post('/recommender', {
           readBookIds,
           currentBookId: readBookIds[0] || undefined,
           limitPerShelf: 6,
         });
 
-        if (!mounted) return;
         const deduped = [];
-        const seen = new Set(readBookIds);
+        const seen = new Set(readBookIds.map(String));
         getRecommendationsFromResponse(recData).forEach((book) => {
-          const key = String(book?._id || book?.gutenbergId || `${book?.title}-${book?.author}`);
+          const key = getBookKey(book);
           if (!seen.has(key)) {
             seen.add(key);
             deduped.push(book);
           }
         });
-        setRecommendations(deduped.slice(0, 8));
+        recBooks = deduped.slice(0, 8);
+      }
+
+      const payload = { books: allBooks, recommendations: recBooks };
+      cache.current = payload;
+      deskDataCache.books = allBooks;
+      deskDataCache.recommendations = recBooks;
+      return payload;
+    }, 300);
+
+    const loadDesk = async () => {
+      try {
+        if (deskDataCache.books && deskDataCache.recommendations) {
+          setBooks(deskDataCache.books);
+          setRecommendations(deskDataCache.recommendations);
+          setLoading(false);
+          return;
+        }
+
+        const payload = await fetchDeskData();
+        if (!mounted) return;
+        setBooks(payload.books);
+        setRecommendations(payload.recommendations);
       } catch (error) {
         console.error('[DESK] Failed to load desk data:', error);
-        if (mounted) {
-          setBooks([]);
-          setRecommendations([]);
-        }
+        if (!mounted) return;
+
+        setBooks(Array.isArray(deskDataCache.books) ? deskDataCache.books : []);
+        setRecommendations(Array.isArray(deskDataCache.recommendations) ? deskDataCache.recommendations : []);
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
+    if (loadedRef.current) return undefined;
+    loadedRef.current = true;
     loadDesk();
 
     return () => {
@@ -70,7 +128,7 @@ const BooksLibrary = () => {
     };
   }, []);
 
-  const continueBook = useMemo(() => books[0] || null, [books]);
+  const continueBook = useMemo(() => getLastAccessedBook(books), [books]);
   const shelfBooks = useMemo(() => books.slice(0, 12), [books]);
 
   return (
@@ -113,7 +171,7 @@ const BooksLibrary = () => {
           </div>
           <div className="books-grid">
             {shelfBooks.map((book) => (
-              <BookCard key={book._id || String(book.gutenbergId)} book={book} to={`/read/gutenberg/${book.gutenbergId}`} />
+              <BookCard key={getBookKey(book)} book={book} to={`/read/gutenberg/${book.gutenbergId}`} />
             ))}
           </div>
         </section>
@@ -126,9 +184,9 @@ const BooksLibrary = () => {
             <div className="no-results"><p>No recommendations yet.</p></div>
           ) : (
             <div className="recommendations-row">
-              {recommendations.map((book, index) => (
+              {recommendations.map((book) => (
                 <BookCard
-                  key={book._id || `${book.gutenbergId || 'book'}-${index}`}
+                  key={getBookKey(book)}
                   book={book}
                   to={book.gutenbergId ? `/read/gutenberg/${book.gutenbergId}` : '/library'}
                   compact

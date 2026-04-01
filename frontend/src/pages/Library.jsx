@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BookCard from '../components/books/BookCard';
@@ -9,7 +9,10 @@ const LibraryPage = () => {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);
   const [gutenbergId, setGutenbergId] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -28,11 +31,32 @@ const LibraryPage = () => {
       }
     };
 
+    if (loadedRef.current) return undefined;
+    loadedRef.current = true;
     loadBooks();
+
     return () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQuery(searchInput.trim().toLowerCase());
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const filteredBooks = useMemo(() => {
+    if (!query) return books;
+
+    return books.filter((book) => {
+      const title = String(book?.title || '').toLowerCase();
+      const author = String(book?.author || '').toLowerCase();
+      return title.includes(query) || author.includes(query);
+    });
+  }, [books, query]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -45,36 +69,50 @@ const LibraryPage = () => {
     <div className="library-page">
       <div className="content-container library-shell">
         <header className="library-header">
-          <div>
-            <h1 className="library-title">Library</h1>
-            <p className="library-subtitle">Browse your books and jump into a Gutenberg read.</p>
+          <h1 className="library-title">Library</h1>
+          <p className="library-subtitle">Browse your books and jump into a Gutenberg read.</p>
+
+          <div className="library-toolbar-panel">
+            <label className="library-search" htmlFor="library-search">
+              <span className="toolbar-label">Search</span>
+              <input
+                id="library-search"
+                className="library-search-input"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Search books..."
+              />
+            </label>
+
+            <form className="gutenberg-entry" onSubmit={handleSubmit}>
+              <label htmlFor="gutenberg-id" className="toolbar-label">Enter Gutenberg ID</label>
+              <div className="gutenberg-controls">
+                <input
+                  id="gutenberg-id"
+                  className="gutenberg-input"
+                  value={gutenbergId}
+                  onChange={(event) => setGutenbergId(event.target.value)}
+                  placeholder="e.g. 1342"
+                  inputMode="numeric"
+                />
+                <button type="submit" className="gutenberg-button">Read Book</button>
+              </div>
+            </form>
           </div>
-          <form className="gutenberg-entry" onSubmit={handleSubmit}>
-            <label htmlFor="gutenberg-id" className="gutenberg-label">Enter Gutenberg ID</label>
-            <input
-              id="gutenberg-id"
-              className="gutenberg-input"
-              value={gutenbergId}
-              onChange={(event) => setGutenbergId(event.target.value)}
-              placeholder="e.g. 1342"
-              inputMode="numeric"
-            />
-            <button type="submit" className="gutenberg-button">Read Book</button>
-          </form>
         </header>
 
         {loading ? (
           <div className="loading">Loading books…</div>
-        ) : books.length === 0 ? (
+        ) : filteredBooks.length === 0 ? (
           <div className="no-results">
             <BookOpen size={28} />
-            <p>No books yet. Enter a Gutenberg ID to start reading.</p>
+            <p>No matching books. Try another search or Gutenberg ID.</p>
           </div>
         ) : (
           <section className="books-grid" aria-label="Library books">
-            {books.map((book) => (
+            {filteredBooks.map((book) => (
               <BookCard
-                key={book._id || String(book.gutenbergId)}
+                key={book.gutenbergId || book._id}
                 book={book}
                 to={`/read/gutenberg/${book.gutenbergId}`}
                 actionLabel="Read"
