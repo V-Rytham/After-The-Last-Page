@@ -118,3 +118,9 @@
     grid-template-columns: 1fr;
   }
 }
+
+.library-load-note {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}

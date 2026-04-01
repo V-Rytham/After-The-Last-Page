@@ -128,3 +128,40 @@
     background-position: -100% 0;
   }
 }
+
+.book-card__cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-card__cover-fallback {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--surface-2) 92%, #9f7a3e 8%), var(--surface-1));
+  display: grid;
+  place-items: center;
+}
+
+.book-cover-spine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 12%;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.08));
+}
+
+.book-cover-pattern {
+  width: 58%;
+  height: 72%;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 70%, transparent);
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--surface-2) 72%, #d8be8a 28%) 0 10px,
+    color-mix(in srgb, var(--surface-1) 80%, #8f6b35 20%) 10px 20px
+  );
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}

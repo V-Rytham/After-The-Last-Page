@@ -5,6 +5,9 @@ import BookCard from '../components/books/BookCard';
 import api from '../utils/api';
 import './Library.css';
 
+const INITIAL_BOOKS = 12;
+const BOOKS_PAGE_SIZE = 24;
+
 const LibraryPage = () => {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);
@@ -12,6 +15,7 @@ const LibraryPage = () => {
   const [searchInput, setSearchInput] = useState('');
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_BOOKS);
   const loadedRef = useRef(false);
 
   useEffect(() => {
@@ -57,6 +61,33 @@ const LibraryPage = () => {
       return title.includes(query) || author.includes(query);
     });
   }, [books, query]);
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_BOOKS);
+  }, [query, books.length]);
+
+  useEffect(() => {
+    if (visibleCount >= filteredBooks.length) return undefined;
+
+    const loadMore = () => {
+      setVisibleCount((current) => Math.min(current + BOOKS_PAGE_SIZE, filteredBooks.length));
+    };
+
+    const handleScroll = () => {
+      const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 500;
+      if (nearBottom) loadMore();
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    const timer = setTimeout(loadMore, 250);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [visibleCount, filteredBooks.length]);
+
+  const visibleBooks = useMemo(() => filteredBooks.slice(0, visibleCount), [filteredBooks, visibleCount]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -109,17 +140,22 @@ const LibraryPage = () => {
             <p>No matching books. Try another search or Gutenberg ID.</p>
           </div>
         ) : (
-          <section className="books-grid" aria-label="Library books">
-            {filteredBooks.map((book) => (
-              <BookCard
-                key={book.gutenbergId || book._id}
-                book={book}
-                to={`/read/gutenberg/${book.gutenbergId}`}
-                actionLabel="Read"
-                actionHref={`/read/gutenberg/${book.gutenbergId}`}
-              />
-            ))}
-          </section>
+          <>
+            <section className="books-grid" aria-label="Library books">
+              {visibleBooks.map((book) => (
+                <BookCard
+                  key={book.gutenbergId || book._id}
+                  book={book}
+                  to={`/read/gutenberg/${book.gutenbergId}`}
+                  actionLabel="Read"
+                  actionHref={`/read/gutenberg/${book.gutenbergId}`}
+                />
+              ))}
+            </section>
+            {visibleCount < filteredBooks.length && (
+              <p className="library-load-note">Loading more books as you scroll…</p>
+            )}
+          </>
         )}
       </div>
     </div>

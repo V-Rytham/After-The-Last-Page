@@ -18,6 +18,7 @@ import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import { isProd } from './utils/runtime.js';
 import { RealtimeSessionManager } from './services/realtimeSessionManager.js';
 import { requestTracing } from './middleware/requestLogging.js';
+import recommenderRoutes from './routes/recommenderRoutes.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -149,6 +150,7 @@ app.use('/api/access', accessRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/session', buildSessionRoutes(sessionManager));
 app.use('/api/matchmaking', buildMatchmakingRoutes(sessionManager));
+app.use('/api/recommender', recommenderRoutes);
 
 app.get('/api/health', (req, res) => {
   const connected = isDbConnected();
