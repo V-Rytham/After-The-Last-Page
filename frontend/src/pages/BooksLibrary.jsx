@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import BookCard from '../components/books/BookCard';
 import api from '../utils/api';
 import './BooksLibrary.css';
@@ -30,10 +30,17 @@ const getLastAccessedBook = (allBooks) => {
   if (!Array.isArray(allBooks) || allBooks.length === 0) return null;
 
   return [...allBooks].sort((a, b) => {
-    const aDate = new Date(a?.lastAccessed || a?.updatedAt || a?.createdAt || 0).getTime();
-    const bDate = new Date(b?.lastAccessed || b?.updatedAt || b?.createdAt || 0).getTime();
+    const aDate = new Date(a?.lastAccessedAt || a?.lastAccessed || a?.updatedAt || a?.createdAt || 0).getTime();
+    const bDate = new Date(b?.lastAccessedAt || b?.lastAccessed || b?.updatedAt || b?.createdAt || 0).getTime();
     return bDate - aDate;
   })[0] || null;
+};
+
+const scrollByPage = (ref, direction) => {
+  const el = ref.current;
+  if (!el) return;
+  const amount = Math.max(el.clientWidth * 0.85, 240);
+  el.scrollBy({ left: direction * amount, behavior: 'smooth' });
 };
 
 const BooksLibrary = () => {
@@ -42,6 +49,8 @@ const BooksLibrary = () => {
   const [loading, setLoading] = useState(true);
   const loadedRef = useRef(false);
   const cache = useRef(null);
+  const shelfRowRef = useRef(null);
+  const recommendationRowRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -59,7 +68,7 @@ const BooksLibrary = () => {
           const { data: recData } = await api.post('/recommender', {
             readBookIds,
             currentBookId: readBookIds[0] || undefined,
-            limitPerShelf: 6,
+            limitPerShelf: 8,
           });
 
           const deduped = [];
@@ -122,7 +131,7 @@ const BooksLibrary = () => {
   }, []);
 
   const continueBook = useMemo(() => getLastAccessedBook(books), [books]);
-  const shelfBooks = useMemo(() => books.slice(0, 12), [books]);
+  const shelfBooks = useMemo(() => books.slice(0, 8), [books]);
 
   return (
     <div className="desk-page">
@@ -159,30 +168,52 @@ const BooksLibrary = () => {
         </section>
 
         <section className="desk-section" aria-label="Your shelf">
-          <div className="section-heading">
+          <div className="section-heading section-heading--with-controls">
             <h2>Your Shelf</h2>
+            <div className="row-controls" aria-label="Shelf carousel controls">
+              <button type="button" className="row-control-btn" onClick={() => scrollByPage(shelfRowRef, -1)} aria-label="Scroll shelf left">
+                <ChevronLeft size={16} />
+              </button>
+              <button type="button" className="row-control-btn" onClick={() => scrollByPage(shelfRowRef, 1)} aria-label="Scroll shelf right">
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
-          <div className="books-grid">
-            {shelfBooks.map((book) => (
-              <BookCard key={getBookKey(book)} book={book} to={`/read/gutenberg/${book.gutenbergId}`} />
-            ))}
-          </div>
+
+          {shelfBooks.length === 0 ? (
+            <div className="no-results"><p>Your shelf is empty.</p></div>
+          ) : (
+            <div className="books-carousel" ref={shelfRowRef}>
+              {shelfBooks.map((book) => (
+                <BookCard key={getBookKey(book)} book={book} to={`/read/gutenberg/${book.gutenbergId}`} compact className="desk-carousel-card" />
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="desk-section" aria-label="Recommendations">
-          <div className="section-heading">
+          <div className="section-heading section-heading--with-controls">
             <h2>Recommendations</h2>
+            <div className="row-controls" aria-label="Recommendations carousel controls">
+              <button type="button" className="row-control-btn" onClick={() => scrollByPage(recommendationRowRef, -1)} aria-label="Scroll recommendations left">
+                <ChevronLeft size={16} />
+              </button>
+              <button type="button" className="row-control-btn" onClick={() => scrollByPage(recommendationRowRef, 1)} aria-label="Scroll recommendations right">
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
           {recommendations.length === 0 ? (
             <div className="no-results"><p>No recommendations yet.</p></div>
           ) : (
-            <div className="recommendations-row">
+            <div className="books-carousel" ref={recommendationRowRef}>
               {recommendations.map((book) => (
                 <BookCard
                   key={getBookKey(book)}
                   book={book}
                   to={book.gutenbergId ? `/read/gutenberg/${book.gutenbergId}` : '/library'}
                   compact
+                  className="desk-carousel-card"
                 />
               ))}
             </div>
