@@ -4,6 +4,7 @@ import {
   parseStrictGutenbergId,
   readGutenbergBookStateless,
 } from '../utils/gutenbergReader.js';
+import { gutenbergCatalog } from '../seed/gutenbergCatalog.js';
 
 const BACKEND_TIMEOUT_MS = 70_000;
 
@@ -107,6 +108,43 @@ export const readBook = async (req, res) => {
     res.status(statusCode).json({
       message: mapReadErrorMessage(statusCode),
     });
+  }
+};
+
+
+export const getGutenbergPreview = async (req, res) => {
+  try {
+    const gutenbergId = parseStrictGutenbergId(req.params.gutenbergId);
+    if (!gutenbergId) {
+      res.status(400).json({ message: 'Invalid Gutenberg ID.' });
+      return;
+    }
+
+    const existing = await Book.findOne({ gutenbergId })
+      .select('_id title author gutenbergId')
+      .lean();
+
+    if (existing) {
+      res.json(existing);
+      return;
+    }
+
+    const catalogEntry = (Array.isArray(gutenbergCatalog) ? gutenbergCatalog : [])
+      .find((book) => Number(book?.gutenbergId) === gutenbergId);
+
+    if (!catalogEntry) {
+      res.status(404).json({ message: 'Book preview not found for this Gutenberg ID.' });
+      return;
+    }
+
+    res.json({
+      gutenbergId,
+      title: catalogEntry.title || 'Untitled',
+      author: catalogEntry.author || 'Unknown author',
+    });
+  } catch (error) {
+    console.error('[BOOK] Failed to fetch Gutenberg preview:', error?.message || error);
+    res.status(500).json({ message: 'Server error fetching Gutenberg preview.' });
   }
 };
 

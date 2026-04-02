@@ -249,7 +249,7 @@ const BooksLibrary = () => {
             </div>
           </div>
           {recommendations.length === 0 ? (
-            <div className="no-results"><p>No recommendations yet.</p></div>
+            <div className="no-results"><p>Discover more books as you read.</p></div>
           ) : (
             <div className="books-carousel" ref={recommendationRowRef}>
               {recommendations.map((book) => (

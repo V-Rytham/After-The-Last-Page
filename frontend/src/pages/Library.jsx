@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import BookCard from '../components/books/BookCard';
 import api from '../utils/api';
 import './Library.css';
@@ -9,11 +8,13 @@ const INITIAL_BOOKS = 12;
 const BOOKS_PAGE_SIZE = 24;
 
 const LibraryPage = () => {
-  const navigate = useNavigate();
   const [books, setBooks] = useState([]);
   const [gutenbergId, setGutenbergId] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [query, setQuery] = useState('');
+  const [previewBook, setPreviewBook] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(INITIAL_BOOKS);
   const loadingMoreRef = useRef(false);
@@ -27,12 +28,10 @@ const LibraryPage = () => {
         if (!active) return;
         const nextBooks = Array.isArray(data) ? data : [];
         setBooks(nextBooks);
-        console.log('Books loaded:', nextBooks.length);
       } catch (error) {
         console.error('[LIBRARY] Failed to load books:', error);
         if (!active) return;
         setBooks([]);
-        console.log('Books loaded:', 0);
       } finally {
         if (active) setLoading(false);
       }
@@ -97,77 +96,68 @@ const LibraryPage = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [filteredBooks.length, loadMore, visibleCount]);
 
-  const handleSubmit = (event) => {
+  const handlePreviewSubmit = async (event) => {
     event.preventDefault();
     const id = String(gutenbergId || '').trim();
     if (!id) return;
-    navigate(`/read/gutenberg/${encodeURIComponent(id)}`);
-  };
 
-  const handleClearSearch = () => {
-    setSearchInput('');
+    setPreviewLoading(true);
+    setPreviewError('');
+
+    try {
+      const { data } = await api.get(`/books/gutenberg/${encodeURIComponent(id)}/preview`);
+      setPreviewBook({
+        gutenbergId: Number(data?.gutenbergId) || Number(id),
+        title: data?.title || 'Untitled',
+        author: data?.author || 'Unknown author',
+      });
+    } catch (error) {
+      setPreviewBook(null);
+      setPreviewError(error?.uiMessage || 'Could not preview this Gutenberg book.');
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   return (
     <div className="library-page">
       <div className="content-container library-shell">
         <header className="library-header">
-          <div className="library-header-left">
+          <div className="library-info">
             <h1 className="library-title">Library</h1>
             <p className="library-subtitle">
-              Pick up where you left off or instantly access any book using Project Gutenberg.
+              Pick up where you left off and preview any Gutenberg ID before opening it.
             </p>
           </div>
-
-          <div className="library-header-right">
-            <form
-              className="library-search"
-              onSubmit={(event) => event.preventDefault()}
-              role="search"
+          <form className="library-actions" onSubmit={handlePreviewSubmit}>
+            <input
+              id="library-search"
+              className="search-input"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search title or author"
               aria-label="Search books in your library"
-            >
-              <label className="toolbar-label" htmlFor="library-search">Search your shelf</label>
-              <p className="toolbar-help">Filter by title or author.</p>
-              <div className="library-search-controls">
-                <input
-                  id="library-search"
-                  className="search-input"
-                  value={searchInput}
-                  onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="Search books or authors..."
-                />
-                <button
-                  type="button"
-                  className="library-clear-button"
-                  onClick={handleClearSearch}
-                  disabled={!searchInput}
-                >
-                  Clear
-                </button>
-              </div>
-            </form>
-
-            <form className="gutenberg-entry" onSubmit={handleSubmit}>
-              <label htmlFor="gutenberg-id" className="toolbar-label">Open by Gutenberg ID</label>
-              <p className="toolbar-help">Jump directly to a specific book.</p>
-              <div className="gutenberg-controls">
-                <input
-                  id="gutenberg-id"
-                  className="gutenberg-input"
-                  value={gutenbergId}
-                  onChange={(event) => setGutenbergId(event.target.value)}
-                  placeholder="e.g. 1342"
-                  inputMode="numeric"
-                />
-                <button type="submit" className="gutenberg-button">Open Book</button>
-              </div>
-            </form>
-          </div>
+            />
+            <input
+              id="gutenberg-id"
+              className="gutenberg-input"
+              value={gutenbergId}
+              onChange={(event) => setGutenbergId(event.target.value)}
+              placeholder="Gutenberg ID (e.g. 1342)"
+              inputMode="numeric"
+              aria-label="Enter Gutenberg ID"
+            />
+            <button type="submit" className="gutenberg-button" disabled={previewLoading}>
+              {previewLoading ? 'Previewing…' : 'Preview Book'}
+            </button>
+          </form>
         </header>
+
+        {previewError && <p className="library-inline-error">{previewError}</p>}
 
         {loading ? (
           <div className="loading">Loading books…</div>
-        ) : filteredBooks.length === 0 ? (
+        ) : filteredBooks.length === 0 && !previewBook ? (
           <div className="no-results">
             <BookOpen size={28} />
             <p>No matching books. Try another search or Gutenberg ID.</p>
@@ -175,6 +165,16 @@ const LibraryPage = () => {
         ) : (
           <>
             <section className="books-grid" aria-label="Library books">
+              {previewBook && (
+                <BookCard
+                  key={`preview-${previewBook.gutenbergId}`}
+                  book={previewBook}
+                  to={`/read/gutenberg/${previewBook.gutenbergId}`}
+                  actionLabel="Read Book"
+                  actionHref={`/read/gutenberg/${previewBook.gutenbergId}`}
+                  className="library-preview-card"
+                />
+              )}
               {visibleBooks.map((book) => (
                 <BookCard
                   key={book.gutenbergId || book._id}
