@@ -12,8 +12,9 @@
 }
 
 .desk-header h1 {
-  font-size: clamp(2.2rem, 4.6vw, 3.45rem);
+  font-size: clamp(2.4rem, 4.8vw, 3.7rem);
   line-height: 1.04;
+  margin-bottom: 0.35rem;
 }
 
 .desk-header p {
@@ -23,7 +24,8 @@
 
 .desk-section {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.95rem;
+  margin-top: 2rem;
 }
 
 .section-heading {
@@ -34,7 +36,7 @@
 }
 
 .section-heading h2 {
-  font-size: clamp(1.5rem, 2.7vw, 2.25rem);
+  font-size: clamp(1.7rem, 2.9vw, 2.45rem);
 }
 
 .row-controls {
@@ -47,7 +49,7 @@
   height: 2rem;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-soft);
-  background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+  background: var(--surface-1);
   color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
@@ -59,7 +61,7 @@
 .row-control-btn:focus-visible {
   transform: translateY(-1px);
   border-color: var(--accent-border);
-  background: var(--accent-soft);
+  background: var(--surface-2);
   color: var(--text-primary);
 }
 
@@ -68,25 +70,26 @@
 .books-carousel {
   border: 1px solid var(--border-soft);
   border-radius: clamp(1rem, 2.2vw, 1.4rem);
-  background:
-    radial-gradient(circle at 12% -20%, color-mix(in srgb, var(--accent-soft) 42%, transparent), transparent 56%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-1) 92%, transparent), var(--surface-1));
-  box-shadow: var(--shadow-panel);
-}
-
-.continue-card {
-  display: grid;
-  grid-template-columns: minmax(8.2rem, 9.6rem) minmax(0, 1fr) auto;
-  gap: 1rem;
-  align-items: center;
-  padding: 1.5rem;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
 }
 
+.continue-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 1.2rem;
+}
+
+.continue-cover {
+  flex-shrink: 0;
+}
+
 .continue-cover .book-card {
-  width: min(100%, 9.5rem);
+  width: min(100%, 9.2rem);
 }
 
 .continue-copy {
@@ -111,6 +114,7 @@
 }
 
 .btn-resume {
+  margin-left: auto;
   min-height: 2.55rem;
   border-radius: var(--radius-pill);
   border: 1px solid var(--accent-border);
@@ -120,14 +124,6 @@
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  justify-self: end;
-  transition: filter var(--transition-fast), transform var(--transition-fast);
-}
-
-.btn-resume:hover,
-.btn-resume:focus-visible {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
 }
 
 .books-carousel {
@@ -151,21 +147,17 @@
   color: var(--text-secondary);
 }
 
-@media (max-width: 1100px) {
-  .continue-card {
-    grid-template-columns: minmax(7rem, 8.2rem) minmax(0, 1fr) auto;
-    gap: 0.75rem;
-  }
-}
-
 @media (max-width: 860px) {
   .desk-page {
     padding-top: 0.7rem;
   }
 
   .continue-card {
-    grid-template-columns: minmax(6.5rem, 7.4rem) minmax(0, 1fr);
-    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+
+  .btn-resume {
+    margin-left: 0;
   }
 
   .books-carousel {
@@ -179,7 +171,8 @@
   }
 
   .continue-card {
-    grid-template-columns: 1fr;
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .section-heading {

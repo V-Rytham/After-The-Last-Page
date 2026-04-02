@@ -1,8 +1,6 @@
 import mongoose from 'mongoose';
-import { recommendFromDatabase } from '../recommenderSystem/recommenderSystem.js';
 import { Book } from '../models/Book.js';
 import { gutenbergCatalog } from '../seed/gutenbergCatalog.js';
-import { normalizeTags } from '../utils/tags.js';
 
 const asStringArray = (value) => {
   if (!Array.isArray(value)) {
@@ -17,160 +15,105 @@ const asStringArray = (value) => {
 
 const normalizeCatalogBook = (book) => ({
   _id: `catalog-${book.gutenbergId}`,
-  gutenbergId: book.gutenbergId,
-  title: book.title,
-  author: book.author,
-  tags: normalizeTags(book.tags || []),
+  gutenbergId: Number(book.gutenbergId),
+  title: String(book.title || '').trim(),
+  author: String(book.author || '').trim(),
 });
 
-const scoreCatalogCandidate = (candidate, baseBook) => {
-  const baseTags = new Set(normalizeTags(baseBook?.tags || []));
-  const candidateTags = new Set(normalizeTags(candidate?.tags || []));
+const normalizeTitleTokens = (title) => String(title || '')
+  .toLowerCase()
+  .replace(/[^a-z0-9\s]/g, ' ')
+  .split(/\s+/)
+  .filter((token) => token.length >= 4);
+
+const scoreCandidate = (candidate, baseBook) => {
   let score = 0;
 
-  if (baseBook?.author && candidate?.author && baseBook.author === candidate.author) {
+  const baseAuthor = String(baseBook?.author || '').trim().toLowerCase();
+  const candidateAuthor = String(candidate?.author || '').trim().toLowerCase();
+  if (baseAuthor && candidateAuthor && baseAuthor === candidateAuthor) {
     score += 4;
   }
 
-  for (const tag of baseTags) {
-    if (candidateTags.has(tag)) {
-      score += 2;
+  const baseTitleTokens = new Set(normalizeTitleTokens(baseBook?.title));
+  const candidateTokens = new Set(normalizeTitleTokens(candidate?.title));
+  for (const token of baseTitleTokens) {
+    if (candidateTokens.has(token)) {
+      score += 1;
     }
-  }
-
-  if ((candidate?.title || '').toLowerCase().includes((baseBook?.title || '').toLowerCase().split(':')[0] || '')) {
-    score += 1;
   }
 
   return score;
 };
 
-const buildCatalogRecommendations = ({ catalogBooks, currentBook, readGutenbergIds, limit }) => {
-  const readSet = new Set(readGutenbergIds);
-  const unreadCandidates = catalogBooks.filter((book) => !readSet.has(book.gutenbergId));
+const buildRecommendations = ({ catalogBooks, baseBook, readGutenbergIds, limit }) => {
+  const readSet = new Set((readGutenbergIds || []).map(Number));
+  const unreadCandidates = catalogBooks.filter((book) => !readSet.has(Number(book.gutenbergId)));
 
-  const scored = unreadCandidates
-    .map((book) => ({ book, score: scoreCatalogCandidate(book, currentBook) }))
+  return unreadCandidates
+    .map((book) => ({ book, score: scoreCandidate(book, baseBook) }))
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       return (a.book.title || '').localeCompare(b.book.title || '');
     })
-    .map((entry) => entry.book);
-
-  return scored.slice(0, Math.min(limit, 8));
-};
-
-const idsToBooks = async (recommendationIdsByShelf) => {
-  const allIds = Object.values(recommendationIdsByShelf)
-    .flatMap((ids) => (Array.isArray(ids) ? ids : []))
-    .filter(Boolean);
-
-  if (!allIds.length) {
-    return recommendationIdsByShelf;
-  }
-
-  const objectIds = allIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
-  const books = await Book.find({ _id: { $in: objectIds } })
-    .select('_id title author gutenbergId')
-    .lean();
-
-  const byId = new Map(books.map((book) => [String(book._id), book]));
-
-  return Object.fromEntries(
-    Object.entries(recommendationIdsByShelf).map(([shelf, ids]) => {
-      const mapped = (ids || []).map((id) => byId.get(String(id))).filter(Boolean);
-      return [shelf, mapped];
-    }),
-  );
+    .map((entry) => entry.book)
+    .slice(0, Math.min(limit, 8));
 };
 
 export const getRecommendations = async (req, res) => {
   try {
     const requestBook = req.body?.book && typeof req.body.book === 'object' ? req.body.book : null;
-
-    if (!requestBook || !requestBook.gutenbergId) {
-      return res.status(200).json([]);
-    }
-
-    const requestGutenbergId = Number(requestBook.gutenbergId);
-    if (!Number.isFinite(requestGutenbergId)) {
-      return res.status(200).json([]);
-    }
-
-    const readBookIds = asStringArray(req.body?.readBookIds);
-    const currentBookId = req.body?.currentBookId
-      ? String(req.body.currentBookId)
-      : (readBookIds[0] || '');
-
     const limitPerShelf = Number.isFinite(Number(req.body?.limitPerShelf))
       ? Math.max(1, Math.min(20, Number(req.body.limitPerShelf)))
-      : 10;
+      : 8;
 
-    const safeReadBookIds = readBookIds.slice(0, 120);
-    const readBooks = await Book.find({ _id: { $in: safeReadBookIds.filter((id) => mongoose.Types.ObjectId.isValid(id)) } })
+    const readBookIds = asStringArray(req.body?.readBookIds).slice(0, 120);
+    const objectIds = readBookIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+    const readBooks = await Book.find({ _id: { $in: objectIds } })
       .select('_id title author gutenbergId')
       .lean();
 
-    const currentRead = readBooks.find((book) => String(book._id) === currentBookId);
-    const baseBook = {
-      title: requestBook.title || currentRead?.title || '',
-      author: requestBook.author || currentRead?.author || '',
-      gutenbergId: requestGutenbergId,
-      tags: normalizeTags(requestBook.tags || []),
-    };
-
-    try {
-      const databaseBaseBook = readBooks.find((book) => Number(book?.gutenbergId) === requestGutenbergId) || currentRead;
-      const recommendationsByShelf = await recommendFromDatabase({
-        currentBookId: databaseBaseBook?._id ? String(databaseBaseBook._id) : '',
-        readBookIds: safeReadBookIds,
-        limitPerShelf,
-      });
-
-      const resolvedFromDb = await idsToBooks(recommendationsByShelf || {});
-      const flatResolved = Object.values(resolvedFromDb || {}).flat();
-
-      if (flatResolved.length > 0) {
-        return res.json({
-          currentBookId: databaseBaseBook?._id ? String(databaseBaseBook._id) : null,
-          recommendations: resolvedFromDb,
-          source: 'database',
-        });
-      }
-    } catch (databaseError) {
-      console.warn('[RECOMMENDER] Database recommendation path failed, using catalog fallback:', databaseError?.message || databaseError);
-    }
-
-    const normalizedCatalog = (Array.isArray(gutenbergCatalog) ? gutenbergCatalog : [])
-      .filter((book) => book && Number.isFinite(Number(book.gutenbergId)))
-      .map(normalizeCatalogBook);
+    const requestGutenbergId = Number(requestBook?.gutenbergId);
     const readGutenbergIds = readBooks
       .map((book) => Number(book?.gutenbergId))
       .filter((id) => Number.isFinite(id));
 
-    if (!readGutenbergIds.includes(requestGutenbergId)) {
-      readGutenbergIds.push(requestGutenbergId);
+    const baseBook = {
+      title: String(requestBook?.title || readBooks[0]?.title || '').trim(),
+      author: String(requestBook?.author || readBooks[0]?.author || '').trim(),
+      gutenbergId: Number.isFinite(requestGutenbergId) ? requestGutenbergId : null,
+    };
+
+    if (baseBook.gutenbergId && !readGutenbergIds.includes(baseBook.gutenbergId)) {
+      readGutenbergIds.push(baseBook.gutenbergId);
     }
 
-    const catalogCurrentBook = normalizedCatalog.find((book) => book.gutenbergId === requestGutenbergId) || baseBook;
+    try {
+      const normalizedCatalog = (Array.isArray(gutenbergCatalog) ? gutenbergCatalog : [])
+        .filter((book) => book && Number.isFinite(Number(book.gutenbergId)))
+        .map(normalizeCatalogBook);
 
-    const fallback = buildCatalogRecommendations({
-      catalogBooks: normalizedCatalog,
-      currentBook: catalogCurrentBook,
-      readGutenbergIds,
-      limit: Math.min(8, limitPerShelf),
-    });
+      const fallback = buildRecommendations({
+        catalogBooks: normalizedCatalog,
+        baseBook,
+        readGutenbergIds,
+        limit: limitPerShelf,
+      });
 
-    return res.json({
-      currentBookId: currentBookId || null,
-      recommendations: {
-        based_on_book: fallback,
-        same_author: [],
-        series_continuation: [],
-        genre_based: [],
-      },
-      source: 'catalog-fallback',
-    });
+      return res.json({
+        currentBookId: req.body?.currentBookId || null,
+        recommendations: {
+          based_on_book: fallback,
+          same_author: [],
+          series_continuation: [],
+          genre_based: [],
+        },
+        source: 'catalog-title-author',
+      });
+    } catch {
+      return res.status(200).json([]);
+    }
   } catch (error) {
     console.error('[RECOMMENDER ERROR]', error);
     return res.status(200).json([]);

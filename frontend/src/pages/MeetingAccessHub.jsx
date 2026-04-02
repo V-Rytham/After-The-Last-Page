@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
 import api from '../utils/api';
 import { getBestCoverUrl } from '../utils/openLibraryCovers';
 import './MeetingAccessHub.css';
@@ -86,8 +86,8 @@ const MeetingAccessHub = ({ currentUser }) => {
     return (
       <div className="meeting-access-page is-gated animate-fade-in">
         <section className="meeting-access-gate" aria-label="Meet">
-          <h1 className="font-serif">Private discussions for readers who reached the last page.</h1>
-          <p>Sign in to access your completed books and join anonymous conversations.</p>
+          <h1 className="font-serif">Join conversations beyond the final page.</h1>
+          <p>Sign in to unlock discussion rooms for books you have completed.</p>
 
           <div className="meeting-access-gate-actions">
             <button type="button" className="btn-primary" onClick={() => navigate('/auth')}>
@@ -97,7 +97,7 @@ const MeetingAccessHub = ({ currentUser }) => {
 
           <div className="meeting-access-gate-footnote">
             <ShieldCheck size={16} />
-            <span>Only finished books appear here.</span>
+            <span>Unlocked after completion.</span>
           </div>
         </section>
       </div>
@@ -107,8 +107,8 @@ const MeetingAccessHub = ({ currentUser }) => {
   return (
     <div className="meeting-access-page animate-fade-in">
       <section className="meeting-access-hero">
-        <h1 className="font-serif">Meet fellow readers who reached the final page.</h1>
-        <p>Choose a completed book to enter text, voice, or video matchmaking.</p>
+        <h1 className="font-serif">Join conversations beyond the final page.</h1>
+        <p>Enter live discussions, voice rooms, or debates with readers who’ve completed the same book.</p>
       </section>
 
       {loading && (
@@ -130,7 +130,7 @@ const MeetingAccessHub = ({ currentUser }) => {
       {!loading && !error && !hasRooms && (
         <section className="meeting-access-empty glass-panel">
           <h2 className="font-serif">No unlocked rooms yet.</h2>
-          <p>Pass a book quiz to unlock Meet for that title, then return here.</p>
+          <p>Finish a book and pass its quiz to unlock Meet access.</p>
         </section>
       )}
 
@@ -160,19 +160,16 @@ const MeetingAccessHub = ({ currentUser }) => {
                   )}
                 </div>
                 <div className="meeting-access-body">
-                  <span className="meeting-access-status">
-                    <Sparkles size={12} />
-                    Meet unlocked
-                  </span>
                   <h3 className="meeting-access-title font-serif">{book.title || 'Untitled Book'}</h3>
                   <p className="meeting-access-author">{book.author || 'Unknown author'}</p>
+                  <span className="meeting-access-status">Unlocked after completion</span>
                 </div>
                 <button
                   type="button"
                   className="meeting-access-button"
                   onClick={() => navigate(`/meet/${encodeURIComponent(bookId)}`)}
                 >
-                  Enter Meet
+                  Join Discussion
                 </button>
               </article>
             );
