@@ -19,6 +19,7 @@ import { isProd } from './utils/runtime.js';
 import { RealtimeSessionManager } from './services/realtimeSessionManager.js';
 import { requestTracing } from './middleware/requestLogging.js';
 import recommenderRoutes from './routes/recommenderRoutes.js';
+import { requireDatabase } from './middleware/degradedModeMiddleware.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -144,24 +145,19 @@ registerSocketEvents(io, sessionManager);
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/books', bookRoutes);
-app.use('/api/threads', threadRoutes);
+app.use('/api/threads', requireDatabase({ status: 503, feature: 'Threads' }), threadRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/access', accessRoutes);
 app.use('/api/quiz', quizRoutes);
-app.use('/api/session', buildSessionRoutes(sessionManager));
-app.use('/api/matchmaking', buildMatchmakingRoutes(sessionManager));
-app.use('/api/recommender', recommenderRoutes);
+app.use('/api/session', requireDatabase({ feature: 'Realtime sessions' }), buildSessionRoutes(sessionManager));
+app.use('/api/matchmaking', requireDatabase({ feature: 'Meet' }), buildMatchmakingRoutes(sessionManager));
+app.use('/api/recommender', requireDatabase({ feature: 'Recommendations' }), recommenderRoutes);
 
 app.get('/api/health', (req, res) => {
   const connected = isDbConnected();
-  res.status(connected ? 200 : 503).json({
-    status: connected ? 'ok' : 'degraded',
-    message: connected ? 'Nexus Core Online' : 'Nexus Core running without database connectivity',
-    database: {
-      connected,
-      error: connected ? null : (getLastDbError()?.message || 'Database unavailable'),
-    },
-  });
+  res.status(200).json(connected
+    ? { status: 'ok', db: 'connected' }
+    : { status: 'degraded', db: 'disconnected', error: getLastDbError()?.message || 'Database unavailable' });
 });
 
 app.use(notFound);

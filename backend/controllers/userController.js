@@ -3,6 +3,7 @@ import { Thread } from '../models/Thread.js';
 import { UserProgress } from '../models/UserProgress.js';
 import { generateToken } from '../utils/generateToken.js';
 import { buildSafeErrorBody } from '../utils/runtime.js';
+import { buildDegradedAnonymousUser, isDegradedMode } from '../utils/degradedMode.js';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
@@ -117,6 +118,16 @@ const generateAnonymousId = async () => {
 
 export const registerAnonymousUser = async (req, res) => {
   try {
+    if (isDegradedMode()) {
+      const degradedUser = buildDegradedAnonymousUser();
+      return res.status(201).json(buildUserResponse(degradedUser, {
+        stats: {
+          booksCompleted: 0,
+          discussionsParticipated: 0,
+        },
+      }));
+    }
+
     const anonymousId = await generateAnonymousId();
 
     const user = await User.create({

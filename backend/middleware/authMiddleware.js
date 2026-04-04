@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
 import { isProd } from '../utils/runtime.js';
+import { getDegradedUserById, isDegradedMode } from '../utils/degradedMode.js';
 
 export const protect = async (req, res, next) => {
   let token;
@@ -9,7 +10,12 @@ export const protect = async (req, res, next) => {
     try {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = await User.findById(decoded.id).select('-password');
+
+      if (isDegradedMode()) {
+        req.user = getDegradedUserById(decoded.id);
+      } else {
+        req.user = await User.findById(decoded.id).select('-password');
+      }
 
       if (!req.user) {
         return res.status(401).json({ message: 'Not authorized, user not found' });

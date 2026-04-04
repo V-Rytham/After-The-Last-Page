@@ -2,6 +2,7 @@ import { checkMeetAccess, checkQuizAccess, grantMeetFallback } from '../services
 import mongoose from 'mongoose';
 import { UserProgress } from '../models/UserProgress.js';
 import { buildSafeErrorBody } from '../utils/runtime.js';
+import { getDegradedAllowedBookIds, getDegradedQuizProgress, isDegradedMode } from '../utils/degradedMode.js';
 
 export const checkAccess = async (req, res) => {
   try {
@@ -11,6 +12,15 @@ export const checkAccess = async (req, res) => {
     }
 
     const context = String(req.query?.context || '').trim().toLowerCase();
+
+    if (isDegradedMode()) {
+      if (context === 'meet') {
+        return res.json({ access: false, mode: 'degraded', fallback: true, message: 'Meet is unavailable in degraded mode.' });
+      }
+
+      const progress = getDegradedQuizProgress({ userId: req.user?._id, bookId });
+      return res.json({ access: Boolean(progress?.quizPassed), mode: progress?.quizPassed ? 'quiz' : 'none', fallback: true });
+    }
 
     if (context === 'meet') {
       const result = await checkMeetAccess({ userId: req.user?._id, bookId });
@@ -30,6 +40,10 @@ export const requestMeetFallback = async (req, res) => {
     const bookId = String(req.body?.bookId || '').trim();
     if (!bookId) {
       return res.status(400).json({ message: 'bookId is required.' });
+    }
+
+    if (isDegradedMode()) {
+      return res.json({ ok: false, fallback: true, message: 'Meet is unavailable in degraded mode.' });
     }
 
     await grantMeetFallback({ userId: req.user?._id, bookId, reason: req.body?.reason });
@@ -55,6 +69,17 @@ export const checkAccessBatch = async (req, res) => {
     const normalized = bookIds.map((id) => String(id || '').trim());
     if (normalized.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
       return res.status(400).json({ message: 'One or more bookIds are invalid.' });
+    }
+
+    if (isDegradedMode()) {
+      if (context === 'meet') {
+        return res.json({ allowedBookIds: [], fallback: true, message: 'Meet is unavailable in degraded mode.' });
+      }
+
+      return res.json({
+        allowedBookIds: getDegradedAllowedBookIds({ userId: req.user?._id, bookIds: normalized }),
+        fallback: true,
+      });
     }
 
     let allowedBookIds = [];
