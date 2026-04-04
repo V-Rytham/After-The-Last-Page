@@ -11,8 +11,9 @@ const howItWorksSteps = [
 ];
 
 export default function LandingPage({ currentUser }) {
-  const [isHowVisible, setIsHowVisible] = useState(false);
-  const [isHowAnimReady, setIsHowAnimReady] = useState(false);
+  const supportsIntersectionObserver = typeof window !== 'undefined' && typeof window.IntersectionObserver === 'function';
+  const [isHowVisible, setIsHowVisible] = useState(() => !supportsIntersectionObserver);
+  const [isHowAnimReady] = useState(() => supportsIntersectionObserver);
   const [recentBooks, setRecentBooks] = useState([]);
   const howItWorksRef = useRef(null);
 
@@ -24,13 +25,10 @@ export default function LandingPage({ currentUser }) {
       return undefined;
     }
 
-    if (typeof window === 'undefined' || typeof window.IntersectionObserver !== 'function') {
-      setIsHowVisible(true);
-      setIsHowAnimReady(false);
+    if (!supportsIntersectionObserver) {
       return undefined;
     }
 
-    setIsHowAnimReady(true);
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -45,7 +43,7 @@ export default function LandingPage({ currentUser }) {
 
     observer.observe(section);
     return () => observer.disconnect();
-  }, []);
+  }, [supportsIntersectionObserver]);
 
   useEffect(() => {
     let mounted = true;

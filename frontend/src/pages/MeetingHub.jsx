@@ -277,6 +277,9 @@ const MeetingHub = () => {
     if (!socketReady) {
       return;
     }
+    if (!getStoredToken()) {
+      return;
+    }
 
     api.get('/session/status')
       .then(({ data }) => {
