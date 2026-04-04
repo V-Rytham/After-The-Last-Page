@@ -4,6 +4,7 @@ import { fetchBookQuizQuestions } from '../services/quizQuestionEngine.js';
 import { resolveBookOrThrow } from '../services/accessService.js';
 import { buildSafeErrorBody } from '../utils/runtime.js';
 import { quizJobManager } from '../services/quizJobManager.js';
+import { getDegradedQuizProgress, isDegradedMode, setDegradedQuizProgress } from '../utils/degradedMode.js';
 
 const PASS_THRESHOLD_PERCENT = Number.isFinite(Number(process.env.QUIZ_PASS_THRESHOLD_PERCENT))
   ? Math.max(0, Math.min(100, Number(process.env.QUIZ_PASS_THRESHOLD_PERCENT)))
@@ -41,6 +42,14 @@ export const submitQuiz = async (req, res) => {
 
     if (!bookId || !mongoose.Types.ObjectId.isValid(bookId)) {
       return res.status(400).json({ message: 'Valid bookId is required.' });
+    }
+
+    if (isDegradedMode()) {
+      const normalizedAnswers = validateAnswers(answers);
+      const passed = normalizedAnswers.length > 0;
+      const scorePercent = 100;
+      setDegradedQuizProgress({ userId: effectiveUserId, bookId, passed, score: scorePercent });
+      return res.json({ passed, score: scorePercent, fallback: true });
     }
 
     await resolveBookOrThrow(bookId);
@@ -109,6 +118,19 @@ export const getQuizQuestions = async (req, res) => {
 
     if (!bookId || !mongoose.Types.ObjectId.isValid(bookId)) {
       return res.status(400).json({ message: 'Valid bookId is required.' });
+    }
+
+    if (isDegradedMode()) {
+      const progress = getDegradedQuizProgress({ userId: effectiveUserId, bookId });
+      if (progress?.quizPassed) {
+        return res.json({ questions: [], fallback: true, message: 'Quiz already completed in degraded mode.' });
+      }
+
+      return res.json({
+        questions: [],
+        fallback: true,
+        message: 'Quiz generation unavailable in degraded mode. Progress is stored in-memory when submitted.',
+      });
     }
 
     await resolveBookOrThrow(bookId);

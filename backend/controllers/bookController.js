@@ -5,8 +5,14 @@ import {
   readGutenbergBookStateless,
 } from '../utils/gutenbergReader.js';
 import { gutenbergCatalog } from '../seed/gutenbergCatalog.js';
+import { isDegradedMode } from '../utils/degradedMode.js';
 
 const BACKEND_TIMEOUT_MS = 70_000;
+const fallbackBooks = [
+  { gutenbergId: 1342, title: 'Pride and Prejudice', author: 'Jane Austen' },
+  { gutenbergId: 11, title: 'Alice in Wonderland', author: 'Lewis Carroll' },
+  { gutenbergId: 84, title: 'Frankenstein', author: 'Mary Shelley' },
+];
 
 const parseOptionalPositiveInt = (value, fallback = null) => {
   if (value == null || value === '') return fallback;
@@ -61,6 +67,10 @@ const upsertMetadata = async ({ gutenbergId, title, author }) => {
 
 export const getBooks = async (req, res) => {
   try {
+    if (isDegradedMode()) {
+      return res.json(fallbackBooks);
+    }
+
     const books = await Book.find({})
       .select('_id title author gutenbergId')
       .sort({ lastAccessedAt: -1, _id: -1 })
@@ -75,6 +85,10 @@ export const getBooks = async (req, res) => {
 
 export const getBookById = async (req, res) => {
   try {
+    if (isDegradedMode()) {
+      return res.status(503).json({ message: 'Book metadata lookup unavailable in degraded mode.', fallback: true });
+    }
+
     const book = await fetchBookByObjectId(req.params.id, 'title author gutenbergId');
     if (!book) {
       res.status(404).json({ message: 'Book not found' });
@@ -90,6 +104,10 @@ export const getBookById = async (req, res) => {
 
 export const readBook = async (req, res) => {
   try {
+    if (isDegradedMode()) {
+      return res.status(503).json({ message: 'Book reading by database id is unavailable in degraded mode.', fallback: true });
+    }
+
     const book = await fetchBookByObjectId(req.params.id, 'title author gutenbergId');
     if (!book) {
       res.status(404).json({ message: 'Book not found.' });
@@ -123,13 +141,15 @@ export const getGutenbergPreview = async (req, res) => {
       return;
     }
 
-    const existing = await Book.findOne({ gutenbergId })
-      .select('_id title author gutenbergId')
-      .lean();
+    if (!isDegradedMode()) {
+      const existing = await Book.findOne({ gutenbergId })
+        .select('_id title author gutenbergId')
+        .lean();
 
-    if (existing) {
-      res.json(existing);
-      return;
+      if (existing) {
+        res.json(existing);
+        return;
+      }
     }
 
     const catalogEntry = (Array.isArray(gutenbergCatalog) ? gutenbergCatalog : [])
@@ -160,14 +180,17 @@ export const readGutenbergBook = async (req, res) => {
     }
 
     const payload = await readGutenbergBookStateless(gutenbergId, buildReaderOptions(req));
-    const persisted = await upsertMetadata({
-      gutenbergId: payload.gutenbergId,
-      title: payload.title,
-      author: payload.author,
-    });
+    const persisted = isDegradedMode()
+      ? null
+      : await upsertMetadata({
+          gutenbergId: payload.gutenbergId,
+          title: payload.title,
+          author: payload.author,
+        });
     res.json({
       ...payload,
-      bookId: persisted?._id ? String(persisted._id) : null,
+      bookId: persisted?._id ? String(persisted._id) : `gutenberg:${payload.gutenbergId}`,
+      fallback: isDegradedMode(),
     });
   } catch (error) {
     const statusCode = Number(error?.statusCode) || 500;
