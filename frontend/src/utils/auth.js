@@ -18,6 +18,8 @@ export const saveAuthSession = (payload) => {
   return user;
 };
 
+export const unwrapApiData = (payload) => payload?.data ?? payload;
+
 export const clearAuthSession = () => {
   localStorage.removeItem(USER_KEY);
 };

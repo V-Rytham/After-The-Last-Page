@@ -87,6 +87,7 @@ export const registerUser = async (req, res) => {
     assertAuthDatabaseReady();
     const payload = signupSchema.parse(req.body);
     const email = payload.email.toLowerCase();
+    console.log('SIGNUP DEBUG:', { email, ip: req.ip });
 
     const existing = await User.findOne({ email }).select('_id isVerified');
     if (existing?.isVerified) {
@@ -133,6 +134,7 @@ export const verifySignupOtp = async (req, res) => {
   try {
     assertAuthDatabaseReady();
     const payload = otpVerifySchema.parse(req.body);
+    console.log('OTP VERIFY DEBUG:', { email: payload.email.toLowerCase(), ip: req.ip });
     const user = await User.findOne({ email: payload.email.toLowerCase() });
     if (!user) return error(res, 'User not found.', 'USER_NOT_FOUND', 404);
 
@@ -174,7 +176,17 @@ export const loginUser = async (req, res) => {
     assertAuthDatabaseReady();
     const payload = loginSchema.parse(req.body);
     const user = await User.findOne({ email: payload.email.toLowerCase() });
-    if (!user || !user.passwordHash || !(await bcrypt.compare(payload.password, user.passwordHash))) {
+    console.log('LOGIN DEBUG:', {
+      email: payload.email.toLowerCase(),
+      userFound: Boolean(user),
+      hasPasswordHash: Boolean(user?.passwordHash),
+    });
+
+    if (!user || !user.passwordHash) {
+      return error(res, 'Invalid email or password.', 'INVALID_CREDENTIALS', 401);
+    }
+
+    if (!(await bcrypt.compare(payload.password, user.passwordHash))) {
       return error(res, 'Invalid email or password.', 'INVALID_CREDENTIALS', 401);
     }
 
@@ -268,6 +280,7 @@ export const loginWithGoogle = async (req, res) => {
 export const refreshSession = async (req, res) => {
   try {
     assertAuthDatabaseReady();
+    console.log('REFRESH COOKIE:', req.cookies);
     const refreshToken = req.cookies?.atlp_refresh;
     if (!refreshToken) return error(res, 'Missing refresh token.', 'MISSING_REFRESH_TOKEN', 401);
 
@@ -354,7 +367,10 @@ export const updateThemePreference = async (req, res) => {
 
 export const updateUserProfileImage = async (req, res) => {
   try {
-    const imageUrl = await uploadProfileImage(req.file);
+    const imageUrl = await uploadProfileImage({
+      dataUri: req.body?.profileImageData,
+      file: req.file,
+    });
     req.user.profileImageUrl = imageUrl;
     await req.user.save();
     return success(res, buildUserResponse(req.user));

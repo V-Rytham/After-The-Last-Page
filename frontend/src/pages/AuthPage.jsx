@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, LogIn, UserPlus } from 'lucide-react';
 import api from '../utils/api';
-import { saveAuthSession } from '../utils/auth';
+import { saveAuthSession, unwrapApiData } from '../utils/auth';
 import './AuthPage.css';
 
 const initialSignupState = { name: '', username: '', email: '', password: '', confirmPassword: '' };
@@ -52,7 +52,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
             }
 
             const { data } = await api.post('/users/oauth/google', { idToken });
-            const user = saveAuthSession(data.user);
+            const user = saveAuthSession(unwrapApiData(data));
             onAuthSuccess(user);
             navigate(redirectPath, { replace: true });
           } catch (requestError) {
@@ -107,7 +107,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
 
     try {
       const { data } = await api.post('/users/login', loginForm);
-      const user = saveAuthSession(data.user);
+      const user = saveAuthSession(unwrapApiData(data));
       onAuthSuccess(user);
       navigate(redirectPath, { replace: true });
     } catch (requestError) {
@@ -150,7 +150,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
 
     try {
       const { data } = await api.post('/users/verify-otp', otpForm);
-      const user = saveAuthSession(data.user);
+      const user = saveAuthSession(unwrapApiData(data));
       onAuthSuccess(user);
       navigate(redirectPath, { replace: true });
     } catch (requestError) {

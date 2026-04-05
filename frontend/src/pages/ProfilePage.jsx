@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import api from '../utils/api';
-import { getStoredUser } from '../utils/auth';
+import { getStoredUser, unwrapApiData } from '../utils/auth';
 import './ProfilePage.css';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
@@ -104,17 +104,18 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
 
       try {
         const { data } = await api.get('/users/profile');
+        const payload = unwrapApiData(data);
         if (cancelled) {
           return;
         }
 
-        setProfile({ ...data, stats: data.stats || EMPTY_STATS });
+        setProfile({ ...payload, stats: payload.stats || EMPTY_STATS });
         setEditForm({
-          name: data.name || '',
-          username: data.username || '',
-          bio: data.bio || '',
+          name: payload.name || '',
+          username: payload.username || '',
+          bio: payload.bio || '',
         });
-        onUserUpdate?.(data);
+        onUserUpdate?.(payload);
       } catch (requestError) {
         if (!cancelled) {
           setError(requestError.response?.data?.message || 'Could not load your profile right now.');
@@ -262,8 +263,9 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
         bio: editForm.bio,
       };
       const { data } = await api.put('/users/profile', payload);
-      setProfile({ ...data, stats: data.stats || EMPTY_STATS });
-      onUserUpdate?.(data);
+      const nextUser = unwrapApiData(data);
+      setProfile({ ...nextUser, stats: nextUser.stats || EMPTY_STATS });
+      onUserUpdate?.(nextUser);
       setEditing(false);
       setSuccess('Profile updated.');
     } catch (requestError) {

@@ -4,6 +4,8 @@ import { getApiBaseUrl } from './serviceUrls';
 const baseURL = getApiBaseUrl();
 let rateLimitedUntil = 0;
 
+axios.defaults.withCredentials = true;
+
 const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 const parseRetryAfterMs = (retryAfterHeader) => {
