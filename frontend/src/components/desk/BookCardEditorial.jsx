@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getBestCoverUrl } from '../../utils/openLibraryCovers';
+import { buildReadRoute } from '../../utils/libraryApi';
 
 const clampProgress = (value) => {
   const numeric = Number(value);
@@ -21,7 +22,7 @@ const getReadingState = (session) => {
 
 const BookCardEditorial = ({ book, session }) => {
   const coverUrl = getBestCoverUrl(book);
-  const route = book?.gutenbergId ? `/read/gutenberg/${book.gutenbergId}` : '/library';
+  const route = (book?.source && book?.sourceId) ? buildReadRoute(book) : '/library';
   const title = String(book?.title || 'Untitled').trim() || 'Untitled';
   const author = String(book?.author || 'Unknown author').trim() || 'Unknown author';
 
