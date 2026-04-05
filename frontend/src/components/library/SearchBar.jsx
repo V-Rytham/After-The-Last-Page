@@ -18,17 +18,8 @@ const SearchBar = ({ value, onChange, onSubmit, loading = false, categories = []
   return (
     <div className="search-wrapper">
       <form className="search-container" role="search" onSubmit={handleSubmit}>
-        <button
-          type="button"
-          className="search-arrow-btn"
-          onClick={() => handleStepCategory(-1)}
-          aria-label="Previous category"
-        >
-          <ChevronLeft size={16} />
-        </button>
-
         <div className="search-input-wrap">
-          <Search size={16} aria-hidden="true" className="search-input-icon" />
+          <Search size={15} aria-hidden="true" className="search-input-icon" />
           <input
             value={value}
             onChange={(event) => onChange(event.target.value)}
@@ -37,6 +28,21 @@ const SearchBar = ({ value, onChange, onSubmit, loading = false, categories = []
             autoComplete="off"
           />
         </div>
+
+        <button type="submit" className="search-submit-btn" aria-label="Search library" disabled={loading}>
+          <Search size={15} />
+        </button>
+      </form>
+
+      <div className="search-categories-row">
+        <button
+          type="button"
+          className="search-arrow-btn"
+          onClick={() => handleStepCategory(-1)}
+          aria-label="Previous category"
+        >
+          <ChevronLeft size={15} />
+        </button>
 
         <div className="search-category-pills" role="tablist" aria-label="Book categories">
           {categories.map((category) => {
@@ -62,13 +68,9 @@ const SearchBar = ({ value, onChange, onSubmit, loading = false, categories = []
           onClick={() => handleStepCategory(1)}
           aria-label="Next category"
         >
-          <ChevronRight size={16} />
+          <ChevronRight size={15} />
         </button>
-
-        <button type="submit" className="search-submit-btn" aria-label="Search library" disabled={loading}>
-          <Search size={16} />
-        </button>
-      </form>
+      </div>
     </div>
   );
 };

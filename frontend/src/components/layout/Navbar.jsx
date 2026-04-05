@@ -104,47 +104,48 @@ const Navbar = ({ currentUser, onLogout, uiTheme, onThemeChange }) => {
 
   return (
     <>
-      <header className="navbar-redesign" aria-label="Global">
+      <header className="navbar" aria-label="Global">
         <div className="navbar-left">
           <Link to="/" className="navbar-brand-link" aria-label="After the Last Page home">
             <span className="navbar-title font-serif">After the Last Page</span>
-            <span className="navbar-subtitle">WHERE BOOKS BECOME CONVERSATIONS</span>
           </Link>
         </div>
 
-        <div className="navbar-center" role="tablist" aria-label="Primary navigation">
+        <nav className="center-nav" aria-label="Primary navigation">
           {NAV_ITEMS.map((item) => {
             const active = location.pathname.startsWith(item.path);
             return (
-              <Link key={item.path} to={item.path} className={`navbar-pill ${active ? 'is-active' : ''}`} role="tab" aria-selected={active}>
+              <Link key={item.path} to={item.path} className={`center-nav-link ${active ? 'is-active' : ''}`} aria-current={active ? 'page' : undefined}>
                 {item.label}
               </Link>
             );
           })}
-        </div>
+        </nav>
 
         <div className="navbar-right">
-          <button
-            type="button"
-            className="theme-icon-btn"
-            onClick={() => onThemeChange(uiTheme === 'dark' ? 'light' : 'dark')}
-            aria-label={`Switch theme. Current theme: ${activeTheme.label}`}
-          >
-            {uiTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
+          <div className="right-controls">
+            <button
+              type="button"
+              className="theme-icon-btn"
+              onClick={() => onThemeChange(uiTheme === 'dark' ? 'light' : 'dark')}
+              aria-label={`Switch theme. Current theme: ${activeTheme.label}`}
+            >
+              {uiTheme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
 
-          <div className="profile-menu-wrap" ref={profileMenuRef}>
-            <ProfileAvatar
-              user={currentUser}
-              label="Open profile menu"
-              onClick={() => setProfileMenuOpen((open) => !open)}
-            />
-            {profileMenuOpen ? (
-              <div className="profile-dropdown" role="menu" aria-label="Profile menu">
-                <button type="button" className="profile-dropdown-item" role="menuitem" onClick={handleViewProfile}>View profile</button>
-                <button type="button" className="profile-dropdown-item is-danger" role="menuitem" onClick={handleSignOut}>Sign out</button>
-              </div>
-            ) : null}
+            <div className="profile-menu-wrap" ref={profileMenuRef}>
+              <ProfileAvatar
+                user={currentUser}
+                label="Open profile menu"
+                onClick={() => setProfileMenuOpen((open) => !open)}
+              />
+              {profileMenuOpen ? (
+                <div className="profile-dropdown" role="menu" aria-label="Profile menu">
+                  <button type="button" className="profile-dropdown-item" role="menuitem" onClick={handleViewProfile}>View profile</button>
+                  <button type="button" className="profile-dropdown-item is-danger" role="menuitem" onClick={handleSignOut}>Sign out</button>
+                </div>
+              ) : null}
+            </div>
           </div>
 
           <ProfileAvatar user={currentUser} className="mobile-menu-avatar" onClick={() => setDrawerOpen(true)} label="Open navigation menu" />
