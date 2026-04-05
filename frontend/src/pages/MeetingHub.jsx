@@ -58,12 +58,12 @@ const MeetingHub = () => {
     const fetchData = async () => {
       try {
         const access = await api.get(`/access/check?bookId=${encodeURIComponent(bookId)}&context=meet`);
-        if (!access?.data?.access) {
+        if (!access?.access) {
           navigate(`/quiz/${encodeURIComponent(bookId)}`, { replace: true, state: { from: `/meet/${bookId}` } });
           return;
         }
 
-        const { data } = await api.get(`/books/${bookId}`);
+        const data = await api.get(`/books/${bookId}`);
         setBook(data);
       } catch (error) {
         console.error('Fetch error:', error);
@@ -275,7 +275,7 @@ const MeetingHub = () => {
     }
 
     api.get('/session/status')
-      .then(({ data }) => {
+      .then((data) => {
         const state = data?.session?.state;
         if (state === 'SEARCHING' || state === 'MATCHED' || state === 'IN_CONVERSATION') {
           return api.post('/session/end', { reason: 'restore-reset' });
@@ -447,7 +447,7 @@ const MeetingHub = () => {
     setBookFriendLoading(true);
     setMatchNotice('');
     try {
-      const { data } = await api.post('/agent/start', { book_id: book._id || book.id || bookId });
+      const data = await api.post('/agent/start', { book_id: book._id || book.id || bookId });
       setBookFriendSessionId(data.session_id);
       setMessages([]);
       setPhase('bookfriend');
@@ -465,7 +465,7 @@ const MeetingHub = () => {
     setMessages((prev) => [...prev, { text: trimmed, sender: 'me', timestamp: new Date() }]);
     setChatInput('');
     try {
-      const { data } = await api.post('/agent/message', { session_id: bookFriendSessionId, message: trimmed });
+      const data = await api.post('/agent/message', { session_id: bookFriendSessionId, message: trimmed });
       setMessages((prev) => [...prev, { text: data.response, sender: 'bookfriend', timestamp: new Date() }]);
     } catch {
       setMessages((prev) => [...prev, { text: 'Sorry, I lost the thread for a moment. Could you try that again?', sender: 'bookfriend', timestamp: new Date() }]);

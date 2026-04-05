@@ -49,7 +49,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
     setError('');
     setSubmitting(true);
     try {
-      const { data } = await api.post('/auth/login', {
+      const data = await api.post('/auth/login', {
         email: loginForm.email,
         password: loginForm.password,
       });
@@ -74,7 +74,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
 
     setSubmitting(true);
     try {
-      const { data } = await api.post('/auth/register', {
+      const data = await api.post('/auth/register', {
         name: signupForm.name,
         username: signupForm.username,
         email: signupForm.email,

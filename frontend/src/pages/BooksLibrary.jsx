@@ -171,7 +171,7 @@ const normalizeRecommendationGroups = (payload) => {
 const fetchDeskData = async () => {
   const sessions = getReadingSessionsForCurrentUser();
 
-  const { data: booksPayload } = await withRetry(() => api.get('/books'));
+  const booksPayload = await withRetry(() => api.get('/books'));
   const allBooks = Array.isArray(booksPayload) ? booksPayload.filter(Boolean) : [];
   const recentActivity = getRecentActivity(allBooks, sessions);
   const active = getLastActiveBook(allBooks, sessions);
@@ -200,7 +200,7 @@ const fetchDeskData = async () => {
         limitPerShelf: MAX_RECOMMENDATIONS_PER_TYPE,
       }));
 
-      const normalized = normalizeRecommendationGroups(recResponse?.data);
+      const normalized = normalizeRecommendationGroups(recResponse);
       contentRecommendations = normalized.contentBased
         .filter((book) => !readIdSet.has(getBookKey(book)))
         .slice(0, MAX_RECOMMENDATIONS_PER_TYPE);

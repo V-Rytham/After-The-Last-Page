@@ -126,7 +126,7 @@ const buildCorsOriginValidator = () => {
 app.use(cors({
   origin: buildCorsOriginValidator(),
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'X-Book-Action-Id', 'X-Book-Action-Name'],
+  allowedHeaders: ['Content-Type', 'X-Book-Action-Id', 'X-Book-Action-Name', 'X-User-Id'],
   exposedHeaders: ['X-Request-Id'],
   maxAge: 600,
   credentials: true,
@@ -135,6 +135,47 @@ app.use(securityHeaders);
 app.use(requestTracing);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: false, limit: '200kb' }));
+app.use((req, res, next) => {
+  const originalJson = res.json.bind(res);
+  res.json = (payload) => {
+    if (payload && typeof payload === 'object' && Object.prototype.hasOwnProperty.call(payload, 'success')) {
+      console.info('[API] final API response', {
+        method: req.method,
+        path: req.originalUrl,
+        statusCode: res.statusCode,
+        success: Boolean(payload.success),
+      });
+      return originalJson(payload);
+    }
+
+    if (res.statusCode >= 400) {
+      const message = String(payload?.message || 'Request failed.');
+      const normalizedError = { success: false, message };
+      if (payload && typeof payload === 'object') {
+        Object.entries(payload).forEach(([key, value]) => {
+          if (key !== 'message') normalizedError[key] = value;
+        });
+      }
+      console.info('[API] final API response', {
+        method: req.method,
+        path: req.originalUrl,
+        statusCode: res.statusCode,
+        success: false,
+      });
+      return originalJson(normalizedError);
+    }
+
+    const normalizedSuccess = { success: true, data: payload };
+    console.info('[API] final API response', {
+      method: req.method,
+      path: req.originalUrl,
+      statusCode: res.statusCode,
+      success: true,
+    });
+    return originalJson(normalizedSuccess);
+  };
+  next();
+});
 app.use(attachAuthContext);
 
 if (String(process.env.DEV_AUTH_BYPASS || '').toLowerCase() === 'true') {

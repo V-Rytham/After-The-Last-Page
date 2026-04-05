@@ -27,7 +27,7 @@ const ThreadAccessHub = ({ currentUser }) => {
 
     const fetchThreadBooks = async () => {
       try {
-        const { data: availableBooks } = await api.get('/books');
+        const availableBooks = await api.get('/books');
         const normalizedBooks = Array.isArray(availableBooks) ? availableBooks : [];
         const bookIds = normalizedBooks
           .map((book) => resolveBookId(book))
@@ -38,7 +38,7 @@ const ThreadAccessHub = ({ currentUser }) => {
           return;
         }
 
-        const { data: access } = await api.post('/access/check-batch', { bookIds, context: 'thread' });
+        const access = await api.post('/access/check-batch', { bookIds, context: 'thread' });
         const allowed = new Set((Array.isArray(access?.allowedBookIds) ? access.allowedBookIds : []).map(String));
         const nextBooks = normalizedBooks
           .map((book) => {

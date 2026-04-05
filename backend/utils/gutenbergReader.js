@@ -106,6 +106,7 @@ export const convertTextToChapters = (cleanText) => {
     chapters.push({
       index: chapters.length + 1,
       title: currentTitle,
+      content: text,
       html: toHtmlParagraphs(text),
     });
     currentTitle = null;
@@ -131,7 +132,7 @@ export const convertTextToChapters = (cleanText) => {
   if (!chapters.length) {
     const fallbackHtml = toHtmlParagraphs(cleanText);
     if (!fallbackHtml) return [];
-    return [{ index: 1, title: 'Chapter 1', html: fallbackHtml }];
+    return [{ index: 1, title: 'Full Text', content: cleanText, html: fallbackHtml }];
   }
 
   return chapters.filter((chapter) => chapter.html);
@@ -194,6 +195,7 @@ export const processGutenbergTextProgressive = (
     chapters.push({
       index: processedChapters,
       title: currentTitle,
+      content: text,
       html: toHtmlParagraphs(text),
     });
     currentTitle = null;
@@ -252,7 +254,7 @@ export const processGutenbergTextProgressive = (
         .trim(),
     );
     if (fallbackHtml) {
-      chapters.push({ index: 1, title: 'Chapter 1', html: fallbackHtml });
+      chapters.push({ index: 1, title: 'Full Text', content: lines.join('\n').trim(), html: fallbackHtml });
       completed = true;
       nextCursor = lines.length;
     }
@@ -278,14 +280,61 @@ export const readGutenbergBookStateless = async (gutenbergId, options = {}) => {
     processingBudgetMs = DEFAULT_PROCESSING_BUDGET_MS,
     initialChapterCount = DEFAULT_INITIAL_CHAPTERS,
   } = options;
-  const metadata = await fetchGutenbergMetadata(gutenbergId, options);
-  const rawText = await fetchGutenbergText(gutenbergId, options);
   const parsedCursor = normalizeCursor(cursor);
   const effectiveChapterLimit = parsedCursor === 0 ? initialChapterCount : maxChapters;
-  const processed = processGutenbergTextProgressive(rawText, {
-    cursor: parsedCursor,
-    maxChapters: effectiveChapterLimit,
-    processingBudgetMs,
-  });
-  return { ...metadata, ...processed };
+
+  try {
+    const metadata = await fetchGutenbergMetadata(gutenbergId, options);
+    const rawText = await fetchGutenbergText(gutenbergId, options);
+    console.info('[GUTENBERG] Raw text response received', {
+      gutenbergId,
+      length: String(rawText || '').length,
+    });
+
+    const processed = processGutenbergTextProgressive(rawText, {
+      cursor: parsedCursor,
+      maxChapters: effectiveChapterLimit,
+      processingBudgetMs,
+    });
+
+    const safeChapters = Array.isArray(processed?.chapters) ? processed.chapters : [];
+    if (safeChapters.length === 0) {
+      const fallbackContent = String(rawText || '').trim() || 'This book could not be loaded from Gutenberg.';
+      return {
+        ...metadata,
+        status: 'complete',
+        nextCursor: null,
+        totalChaptersEstimated: 1,
+        chapters: [{ index: 1, title: 'Full Text', content: fallbackContent, html: toHtmlParagraphs(fallbackContent) }],
+      };
+    }
+
+    return {
+      ...metadata,
+      ...processed,
+      chapters: safeChapters,
+    };
+  } catch (error) {
+    console.error('[GUTENBERG] Failed to read book; returning fallback chapter', {
+      gutenbergId,
+      error: error?.message || String(error),
+    });
+    return {
+      gutenbergId,
+      title: `Project Gutenberg #${gutenbergId}`,
+      author: 'Unknown',
+      status: 'complete',
+      nextCursor: null,
+      totalChaptersEstimated: 1,
+      chapters: [
+        {
+          index: 1,
+          title: 'Unavailable',
+          content: 'This book could not be loaded from Gutenberg.',
+          html: toHtmlParagraphs('This book could not be loaded from Gutenberg.'),
+        },
+      ],
+      fallback: true,
+    };
+  }
 };

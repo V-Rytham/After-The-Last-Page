@@ -27,7 +27,7 @@ const MeetingAccessHub = ({ currentUser }) => {
 
     const fetchMeetBooks = async () => {
       try {
-        const { data: books } = await api.get('/books');
+        const books = await api.get('/books');
         const normalizedBooks = Array.isArray(books) ? books : [];
         if (!normalizedBooks.length) {
           if (!cancelled) {
@@ -47,7 +47,7 @@ const MeetingAccessHub = ({ currentUser }) => {
           return;
         }
 
-        const { data: access } = await api.post('/access/check-batch', {
+        const access = await api.post('/access/check-batch', {
           bookIds,
           context: 'meet',
         });

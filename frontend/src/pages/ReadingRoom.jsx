@@ -19,14 +19,6 @@ const GUTENBERG_HOST = 'https://www.gutenberg.org';
 
 const clampNumber = (value, min, max) => Math.min(max, Math.max(min, value));
 
-const unwrapApiData = (payload) => {
-  if (!payload || typeof payload !== 'object') return payload;
-  if (Object.prototype.hasOwnProperty.call(payload, 'data') && payload.data && typeof payload.data === 'object') {
-    return payload.data;
-  }
-  return payload;
-};
-
 const escapeHtml = (value) => (
   String(value)
     .replaceAll('&', '&amp;')
@@ -82,13 +74,14 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
     if (!isGutenbergRoute || nextCursor == null || loadingMoreChapters) return;
     setLoadingMoreChapters(true);
     try {
-      const { data } = await api.get(`/books/gutenberg/${gutenbergId}/read`, {
+      const data = await api.get(`/books/gutenberg/${gutenbergId}/read`, {
         params: {
           cursor: nextCursor,
           maxChapters: 5,
         },
       });
-      const readPayload = unwrapApiData(data);
+      const readPayload = data;
+      console.info('[ReadingRoom] Gutenberg incremental payload', readPayload);
       const incoming = Array.isArray(readPayload?.chapters) ? readPayload.chapters : [];
       if (incoming.length > 0) {
         setChapters((prev) => ([
@@ -128,11 +121,14 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
 
       try {
         if (isGutenbergRoute) {
-          const { data } = await api.get(`/books/gutenberg/${gutenbergId}/read`);
-          const readPayload = unwrapApiData(data);
+          const readPayload = await api.get(`/books/gutenberg/${gutenbergId}/read`);
+          console.info('[ReadingRoom] Gutenberg initial payload', readPayload);
           const nextChapters = Array.isArray(readPayload?.chapters) ? readPayload.chapters : [];
-          if (nextChapters.length === 0) {
-            throw new Error('Book content response did not include chapters.');
+          if (!readPayload || !Array.isArray(readPayload.chapters)) {
+            setContentError(true);
+            setContentErrorMessage('Book content not available right now.');
+            setChapters([{ title: 'Unavailable', html: '<p>This book could not be loaded from Gutenberg.</p>' }]);
+            return;
           }
 
           setBook({
@@ -153,12 +149,15 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
           return;
         }
 
-        const { data: metadata } = await api.get(`/books/${bookId}`);
-        const { data: readData } = await api.get(`/books/${bookId}/read`);
-        const readPayload = unwrapApiData(readData);
+        const metadata = await api.get(`/books/${bookId}`);
+        const readPayload = await api.get(`/books/${bookId}/read`);
+        console.info('[ReadingRoom] Book read payload', readPayload);
         const nextChapters = Array.isArray(readPayload?.chapters) ? readPayload.chapters : [];
-        if (nextChapters.length === 0) {
-          throw new Error('Book content response did not include chapters.');
+        if (!readPayload || !Array.isArray(readPayload.chapters)) {
+          setContentError(true);
+          setContentErrorMessage('Book content not available right now.');
+          setChapters([{ title: 'Unavailable', html: '<p>Book content not available.</p>' }]);
+          return;
         }
 
         setBook(metadata);

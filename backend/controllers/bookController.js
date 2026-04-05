@@ -65,6 +65,19 @@ const mapReadErrorMessage = (statusCode) => {
   if (statusCode === 504) return 'This book is large and taking longer than expected.';
   return 'Unable to fetch this book right now. Please retry.';
 };
+const ensureChapters = (payload, fallbackTitle = 'Unavailable', fallbackMessage = 'This book could not be loaded from Gutenberg.') => {
+  const chapters = Array.isArray(payload?.chapters) ? payload.chapters : [];
+  if (chapters.length > 0) {
+    return chapters.map((chapter, index) => ({
+      ...chapter,
+      index: Number(chapter?.index) || index + 1,
+      title: String(chapter?.title || `Chapter ${index + 1}`),
+      content: String(chapter?.content || ''),
+      html: String(chapter?.html || `<p>${String(chapter?.content || '').trim()}</p>`),
+    }));
+  }
+  return [{ index: 1, title: fallbackTitle, content: fallbackMessage, html: `<p>${fallbackMessage}</p>` }];
+};
 
 const readFreshCache = (cache, key) => {
   const cached = cache.get(key);
@@ -159,10 +172,10 @@ export const getBooks = async (req, res) => {
       .sort({ lastAccessedAt: -1, _id: -1 })
       .lean();
 
-    res.json(books.map((book) => toStableBookShape(book)).filter(Boolean));
+    return success(res, books.map((book) => toStableBookShape(book)).filter(Boolean));
   } catch (error) {
     console.error('[BOOK] Failed to fetch books list:', error?.message || error);
-    res.status(500).json({ message: 'Server error fetching books.' });
+    return res.status(500).json({ message: 'Server error fetching books.' });
   }
 };
 
@@ -220,14 +233,13 @@ export const getBookById = async (req, res) => {
 
     const book = await fetchBookByObjectId(req.params.id, 'title author gutenbergId');
     if (!book) {
-      res.status(404).json({ message: 'Book not found' });
-      return;
+      return res.status(404).json({ message: 'Book not found' });
     }
 
-    res.json(book);
+    return success(res, book);
   } catch (error) {
     console.error('[BOOK] Failed to fetch book by id:', error?.message || error);
-    res.status(500).json({ message: 'Server error fetching book' });
+    return res.status(500).json({ message: 'Server error fetching book' });
   }
 };
 
@@ -239,23 +251,31 @@ export const readBook = async (req, res) => {
 
     const book = await fetchBookByObjectId(req.params.id, 'title author gutenbergId');
     if (!book) {
-      res.status(404).json({ message: 'Book not found.' });
-      return;
+      return res.status(404).json({ message: 'Book not found.' });
     }
 
     const payload = await readGutenbergBookStateless(book.gutenbergId, buildReaderOptions(req));
+    const normalizedPayload = { ...payload, chapters: ensureChapters(payload) };
     const persisted = await upsertMetadata({
-      gutenbergId: payload.gutenbergId,
-      title: payload.title,
-      author: payload.author,
+      gutenbergId: normalizedPayload.gutenbergId,
+      title: normalizedPayload.title,
+      author: normalizedPayload.author,
     });
-    success(res, {
-      ...payload,
+    const responseData = {
+      ...normalizedPayload,
       bookId: persisted?._id ? String(persisted._id) : String(book._id),
+    };
+    console.info('[BOOK] Final API response payload', {
+      endpoint: 'readBook',
+      gutenbergId: normalizedPayload.gutenbergId,
+      chapters: responseData.chapters.length,
+      status: responseData.status,
+      fallback: Boolean(responseData.fallback),
     });
+    return success(res, responseData);
   } catch (error) {
     const statusCode = Number(error?.statusCode) || 500;
-    res.status(statusCode).json({
+    return res.status(statusCode).json({
       message: mapReadErrorMessage(statusCode),
     });
   }
@@ -266,8 +286,7 @@ export const getGutenbergPreview = async (req, res) => {
   try {
     const gutenbergId = parseStrictGutenbergId(req.params.gutenbergId);
     if (!gutenbergId) {
-      res.status(400).json({ message: 'Invalid Gutenberg ID.' });
-      return;
+      return res.status(400).json({ message: 'Invalid Gutenberg ID.' });
     }
 
     if (!isDegradedMode()) {
@@ -276,8 +295,7 @@ export const getGutenbergPreview = async (req, res) => {
         .lean();
 
       if (existing) {
-        res.json(existing);
-        return;
+        return success(res, existing);
       }
     }
 
@@ -308,26 +326,34 @@ export const readGutenbergBook = async (req, res) => {
   try {
     const gutenbergId = parseStrictGutenbergId(req.params.gutenbergId);
     if (!gutenbergId) {
-      res.status(400).json({ message: 'Invalid Gutenberg ID.' });
-      return;
+      return res.status(400).json({ message: 'Invalid Gutenberg ID.' });
     }
 
     const payload = await readGutenbergBookStateless(gutenbergId, buildReaderOptions(req));
+    const normalizedPayload = { ...payload, chapters: ensureChapters(payload) };
     const persisted = isDegradedMode()
       ? null
       : await upsertMetadata({
-          gutenbergId: payload.gutenbergId,
-          title: payload.title,
-          author: payload.author,
+          gutenbergId: normalizedPayload.gutenbergId,
+          title: normalizedPayload.title,
+          author: normalizedPayload.author,
         });
-    success(res, {
-      ...payload,
-      bookId: persisted?._id ? String(persisted._id) : `gutenberg:${payload.gutenbergId}`,
+    const responseData = {
+      ...normalizedPayload,
+      bookId: persisted?._id ? String(persisted._id) : `gutenberg:${normalizedPayload.gutenbergId}`,
       fallback: isDegradedMode(),
+    };
+    console.info('[BOOK] Final API response payload', {
+      endpoint: 'readGutenbergBook',
+      gutenbergId: normalizedPayload.gutenbergId,
+      chapters: responseData.chapters.length,
+      status: responseData.status,
+      fallback: Boolean(responseData.fallback || normalizedPayload.fallback),
     });
+    return success(res, responseData);
   } catch (error) {
     const statusCode = Number(error?.statusCode) || 500;
-    res.status(statusCode).json({
+    return res.status(statusCode).json({
       message: mapReadErrorMessage(statusCode),
     });
   }

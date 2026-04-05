@@ -181,7 +181,7 @@ export const fetchBookByGutenbergId = async (gutenbergId) => {
   if (inflight) return inflight;
 
   const request = fetchWithRetry(async () => {
-    const { data } = await api.get(`/books/gutenberg/${id}/preview`);
+    const data = await api.get(`/books/gutenberg/${id}/preview`);
     const normalized = normalizeBook(data);
     if (!normalized) throw new Error('Unable to fetch this Gutenberg book.');
     idLookupCache.set(id, { value: normalized, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
@@ -218,7 +218,7 @@ export const searchBooks = async (query, signal) => {
     lastSearchAt = Date.now();
 
     try {
-      const { data } = await api.get('/books/search', { params: { q: term }, signal });
+      const data = await api.get('/books/search', { params: { q: term }, signal });
       const books = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
       const normalized = books.map((book) => normalizeBook(book)).filter(Boolean).slice(0, 24);
       searchCache.set(cacheKey, { value: normalized, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
@@ -300,7 +300,7 @@ export const fetchLibraryBooks = async ({ search = '', category = 'all', sort = 
     }
   } else {
     try {
-      const { data } = await api.get('/books', { signal });
+      const data = await api.get('/books', { signal });
       const list = Array.isArray(data?.items)
         ? data.items
         : Array.isArray(data?.results)
