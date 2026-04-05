@@ -1,7 +1,4 @@
 import axios from 'axios';
-import { getApiBaseUrl } from './serviceUrls';
-
-const baseURL = getApiBaseUrl();
 let rateLimitedUntil = 0;
 
 axios.defaults.withCredentials = true;
@@ -23,7 +20,7 @@ const parseRetryAfterMs = (retryAfterHeader) => {
 };
 
 const api = axios.create({
-  baseURL,
+  baseURL: '/api',
   timeout: 60000,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
@@ -46,7 +43,13 @@ const shouldDispatchUnauthorized = (error, statusCode) => {
   if (statusCode !== 401 || typeof window === 'undefined') return false;
 
   const requestUrl = String(error?.config?.url || '');
-  if (requestUrl.includes('/users/refresh')) return false;
+  if (
+    requestUrl.includes('/users/refresh')
+    || requestUrl.includes('/users/login')
+    || requestUrl.includes('/users/signup')
+    || requestUrl.includes('/users/verify-otp')
+    || requestUrl.includes('/users/resend-otp')
+  ) return false;
 
   return true;
 };
@@ -69,7 +72,9 @@ api.interceptors.response.use(
     }
 
     if (shouldDispatchUnauthorized(error, statusCode)) {
-      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      window.dispatchEvent(new CustomEvent('auth:unauthorized', {
+        detail: { status: statusCode, url: String(error?.config?.url || '') },
+      }));
     }
 
     const isTimeout = error?.code === 'ECONNABORTED' || /timeout/i.test(String(error?.message || ''));

@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { isProd } from './runtime.js';
 
 const ACCESS_COOKIE = 'atlp_access';
 const REFRESH_COOKIE = 'atlp_refresh';
@@ -32,7 +31,7 @@ export const hashToken = (token) => crypto.createHash('sha256').update(String(to
 
 const baseCookieOptions = {
   httpOnly: true,
-  secure: isProd(),
+  secure: false,
   sameSite: 'lax',
   path: '/',
 };

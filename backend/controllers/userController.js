@@ -333,7 +333,10 @@ export const logoutUser = async (req, res) => {
   }
 };
 
-export const getUserProfile = async (req, res) => success(res, buildUserResponse(req.user));
+export const getUserProfile = async (req, res) => {
+  console.log('PROFILE HIT - USER:', req.user?._id || null);
+  return success(res, buildUserResponse(req.user));
+};
 
 export const updateUserProfile = async (req, res) => {
   try {
