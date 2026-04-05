@@ -1,44 +1,31 @@
-import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
-import { isProd } from '../utils/runtime.js';
-import { isDegradedMode } from '../utils/degradedMode.js';
+import { verifyAccessToken } from '../utils/authTokens.js';
 
 export const protect = async (req, res, next) => {
-  let token;
+  try {
+    const bearer = req.headers.authorization?.startsWith('Bearer ')
+      ? req.headers.authorization.split(' ')[1]
+      : null;
+    const token = req.cookies?.atlp_access || bearer;
 
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const tokenUserId = decoded?.id || decoded?._id;
+    if (!token) return res.status(401).json({ message: 'Not authorized.' });
 
-      if (isDegradedMode()) {
-        req.user = tokenUserId
-          ? {
-            _id: tokenUserId,
-            anonymousId: decoded?.anonymousId || '',
-            isAnonymous: Boolean(decoded?.isAnonymous),
-          }
-          : null;
-      } else {
-        req.user = await User.findById(tokenUserId).select('-password');
-      }
+    const decoded = verifyAccessToken(token);
+    const user = await User.findById(decoded.sub).select('-passwordHash');
+    if (!user) return res.status(401).json({ message: 'Not authorized.' });
 
-      if (!req.user) {
-        return res.status(401).json({ message: 'Not authorized, user not found' });
-      }
-
-      next();
-      return;
-    } catch (error) {
-      if (!isProd()) {
-        console.error('[AUTH] Token verification failed:', error);
-      } else {
-        console.error('[AUTH] Token verification failed:', error?.message || 'unknown error');
-      }
-      return res.status(401).json({ message: 'Not authorized, token failed' });
-    }
+    req.user = user;
+    req.auth = { role: decoded.role || 'user' };
+    return next();
+  } catch (_error) {
+    return res.status(401).json({ message: 'Not authorized.' });
   }
+};
 
-  res.status(401).json({ message: 'Not authorized, no token' });
+export const requireRole = (roles = ['user']) => (req, res, next) => {
+  const userRole = req.auth?.role || req.user?.role;
+  if (!roles.includes(userRole)) {
+    return res.status(403).json({ message: 'Forbidden.' });
+  }
+  return next();
 };

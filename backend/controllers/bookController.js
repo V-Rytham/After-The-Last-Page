@@ -7,6 +7,7 @@ import {
 } from '../utils/gutenbergReader.js';
 import { gutenbergCatalog } from '../seed/gutenbergCatalog.js';
 import { isDegradedMode } from '../utils/degradedMode.js';
+import { searchBooksUnified } from '../services/bookSourceService.js';
 
 const BACKEND_TIMEOUT_MS = 70_000;
 const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -328,5 +329,17 @@ export const readGutenbergBook = async (req, res) => {
     res.status(statusCode).json({
       message: mapReadErrorMessage(statusCode),
     });
+  }
+};
+
+
+export const searchBooksUnifiedController = async (req, res) => {
+  try {
+    const query = String(req.query?.q || '').trim();
+    if (!query) return res.json({ results: [] });
+    const results = await searchBooksUnified(query);
+    return res.json({ results });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to search books across providers.' });
   }
 };

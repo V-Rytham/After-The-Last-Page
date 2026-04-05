@@ -14,8 +14,9 @@ const NAV_ITEMS = [
 
 const THEME_SWATCH = {
   light: '#ffffff',
-  sepia: '#E8DCC7',
   dark: '#121212',
+  sepia: '#E8DCC7',
+  mocha: '#3b2a24',
 };
 
 const ProfileAvatar = ({ user, className = '', onClick, label = 'Open profile' }) => {
@@ -103,7 +104,7 @@ const Navbar = ({ currentUser, onLogout, uiTheme, onThemeChange }) => {
           <button
             type="button"
             className="theme-icon-btn"
-            onClick={() => onThemeChange(uiTheme === 'dark' ? 'light' : 'dark')}
+            onClick={() => { const order=['light','dark','sepia','mocha']; const idx=order.indexOf(uiTheme); onThemeChange(order[(idx+1)%order.length]); }}
             aria-label={`Switch theme. Current theme: ${activeTheme.label}`}
           >
             {uiTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
@@ -112,6 +113,7 @@ const Navbar = ({ currentUser, onLogout, uiTheme, onThemeChange }) => {
           <Link to="/profile" className="navbar-profile-link" aria-label="Go to profile">
             <ProfileAvatar user={currentUser} label="Go to profile" />
           </Link>
+          {currentUser?._id && <button type="button" className="nav-signout" onClick={handleSignOut}>Sign Out</button>}
           <ProfileAvatar user={currentUser} className="mobile-menu-avatar" onClick={() => setDrawerOpen(true)} label="Open navigation menu" />
         </div>
       </header>

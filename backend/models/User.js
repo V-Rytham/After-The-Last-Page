@@ -1,18 +1,9 @@
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 const userSchema = new mongoose.Schema({
-  anonymousId: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  name: {
-    type: String,
-    trim: true,
-  },
+  name: { type: String, trim: true, required: true, maxlength: 80 },
   username: {
     type: String,
     trim: true,
@@ -21,74 +12,25 @@ const userSchema = new mongoose.Schema({
     match: USERNAME_RE,
     sparse: true,
   },
-  usernameLower: {
-    type: String,
-    trim: true,
-    lowercase: true,
-    unique: true,
-    sparse: true,
-  },
-  bio: {
-    type: String,
-    trim: true,
-    maxlength: 160,
-    default: '',
-  },
-  email: {
-    type: String,
-    trim: true,
-    lowercase: true,
-    unique: true,
-    sparse: true,
-  },
-  password: {
-    type: String,
-  },
-  isAnonymous: {
-    type: Boolean,
-    default: false,
-  },
-  rating: {
-    type: Number,
-    default: 5.0,
-    min: 0,
-    max: 5,
-  },
+  usernameLower: { type: String, trim: true, lowercase: true, sparse: true, unique: true },
+  bio: { type: String, trim: true, maxlength: 160, default: '' },
+  email: { type: String, trim: true, lowercase: true, required: true, unique: true },
+  passwordHash: { type: String, default: null },
+  isVerified: { type: Boolean, default: false, index: true },
+  profileImageUrl: { type: String, trim: true, default: '' },
+  provider: { type: String, enum: ['local', 'google'], default: 'local', index: true },
+  role: { type: String, enum: ['user'], default: 'user' },
+  rating: { type: Number, default: 5.0, min: 0, max: 5 },
   preferences: {
-    theme: { type: String, default: 'dark' },
+    theme: { type: String, enum: ['light', 'dark', 'sepia', 'mocha'], default: 'dark' },
     defaultMatchMedium: { type: String, enum: ['text', 'voice', 'video'], default: 'text' },
   },
-  profileImageUrl: {
-    type: String,
-    trim: true,
-    default: '',
-  },
-  profileImagePath: {
-    type: String,
-    trim: true,
-    default: '',
-  },
-}, { timestamps: true });
+}, { timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } });
 
-userSchema.pre('save', async function save() {
+userSchema.pre('save', async function normalizeUsername() {
   if (this.isModified('username')) {
     this.usernameLower = this.username ? String(this.username).trim().toLowerCase() : undefined;
   }
-
-  if (!this.isModified('password') || !this.password) {
-    return;
-  }
-
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
 });
-
-userSchema.methods.matchPassword = async function matchPassword(enteredPassword) {
-  if (!this.password) {
-    return false;
-  }
-
-  return bcrypt.compare(enteredPassword, this.password);
-};
 
 export const User = mongoose.model('User', userSchema);

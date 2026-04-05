@@ -1,468 +1,316 @@
+import bcrypt from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
+import { z } from 'zod';
 import { User } from '../models/User.js';
-import { Thread } from '../models/Thread.js';
-import { UserProgress } from '../models/UserProgress.js';
-import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
-import path from 'path';
-import fs from 'fs/promises';
-import { generateToken } from '../utils/generateToken.js';
+import { RefreshToken } from '../models/RefreshToken.js';
 import { buildSafeErrorBody } from '../utils/runtime.js';
-import { ensureProfileUploadDir, getImagePublicUrl, profileImageConfig, safeUnlink } from '../utils/profileImage.js';
+import {
+  clearAuthCookies,
+  hashToken,
+  setAuthCookies,
+  signAccessToken,
+  signRefreshToken,
+  tokenDurations,
+  verifyRefreshToken,
+} from '../utils/authTokens.js';
+import { issueEmailOtp, verifyEmailOtp } from '../services/otpService.js';
+import { uploadProfileImage } from '../utils/profileImage.js';
 
-const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || undefined);
 
-const formatUsername = (value) => String(value || '').trim();
-const normalizeUsername = (value) => formatUsername(value).toLowerCase();
-const sanitizeBio = (value) => String(value || '').trim();
-const sanitizeName = (value) => String(value || '').trim();
+const signupSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  email: z.string().trim().email().max(120),
+  password: z.string().min(8).max(120),
+  username: z.string().trim().regex(/^[a-zA-Z0-9_]{3,20}$/).optional(),
+});
 
-const validateUsername = (username) => {
-  const formatted = formatUsername(username);
+const loginSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(1),
+});
 
-  if (!formatted) {
-    return { ok: false, message: 'Username is required.' };
-  }
+const otpVerifySchema = z.object({
+  email: z.string().trim().email(),
+  otpCode: z.string().trim().regex(/^\d{6}$/),
+});
 
-  if (!USERNAME_RE.test(formatted)) {
-    return { ok: false, message: 'Username must be 3-20 characters using letters, numbers, or underscores.' };
-  }
+const themeSchema = z.object({ theme: z.enum(['light', 'dark', 'sepia', 'mocha']) });
 
-  return { ok: true, username: formatted, usernameLower: normalizeUsername(formatted) };
-};
+const profileSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  username: z.string().trim().regex(/^[a-zA-Z0-9_]{3,20}$/).optional().or(z.literal('')),
+  bio: z.string().trim().max(160).optional(),
+});
 
-const countRepliesByAuthor = (comments = [], authorAnonId) => comments.reduce((total, comment) => {
-  if (!comment) {
-    return total;
-  }
+const buildUserResponse = (user) => ({
+  _id: user._id,
+  name: user.name,
+  username: user.username || '',
+  bio: user.bio || '',
+  email: user.email,
+  isVerified: Boolean(user.isVerified),
+  role: user.role || 'user',
+  provider: user.provider || 'local',
+  profileImageUrl: user.profileImageUrl || '',
+  preferences: user.preferences || { theme: 'dark' },
+  joinedAt: user.createdAt,
+});
 
-  const matchesAuthor = String(comment.authorAnonId || '') === String(authorAnonId || '');
-  return total + (matchesAuthor ? 1 : 0) + countRepliesByAuthor(comment.replies || [], authorAnonId);
-}, 0);
+const issueSession = async (req, res, user) => {
+  const accessToken = signAccessToken(user);
+  const refreshToken = signRefreshToken(user);
+  const tokenHash = hashToken(refreshToken);
 
-const buildProfileStats = async (user) => {
-  if (!user?._id) {
-    return {
-      booksCompleted: 0,
-      discussionsParticipated: 0,
-    };
-  }
-
-  const [booksCompleted, relatedThreads] = await Promise.all([
-    UserProgress.countDocuments({ userId: user._id, quizPassed: true }),
-    Thread.find({
-      $or: [
-        { authorAnonId: user.anonymousId },
-        { 'comments.authorAnonId': user.anonymousId },
-        { 'comments.replies.authorAnonId': user.anonymousId },
-      ],
-    }).select('comments authorAnonId'),
-  ]);
-
-  const participatedThreadIds = new Set();
-
-  relatedThreads.forEach((thread) => {
-    if (
-      String(thread.authorAnonId || '') === String(user.anonymousId || '')
-      || countRepliesByAuthor(thread.comments || [], user.anonymousId) > 0
-    ) {
-      participatedThreadIds.add(String(thread._id));
-    }
+  await RefreshToken.create({
+    userId: user._id,
+    tokenHash,
+    expiresAt: new Date(Date.now() + tokenDurations.refreshMaxAgeMs),
+    userAgent: String(req.headers['user-agent'] || '').slice(0, 300),
+    ipAddress: req.ip || '',
   });
 
-  return {
-    booksCompleted,
-    discussionsParticipated: participatedThreadIds.size,
-  };
-};
-
-const buildUserResponse = (user, extra = {}) => ({
-  _id: user._id,
-  anonymousId: user.anonymousId,
-  name: user.name || '',
-  username: user.username || '',
-  bio: user.bio || '',
-  email: user.email || '',
-  isAnonymous: Boolean(user.isAnonymous),
-  rating: user.rating,
-  joinedAt: user.createdAt,
-  preferences: user.preferences,
-  profileImageUrl: user.profileImageUrl || '',
-  stats: extra.stats || {
-    booksCompleted: 0,
-    discussionsParticipated: 0,
-  },
-  token: generateToken(user._id),
-});
-
-const buildProfileResponse = async (user) => ({
-  _id: user._id,
-  anonymousId: user.anonymousId,
-  name: user.name || '',
-  username: user.username || '',
-  bio: user.bio || '',
-  email: user.email || '',
-  isAnonymous: Boolean(user.isAnonymous),
-  rating: user.rating,
-  joinedAt: user.createdAt,
-  preferences: user.preferences,
-  profileImageUrl: user.profileImageUrl || '',
-  stats: await buildProfileStats(user),
-});
-
-const parseProfileImagePayload = (payload = {}) => {
-  const dataUri = String(payload?.profileImageData || '').trim();
-  if (!dataUri) {
-    return null;
-  }
-
-  const matched = dataUri.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-  if (!matched) {
-    return { error: 'Image payload must be a valid base64 data URL.' };
-  }
-
-  const mimeType = matched[1].toLowerCase();
-  if (!profileImageConfig.allowedMimeTypes.has(mimeType)) {
-    return { error: 'Please upload a valid image file (JPEG, PNG, WEBP, or GIF).' };
-  }
-
-  const buffer = Buffer.from(matched[2], 'base64');
-  if (!buffer?.length) {
-    return { error: 'Image payload is empty.' };
-  }
-
-  if (buffer.length > profileImageConfig.maxSizeBytes) {
-    return { error: 'Profile image must be 5MB or smaller.' };
-  }
-
-  const extension = mimeType === 'image/png'
-    ? 'png'
-    : mimeType === 'image/webp'
-      ? 'webp'
-      : mimeType === 'image/gif'
-        ? 'gif'
-        : 'jpg';
-
-  return { buffer, extension };
-};
-
-const writeProfileImageFile = async (parsedImage) => {
-  await ensureProfileUploadDir();
-  const filename = `${Date.now()}-${crypto.randomUUID()}.${parsedImage.extension}`;
-  const absolutePath = path.resolve(profileImageConfig.uploadDir, filename);
-  await fs.writeFile(absolutePath, parsedImage.buffer);
-  return { filename, absolutePath };
-};
-
-const setUserProfileImage = async ({ req, user, absolutePath, filename }) => {
-  if (!user || !absolutePath || !filename) {
-    return;
-  }
-
-  const relativePath = `/uploads/profiles/${filename}`;
-  const oldAbsolutePath = user.profileImagePath || '';
-  user.profileImagePath = absolutePath;
-  user.profileImageUrl = getImagePublicUrl(req, relativePath);
-  await user.save();
-  await safeUnlink(oldAbsolutePath);
-};
-
-const generateAnonymousId = async () => {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const anonymousId = `Reader #${randomSuffix}`;
-    const existingUser = await User.findOne({ anonymousId });
-    if (!existingUser) {
-      return anonymousId;
-    }
-  }
-
-  return `Reader #${Date.now().toString().slice(-6)}`;
-};
-
-export const registerAnonymousUser = async (req, res) => {
-  try {
-    const user = {
-      _id: crypto.randomUUID(),
-      anonymousId: `Reader #${Math.floor(1000 + Math.random() * 9000)}`,
-      name: '',
-      username: '',
-      bio: '',
-      email: '',
-      isAnonymous: true,
-      rating: 5.0,
-      preferences: {
-        theme: 'dark',
-        defaultMatchMedium: 'text',
-      },
-      createdAt: new Date().toISOString(),
-    };
-
-    const token = jwt.sign({ id: user._id, _id: user._id, isAnonymous: true }, process.env.JWT_SECRET, {
-      expiresIn: '7d',
-    });
-
-    return res.status(201).json({
-      ...user,
-      stats: {
-        booksCompleted: 0,
-        discussionsParticipated: 0,
-      },
-      token,
-    });
-  } catch (_ERROR) {
-    return res.status(200).json({
-      fallback: true,
-      _id: 'fallback-user',
-      anonymousId: 'Reader #0000',
-      name: '',
-      username: '',
-      bio: '',
-      email: '',
-      isAnonymous: true,
-      rating: 5.0,
-      preferences: {
-        theme: 'dark',
-        defaultMatchMedium: 'text',
-      },
-      stats: {
-        booksCompleted: 0,
-        discussionsParticipated: 0,
-      },
-      token: 'fallback-token',
-    });
-  }
+  setAuthCookies(res, accessToken, refreshToken);
 };
 
 export const registerUser = async (req, res) => {
   try {
-    const { name, username, bio, email, password } = req.body;
+    const payload = signupSchema.parse(req.body);
+    const email = payload.email.toLowerCase();
 
-    if (!name || !username || !email || !password) {
-      return res.status(400).json({ message: 'Name, username, email, and password are required.' });
+    const existing = await User.findOne({ email }).select('_id isVerified');
+    if (existing?.isVerified) {
+      return res.status(409).json({ message: 'An account with this email already exists.' });
     }
 
-    const trimmedName = sanitizeName(name);
-    if (!trimmedName) {
-      return res.status(400).json({ message: 'Name is required.' });
-    }
+    const passwordHash = await bcrypt.hash(payload.password, 12);
 
-    const usernameCheck = validateUsername(username);
-    if (!usernameCheck.ok) {
-      return res.status(400).json({ message: usernameCheck.message });
-    }
+    const user = existing
+      ? await User.findByIdAndUpdate(existing._id, {
+          $set: {
+            name: payload.name,
+            email,
+            passwordHash,
+            provider: 'local',
+            isVerified: false,
+            username: payload.username || undefined,
+          },
+        }, { new: true })
+      : await User.create({
+          name: payload.name,
+          email,
+          passwordHash,
+          provider: 'local',
+          isVerified: false,
+          username: payload.username || undefined,
+        });
 
-    const normalizedEmail = email.toLowerCase().trim();
-    const sanitizedBiography = sanitizeBio(bio);
-    if (sanitizedBiography.length > 160) {
-      return res.status(400).json({ message: 'Bio must be 160 characters or fewer.' });
-    }
+    await issueEmailOtp(user);
 
-    const [existingUser, existingUsername] = await Promise.all([
-      User.findOne({ email: normalizedEmail }),
-      User.findOne({ usernameLower: usernameCheck.usernameLower }),
-    ]);
-
-    if (existingUser) {
-      return res.status(400).json({ message: 'An account with that email already exists.' });
-    }
-
-    if (existingUsername) {
-      return res.status(400).json({ message: 'That username is already taken.' });
-    }
-
-    const anonymousId = await generateAnonymousId();
-    const user = await User.create({
-      anonymousId,
-      name: trimmedName,
-      username: usernameCheck.username,
-      bio: sanitizedBiography,
-      email: normalizedEmail,
-      password,
-      isAnonymous: false,
-      rating: 5.0,
-      preferences: {
-        theme: 'dark',
-        defaultMatchMedium: 'text',
-      },
-    });
-
-    const parsedImage = parseProfileImagePayload(req.body);
-    if (parsedImage?.error) {
-      return res.status(400).json({ message: parsedImage.error });
-    }
-
-    if (parsedImage) {
-      const { filename, absolutePath } = await writeProfileImageFile(parsedImage);
-      await setUserProfileImage({ req, user, filename, absolutePath });
-    }
-
-    res.status(201).json(buildUserResponse(user));
+    return res.status(201).json({ message: 'Signup successful. OTP sent to email.' });
   } catch (error) {
-    if (error?.code === 11000 && error?.keyPattern?.usernameLower) {
-      return res.status(400).json({ message: 'That username is already taken.' });
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ message: 'Invalid signup payload.', errors: error.issues });
     }
+    if (error?.code === 11000) {
+      return res.status(409).json({ message: 'Email or username already in use.' });
+    }
+    return res.status(error.statusCode || 500).json(buildSafeErrorBody(error.message || 'Server error', error));
+  }
+};
 
-    res.status(500).json(buildSafeErrorBody('Server error', error));
+export const verifySignupOtp = async (req, res) => {
+  try {
+    const payload = otpVerifySchema.parse(req.body);
+    const user = await User.findOne({ email: payload.email.toLowerCase() });
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    await verifyEmailOtp({ userId: user._id, otpCode: payload.otpCode });
+    user.isVerified = true;
+    await user.save();
+
+    await issueSession(req, res, user);
+    return res.json({ user: buildUserResponse(user) });
+  } catch (error) {
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ message: 'Invalid verification payload.', errors: error.issues });
+    }
+    return res.status(error.statusCode || 500).json(buildSafeErrorBody(error.message || 'Server error', error));
+  }
+};
+
+export const resendOtp = async (req, res) => {
+  try {
+    const email = z.string().trim().email().parse(req.body?.email).toLowerCase();
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    if (user.isVerified) return res.status(400).json({ message: 'User is already verified.' });
+
+    await issueEmailOtp(user);
+    return res.json({ message: 'OTP resent.' });
+  } catch (error) {
+    return res.status(error.statusCode || 400).json(buildSafeErrorBody(error.message || 'Server error', error));
   }
 };
 
 export const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required.' });
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-    const user = await User.findOne({ email: normalizedEmail });
-
-    if (!user || user.isAnonymous || !(await user.matchPassword(password))) {
+    const payload = loginSchema.parse(req.body);
+    const user = await User.findOne({ email: payload.email.toLowerCase() });
+    if (!user || !user.passwordHash || !(await bcrypt.compare(payload.password, user.passwordHash))) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
-    res.json(buildUserResponse(user));
-  } catch (error) {
-    res.status(500).json(buildSafeErrorBody('Server error', error));
-  }
-};
-
-export const getUserProfile = async (req, res) => {
-  try {
-    if (req.user) {
-      res.json(await buildProfileResponse(req.user));
-      return;
+    if (!user.isVerified) {
+      return res.status(403).json({ message: 'Please verify your email before logging in.' });
     }
 
-    res.status(404).json({ message: 'User not found' });
+    await issueSession(req, res, user);
+    return res.json({ user: buildUserResponse(user) });
   } catch (error) {
-    res.status(500).json(buildSafeErrorBody('Server error', error));
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ message: 'Invalid login payload.', errors: error.issues });
+    }
+    return res.status(500).json(buildSafeErrorBody('Server error', error));
   }
 };
+
+export const loginWithGoogle = async (req, res) => {
+  try {
+    const idToken = z.string().min(20).parse(req.body?.idToken);
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const email = String(payload?.email || '').toLowerCase();
+    if (!email) return res.status(400).json({ message: 'Google account email unavailable.' });
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        name: payload?.name || email.split('@')[0],
+        email,
+        provider: 'google',
+        isVerified: true,
+        profileImageUrl: payload?.picture || '',
+      });
+    } else if (user.provider !== 'google') {
+      user.provider = 'google';
+      user.isVerified = true;
+      user.profileImageUrl = user.profileImageUrl || payload?.picture || '';
+      await user.save();
+    }
+
+    await issueSession(req, res, user);
+    return res.json({ user: buildUserResponse(user) });
+  } catch (error) {
+    return res.status(400).json(buildSafeErrorBody(error.message || 'Google login failed.', error));
+  }
+};
+
+export const refreshSession = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.atlp_refresh;
+    if (!refreshToken) return res.status(401).json({ message: 'Missing refresh token.' });
+
+    const decoded = verifyRefreshToken(refreshToken);
+    const tokenHash = hashToken(refreshToken);
+    const storedToken = await RefreshToken.findOne({ tokenHash, revokedAt: null });
+
+    if (!storedToken || storedToken.expiresAt.getTime() < Date.now()) {
+      return res.status(401).json({ message: 'Refresh token invalid or expired.' });
+    }
+
+    const user = await User.findById(decoded.sub);
+    if (!user) return res.status(401).json({ message: 'User not found.' });
+
+    storedToken.revokedAt = new Date();
+    await storedToken.save();
+    await issueSession(req, res, user);
+
+    return res.json({ user: buildUserResponse(user) });
+  } catch (_error) {
+    return res.status(401).json({ message: 'Session refresh failed.' });
+  }
+};
+
+export const logoutUser = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.atlp_refresh;
+    if (refreshToken) {
+      const tokenHash = hashToken(refreshToken);
+      await RefreshToken.findOneAndUpdate({ tokenHash, revokedAt: null }, { $set: { revokedAt: new Date() } });
+    }
+
+    clearAuthCookies(res);
+    return res.json({ message: 'Signed out successfully.' });
+  } catch (error) {
+    return res.status(500).json(buildSafeErrorBody('Failed to logout.', error));
+  }
+};
+
+export const getUserProfile = async (req, res) => res.json(buildUserResponse(req.user));
 
 export const updateUserProfile = async (req, res) => {
   try {
-    if (!req.user || req.user.isAnonymous) {
-      return res.status(403).json({ message: 'Only members can edit a profile.' });
-    }
-
-    const nextName = sanitizeName(req.body?.name);
-    const nextBio = sanitizeBio(req.body?.bio);
-    const usernameCheck = validateUsername(req.body?.username);
-
-    if (!nextName) {
-      return res.status(400).json({ message: 'Name is required.' });
-    }
-
-    if (!usernameCheck.ok) {
-      return res.status(400).json({ message: usernameCheck.message });
-    }
-
-    if (nextBio.length > 160) {
-      return res.status(400).json({ message: 'Bio must be 160 characters or fewer.' });
-    }
-
-    const duplicate = await User.findOne({
-      usernameLower: usernameCheck.usernameLower,
-      _id: { $ne: req.user._id },
-    }).select('_id');
-
-    if (duplicate) {
-      return res.status(400).json({ message: 'That username is already taken.' });
-    }
-
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    user.name = nextName;
-    user.username = usernameCheck.username;
-    user.bio = nextBio;
-
-    await user.save();
-
-    res.json(await buildProfileResponse(user));
+    const payload = profileSchema.parse(req.body);
+    req.user.name = payload.name;
+    req.user.username = payload.username || undefined;
+    req.user.bio = payload.bio || '';
+    await req.user.save();
+    return res.json(buildUserResponse(req.user));
   } catch (error) {
-    if (error?.code === 11000 && error?.keyPattern?.usernameLower) {
-      return res.status(400).json({ message: 'That username is already taken.' });
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ message: 'Invalid profile payload.', errors: error.issues });
     }
+    if (error?.code === 11000) {
+      return res.status(409).json({ message: 'Username already in use.' });
+    }
+    return res.status(500).json(buildSafeErrorBody('Server error', error));
+  }
+};
 
-    res.status(500).json(buildSafeErrorBody('Server error', error));
+export const updateThemePreference = async (req, res) => {
+  try {
+    const payload = themeSchema.parse(req.body);
+    req.user.preferences = { ...(req.user.preferences || {}), theme: payload.theme };
+    await req.user.save();
+    return res.json({ theme: payload.theme });
+  } catch (error) {
+    return res.status(400).json(buildSafeErrorBody(error.message || 'Invalid theme payload.', error));
   }
 };
 
 export const updateUserProfileImage = async (req, res) => {
   try {
-    if (!req.user || req.user.isAnonymous) {
-      return res.status(403).json({ message: 'Only members can edit a profile.' });
-    }
-
-    const parsedImage = parseProfileImagePayload(req.body);
-    if (parsedImage?.error) {
-      return res.status(400).json({ message: parsedImage.error });
-    }
-
-    if (!parsedImage) {
-      return res.status(400).json({ message: 'Please select an image to upload.' });
-    }
-
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    const { filename, absolutePath } = await writeProfileImageFile(parsedImage);
-    await setUserProfileImage({ req, user, filename, absolutePath });
-    res.json(await buildProfileResponse(user));
+    const profileImageData = z.string().min(40).parse(req.body?.profileImageData);
+    const imageUrl = await uploadProfileImage(profileImageData);
+    req.user.profileImageUrl = imageUrl;
+    await req.user.save();
+    return res.json(buildUserResponse(req.user));
   } catch (error) {
-    res.status(500).json(buildSafeErrorBody('Server error', error));
+    return res.status(400).json(buildSafeErrorBody(error.message || 'Profile image upload failed.', error));
   }
 };
 
 export const removeUserProfileImage = async (req, res) => {
-  try {
-    if (!req.user || req.user.isAnonymous) {
-      return res.status(403).json({ message: 'Only members can edit a profile.' });
-    }
-
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    const oldAbsolutePath = user.profileImagePath || '';
-    user.profileImagePath = '';
-    user.profileImageUrl = '';
-    await user.save();
-    await safeUnlink(oldAbsolutePath);
-
-    res.json(await buildProfileResponse(user));
-  } catch (error) {
-    res.status(500).json(buildSafeErrorBody('Server error', error));
-  }
+  req.user.profileImageUrl = '';
+  await req.user.save();
+  return res.json(buildUserResponse(req.user));
 };
 
 export const checkUsernameAvailability = async (req, res) => {
-  try {
-    const requestedUsername = req.query?.username;
-
-    if (!requestedUsername) {
-      return res.status(400).json({ message: 'Username is required.' });
-    }
-
-    const usernameCheck = validateUsername(requestedUsername);
-    if (!usernameCheck.ok) {
-      return res.status(400).json({ message: usernameCheck.message, available: false });
-    }
-
-    const existingUser = await User.findOne({ usernameLower: usernameCheck.usernameLower }).select('_id');
-    res.json({
-      available: !existingUser,
-      username: usernameCheck.username,
-      message: existingUser ? 'That username is already taken.' : 'Username is available.',
-    });
-  } catch (error) {
-    res.status(500).json(buildSafeErrorBody('Server error', error));
+  const username = String(req.query?.username || '').trim();
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+    return res.status(400).json({ available: false, message: 'Invalid username format.' });
   }
+
+  const existing = await User.findOne({ usernameLower: username.toLowerCase() }).select('_id');
+  return res.json({
+    available: !existing,
+    username,
+    message: existing ? 'That username is already taken.' : 'Username is available.',
+  });
 };

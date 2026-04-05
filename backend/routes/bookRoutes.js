@@ -6,11 +6,13 @@ import {
   readGutenbergBook,
   getGutenbergPreview,
   searchGutenbergBooks,
+  searchBooksUnifiedController,
 } from '../controllers/bookController.js';
 
 const router = express.Router();
 
 router.get('/', getBooks);
+router.get('/search', searchBooksUnifiedController);
 router.get('/gutenberg/search', searchGutenbergBooks);
 router.get('/gutenberg/:gutenbergId/preview', getGutenbergPreview);
 router.get('/gutenberg/:gutenbergId/read', readGutenbergBook);

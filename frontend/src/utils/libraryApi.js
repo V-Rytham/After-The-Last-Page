@@ -87,20 +87,29 @@ export const getGutenbergCoverUrl = (gutenbergId) => {
 };
 
 const normalizeBook = (book) => {
+  const unifiedId = String(book?.id || '').trim();
   const id = Number(book?.gutenbergId || book?.id || 0);
-  if (!Number.isFinite(id) || id <= 0) return null;
 
   const title = String(book?.title || 'Untitled').trim() || 'Untitled';
-  const author = Array.isArray(book?.authors) && book.authors.length
-    ? String(book.authors[0]?.name || 'Unknown author')
-    : String(book?.author || 'Unknown author');
+  const authors = Array.isArray(book?.authors)
+    ? book.authors
+    : [book?.author].filter(Boolean);
+  const author = String(authors[0] || 'Unknown author');
+
+  if (!unifiedId && (!Number.isFinite(id) || id <= 0)) return null;
 
   return {
-    gutenbergId: id,
+    id: unifiedId || `gutenberg:${id}`,
+    gutenbergId: Number.isFinite(id) && id > 0 ? id : null,
     title,
     author,
+    authors,
+    source: book?.source || (Number.isFinite(id) && id > 0 ? 'gutenberg' : 'unknown'),
+    description: String(book?.description || ''),
+    readLink: book?.read_link || '',
+    downloadLink: book?.download_link || '',
     tags: inferTags(book),
-    coverImage: book?.formats?.['image/jpeg'] || book?.coverImage || getGutenbergCoverUrl(id),
+    coverImage: book?.cover_image || book?.formats?.['image/jpeg'] || book?.coverImage || (Number.isFinite(id) && id > 0 ? getGutenbergCoverUrl(id) : PLACEHOLDER_COVER),
   };
 };
 
@@ -209,7 +218,7 @@ export const searchBooks = async (query, signal) => {
     lastSearchAt = Date.now();
 
     try {
-      const { data } = await api.get('/books/gutenberg/search', { params: { q: term }, signal });
+      const { data } = await api.get('/books/search', { params: { q: term }, signal });
       const books = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
       const normalized = books.map((book) => normalizeBook(book)).filter(Boolean).slice(0, 24);
       searchCache.set(cacheKey, { value: normalized, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
@@ -305,7 +314,7 @@ export const fetchLibraryBooks = async ({ search = '', category = 'all', sort = 
       normalized = list
         .map((entry) => normalizeBook({
           id: entry?.id,
-          gutenbergId: entry?.gutenbergId ?? entry?.id,
+          gutenbergId: entry?.gutenbergId ?? null,
           title: entry?.title,
           author: entry?.author,
           tags: Array.isArray(entry?.tags) ? entry.tags : [],
