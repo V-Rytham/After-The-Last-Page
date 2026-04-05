@@ -150,7 +150,7 @@ const upsertMetadata = async ({ gutenbergId, title, author }) => {
 export const getBooks = async (req, res) => {
   try {
     if (isDegradedMode()) {
-      return res.json(fallbackBooks.map((book) => toStableBookShape(book)).filter(Boolean));
+      return success(res, fallbackBooks.map((book) => toStableBookShape(book)).filter(Boolean));
     }
 
     const books = await Book.find({})
@@ -169,11 +169,11 @@ export const searchGutenbergBooks = async (req, res) => {
   try {
     const query = String(req.query?.q || '').trim().toLowerCase();
     if (!query) {
-      return res.json({ results: [] });
+      return success(res, { results: [] });
     }
 
     const cached = readFreshCache(searchCache, query);
-    if (cached) return res.json({ results: cached });
+    if (cached) return success(res, { results: cached });
 
     const source = Array.isArray(gutenbergCatalog) && gutenbergCatalog.length > 0
       ? gutenbergCatalog
@@ -204,7 +204,7 @@ export const searchGutenbergBooks = async (req, res) => {
 
     writeCache(searchCache, query, results);
 
-    return res.json({ results });
+    return success(res, { results });
   } catch (error) {
     console.error('[BOOK] Failed to search Gutenberg books:', error?.message || error);
     return res.status(500).json({ message: 'Server error searching Gutenberg books.' });
@@ -248,7 +248,7 @@ export const readBook = async (req, res) => {
       title: payload.title,
       author: payload.author,
     });
-    res.json({
+    success(res, {
       ...payload,
       bookId: persisted?._id ? String(persisted._id) : String(book._id),
     });
@@ -284,7 +284,7 @@ export const getGutenbergPreview = async (req, res) => {
       .find((book) => Number(book?.gutenbergId) === gutenbergId);
 
     if (catalogEntry) {
-      return res.json({
+      return success(res, {
         gutenbergId,
         title: catalogEntry.title || 'Untitled',
         author: catalogEntry.author || 'Unknown author',
@@ -292,7 +292,7 @@ export const getGutenbergPreview = async (req, res) => {
     }
 
     const remoteBook = await fetchMetadataSingleFlight(gutenbergId);
-    return res.json(remoteBook);
+    return success(res, remoteBook);
   } catch (error) {
     const statusCode = Number(error?.statusCode);
     if (statusCode === 404) {
@@ -319,7 +319,7 @@ export const readGutenbergBook = async (req, res) => {
           title: payload.title,
           author: payload.author,
         });
-    res.json({
+    success(res, {
       ...payload,
       bookId: persisted?._id ? String(persisted._id) : `gutenberg:${payload.gutenbergId}`,
       fallback: isDegradedMode(),
@@ -336,9 +336,9 @@ export const readGutenbergBook = async (req, res) => {
 export const searchBooksUnifiedController = async (req, res) => {
   try {
     const query = String(req.query?.q || '').trim();
-    if (!query) return res.json({ results: [] });
+    if (!query) return success(res, { results: [] });
     const results = await searchBooksUnified(query);
-    return res.json({ results });
+    return success(res, { results });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to search books across providers.' });
   }

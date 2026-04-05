@@ -1,10 +1,9 @@
-const nowMs = () => Date.now();
+import { connectRedis } from '../utils/redisClient.js';
 
 const getKey = (req, keyGenerator) => {
   if (typeof keyGenerator === 'function') {
     return String(keyGenerator(req) || 'unknown');
   }
-
   return String(req.ip || req.connection?.remoteAddress || 'unknown');
 };
 
@@ -13,45 +12,31 @@ export const rateLimit = ({
   max = 120,
   keyGenerator,
   message = 'Too many requests. Please try again shortly.',
-} = {}) => {
-  const store = new Map();
+  prefix = 'rate_limit',
+} = {}) => async (req, res, next) => {
+  try {
+    const key = `${prefix}:${getKey(req, keyGenerator)}`;
+    const redis = await connectRedis();
 
-  // Best-effort periodic cleanup so memory does not grow without bound.
-  const cleanupTimer = setInterval(() => {
-    const cutoff = nowMs() - 10 * 60_000;
-    for (const [key, entry] of store.entries()) {
-      if (!entry || entry.start < cutoff) {
-        store.delete(key);
-      }
-    }
-  }, 60_000);
-  cleanupTimer.unref?.();
-
-  return (req, res, next) => {
-    const key = getKey(req, keyGenerator);
-    const current = store.get(key);
-    const now = nowMs();
-
-    if (!current || (now - current.start) > windowMs) {
-      store.set(key, { start: now, count: 1 });
-      next();
-      return;
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.pexpire(key, windowMs);
     }
 
-    current.count += 1;
-
-    if (current.count > max) {
-      const retryAfterSeconds = Math.max(1, Math.ceil((windowMs - (now - current.start)) / 1000));
+    if (count > max) {
+      const ttlMs = await redis.pttl(key);
+      const retryAfterSeconds = Math.max(1, Math.ceil(Math.max(ttlMs, 0) / 1000));
       res.setHeader('Retry-After', String(retryAfterSeconds));
       res.status(429).json({
-        status: 'error',
+        success: false,
         code: 'RATE_LIMITED',
         message,
-        retryAfter: retryAfterSeconds,
       });
       return;
     }
 
     next();
-  };
+  } catch (err) {
+    next(err);
+  }
 };

@@ -18,6 +18,9 @@ import { rateLimit } from './middleware/rateLimit.js';
 import cookieParser from 'cookie-parser';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import { isProd } from './utils/runtime.js';
+import { logger } from './utils/logger.js';
+import { connectRedis } from './utils/redisClient.js';
+import { success } from './utils/apiResponse.js';
 import { RealtimeSessionManager } from './services/realtimeSessionManager.js';
 import { requestTracing } from './middleware/requestLogging.js';
 import recommenderRoutes from './routes/recommenderRoutes.js';
@@ -30,11 +33,11 @@ app.set('trust proxy', isProd() ? 1 : 0);
 const httpServer = createServer(app);
 
 process.on('unhandledRejection', (reason) => {
-  console.error('[SERVER] Unhandled promise rejection:', reason);
+  logger.error({ reason }, 'Unhandled promise rejection');
 });
 
 process.on('uncaughtException', (error) => {
-  console.error('[SERVER] Uncaught exception:', error);
+  logger.error({ error: error?.message }, 'Uncaught exception');
   process.exit(1);
 });
 
@@ -164,13 +167,13 @@ app.get('/api/health', (req, res) => {
   try {
     const dbConnected = mongoose.connection.readyState === 1;
 
-    return res.status(200).json({
+    return success(res, {
       status: dbConnected ? 'ok' : 'degraded',
       db: dbConnected ? 'connected' : 'disconnected',
       uptime: process.uptime(),
     });
   } catch (_ERROR) {
-    return res.status(200).json({
+    return success(res, {
       status: 'degraded',
       db: 'unknown',
     });
@@ -184,28 +187,37 @@ const PORT = process.env.PORT || 5000;
 
 httpServer.on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
-    console.error(`[SERVER] Port ${PORT} is already in use. Is the server already running?`);
+    logger.error({ port: PORT }, 'Port already in use');
     process.exit(1);
   }
 
-  console.error('[SERVER] Fatal error:', error);
+  logger.error({ error: error?.message }, 'Fatal server error');
   process.exit(1);
 });
 
 try {
   await connectDB();
 } catch (error) {
-  console.warn('[SERVER] Starting in degraded mode without database:', error?.message || error);
+  logger.warn({ error: error?.message || error }, 'Starting in degraded mode without database');
+}
+
+
+try {
+  await connectRedis();
+  logger.info('Redis connected');
+} catch (error) {
+  logger.error({ error: error?.message || error }, 'Failed to connect Redis');
+  process.exit(1);
 }
 
 httpServer.listen(PORT, () => {
   if (isProd()) {
     const jwtSecret = String(process.env.JWT_SECRET || '').trim();
     if (!jwtSecret || jwtSecret === 'change_me_in_production') {
-      console.error('[SERVER] Refusing to start in production with an unsafe JWT_SECRET.');
+      logger.error('Refusing to start in production with an unsafe JWT_SECRET.');
       process.exit(1);
     }
   }
 
-  console.log(`[SERVER] Nexus core listening on port ${PORT}`);
+  logger.info({ port: PORT }, 'Nexus core listening');
 });

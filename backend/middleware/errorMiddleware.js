@@ -1,8 +1,7 @@
-import { buildSafeErrorBody } from '../utils/runtime.js';
+import { error as errorResponse } from '../utils/apiResponse.js';
+import { logger } from '../utils/logger.js';
 
-export const notFound = (req, res) => {
-  res.status(404).json({ message: 'Not found.' });
-};
+export const notFound = (req, res) => errorResponse(res, 'Not found.', 'NOT_FOUND', 404);
 
 export const errorHandler = (err, req, res, next) => {
   if (res.headersSent) {
@@ -10,11 +9,16 @@ export const errorHandler = (err, req, res, next) => {
     return;
   }
 
-  console.error('[ERROR]', err);
+  const status = Number(err?.statusCode || err?.status || 500);
+  const code = err?.code ? String(err.code) : (status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_ERROR');
 
-  return res.status(200).json({
-    ...buildSafeErrorBody(err?.message || 'Fallback error', err),
-    error: true,
-    fallback: true,
-  });
+  logger.error({
+    requestId: req.requestId,
+    userId: req.auth?.sub || req.user?._id?.toString?.(),
+    errorCode: code,
+    status,
+    error: err?.message,
+  }, 'Request failed');
+
+  errorResponse(res, err?.message || 'Server error.', code, status);
 };

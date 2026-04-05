@@ -1,13 +1,11 @@
 import { isDegradedMode } from '../utils/degradedMode.js';
+import { error } from '../utils/apiResponse.js';
 
-export const requireDatabase = ({ status = 200, feature = 'Feature' } = {}) => (req, res, next) => {
+export const requireDatabase = ({ status = 503, feature = 'Feature' } = {}) => (req, res, next) => {
   if (!isDegradedMode()) {
     next();
     return;
   }
 
-  res.status(status).json({
-    fallback: true,
-    message: `${feature} unavailable in degraded mode`,
-  });
+  error(res, `${feature} unavailable in degraded mode`, 'SERVICE_UNAVAILABLE', status);
 };

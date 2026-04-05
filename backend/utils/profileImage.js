@@ -9,10 +9,17 @@ if (required) {
   });
 }
 
-export const uploadProfileImage = async (dataUri) => {
+export const uploadProfileImage = async (file) => {
   if (!required) {
     throw new Error('Cloudinary configuration missing. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.');
   }
+
+  const encoded = file?.buffer?.toString('base64');
+  if (!encoded) {
+    throw new Error('Profile image file is required.');
+  }
+
+  const dataUri = `data:${file.mimetype};base64,${encoded}`;
 
   const uploaded = await cloudinary.uploader.upload(dataUri, {
     folder: 'after-the-last-page/profiles',

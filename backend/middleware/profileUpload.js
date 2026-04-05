@@ -1,5 +1,15 @@
-// Uploads are handled via base64 payloads in the controller.
-// This file remains as a compatibility placeholder.
-export const profileImageUpload = {
-  single: () => (_req, _res, next) => next(),
-};
+import multer from 'multer';
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file?.mimetype?.startsWith('image/')) {
+      cb(new Error('Only image files are allowed.'));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+export const profileImageUpload = upload.single('profileImage');

@@ -1,31 +1,28 @@
 import { User } from '../models/User.js';
-import { verifyAccessToken } from '../utils/authTokens.js';
+import { resolveRestAccessToken, verifyUserJwt } from '../utils/auth.js';
+import { error } from '../utils/apiResponse.js';
 
 export const protect = async (req, res, next) => {
   try {
-    const bearer = req.headers.authorization?.startsWith('Bearer ')
-      ? req.headers.authorization.split(' ')[1]
-      : null;
-    const token = req.cookies?.atlp_access || bearer;
+    const token = resolveRestAccessToken(req);
+    if (!token) return error(res, 'Not authorized.', 'UNAUTHORIZED', 401);
 
-    if (!token) return res.status(401).json({ message: 'Not authorized.' });
-
-    const decoded = verifyAccessToken(token);
+    const decoded = verifyUserJwt(token);
     const user = await User.findById(decoded.sub).select('-passwordHash');
-    if (!user) return res.status(401).json({ message: 'Not authorized.' });
+    if (!user) return error(res, 'Not authorized.', 'UNAUTHORIZED', 401);
 
     req.user = user;
-    req.auth = { role: decoded.role || 'user' };
+    req.auth = { role: decoded.role, sub: decoded.sub };
     return next();
-  } catch (_error) {
-    return res.status(401).json({ message: 'Not authorized.' });
+  } catch (_err) {
+    return error(res, 'Not authorized.', 'UNAUTHORIZED', 401);
   }
 };
 
 export const requireRole = (roles = ['user']) => (req, res, next) => {
   const userRole = req.auth?.role || req.user?.role;
   if (!roles.includes(userRole)) {
-    return res.status(403).json({ message: 'Forbidden.' });
+    return error(res, 'Forbidden.', 'FORBIDDEN', 403);
   }
   return next();
 };
