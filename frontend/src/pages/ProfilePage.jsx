@@ -1,18 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Activity,
-  BookCheck,
-  CalendarDays,
-  CheckCircle2,
-  LoaderCircle,
-  Mail,
-  MessageSquareMore,
-  PencilLine,
-  ShieldCheck,
-  User,
-  UserRound,
-  X,
-} from 'lucide-react';
+import { CheckCircle2, LoaderCircle, PencilLine, X } from 'lucide-react';
 import api from '../utils/api';
 import { getStoredUser } from '../utils/auth';
 import './ProfilePage.css';
@@ -278,7 +265,6 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
       <header className="profile-head">
         <div>
           <h1 className="font-serif">Profile</h1>
-          <p className="profile-subline">At a glance.</p>
         </div>
 
         {!editing ? (
@@ -315,10 +301,6 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
           </div>
         </div>
 
-        <div className="profile-status-chip">
-          <ShieldCheck size={16} aria-hidden="true" />
-          <span>Member</span>
-        </div>
       </section>
 
       <section className="profile-grid">
@@ -423,22 +405,6 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
             </div>
           </section>
 
-          <section className="profile-card glass-panel" aria-label="Membership status">
-            <div className="profile-card-head compact">
-              <h2 className="font-serif">Membership</h2>
-            </div>
-
-            <div className="profile-details-list compact">
-              <div className="profile-row">
-                <div className="profile-label"><ShieldCheck size={16} aria-hidden="true" /><span>Status</span></div>
-                <div className="profile-value">Member</div>
-              </div>
-              <div className="profile-row">
-                <div className="profile-label"><CalendarDays size={16} aria-hidden="true" /><span>Joined date</span></div>
-                <div className="profile-value">{joinedDate}</div>
-              </div>
-            </div>
-          </section>
         </aside>
       </section>
     </div>

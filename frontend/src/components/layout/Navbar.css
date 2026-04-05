@@ -46,8 +46,8 @@
   gap: 0.35rem;
   padding: 0.25rem;
   border-radius: 999px;
-  border: 1px solid var(--nav-group-border);
-  background: var(--nav-group-bg);
+  border: 0;
+  background: transparent;
 }
 
 .center-nav-link {
@@ -61,7 +61,8 @@
   font-size: 0.94rem;
   font-weight: 400;
   border: 1px solid transparent;
-  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+  position: relative;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .center-nav-link:hover,
@@ -73,9 +74,21 @@
 
 .center-nav-link.is-active {
   color: var(--accent);
-  font-weight: 500;
-  border-color: var(--nav-link-active-border);
-  background: var(--nav-link-active-bg);
+  font-weight: 600;
+  border-color: color-mix(in srgb, var(--accent-border) 80%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 88%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.center-nav-link.is-active::after {
+  content: '';
+  position: absolute;
+  left: 0.65rem;
+  right: 0.65rem;
+  bottom: 0.3rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
 }
 
 .right-controls {
