@@ -81,6 +81,53 @@ const dedupeBooks = (books = []) => {
   });
 };
 
+const collectObjectIdStrings = (value) => {
+  const queue = Array.isArray(value) ? [...value] : [value];
+  const ids = [];
+
+  while (queue.length > 0) {
+    const next = queue.shift();
+    if (next == null) {
+      continue;
+    }
+
+    if (Array.isArray(next)) {
+      queue.push(...next);
+      continue;
+    }
+
+    if (typeof next === 'string') {
+      const trimmed = next.trim();
+      if (trimmed && mongoose.Types.ObjectId.isValid(trimmed)) {
+        ids.push(trimmed);
+      }
+      continue;
+    }
+
+    if (next instanceof mongoose.Types.ObjectId) {
+      ids.push(String(next));
+      continue;
+    }
+
+    if (typeof next === 'object') {
+      // Defensive parsing for malformed payloads like { $in: ["..."] }.
+      if ('$in' in next) {
+        queue.push(next.$in);
+        continue;
+      }
+      if ('_id' in next) {
+        queue.push(next._id);
+        continue;
+      }
+      if ('id' in next) {
+        queue.push(next.id);
+      }
+    }
+  }
+
+  return Array.from(new Set(ids));
+};
+
 const getPopularBooks = async ({ excludeIds = [], limit = 8 }) => {
   const excludedSet = new Set(excludeIds.map(String));
 
@@ -90,9 +137,8 @@ const getPopularBooks = async ({ excludeIds = [], limit = 8 }) => {
     { $limit: Math.max(limit * 3, 20) },
   ]);
 
-  const topIds = topProgress
-    .map((entry) => String(entry?._id || ''))
-    .filter((id) => id && !excludedSet.has(id));
+  const topIds = collectObjectIdStrings(topProgress.map((entry) => entry?._id))
+    .filter((id) => !excludedSet.has(id));
 
   const booksByPopularity = topIds.length
     ? await Book.find({ _id: { $in: topIds } }).select('_id title author gutenbergId lastAccessedAt').lean()
@@ -126,7 +172,7 @@ export const getRecommendations = async (req, res) => {
       : 8;
 
     const readBookIds = asStringArray(req.body?.readBookIds).slice(0, 120);
-    const objectIds = readBookIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+    const objectIds = collectObjectIdStrings(readBookIds);
 
     const readBooks = await Book.find({ _id: { $in: objectIds } })
       .select('_id title author gutenbergId')
@@ -169,12 +215,12 @@ export const getRecommendations = async (req, res) => {
         limitPerShelf,
       });
 
-      const candidateIds = [
+      const candidateIds = collectObjectIdStrings([
         ...(dbRecommendations?.based_on_book || []),
         ...(dbRecommendations?.same_author || []),
         ...(dbRecommendations?.series_continuation || []),
         ...(dbRecommendations?.genre_based || []),
-      ].map((id) => String(id)).filter(Boolean);
+      ]);
 
       const dbBooks = candidateIds.length
         ? await Book.find({ _id: { $in: candidateIds } }).select('_id title author gutenbergId lastAccessedAt').lean()

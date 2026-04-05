@@ -16,6 +16,7 @@ import PageRenderer from '../components/reader/PageRenderer';
 import './ReadingRoom.css';
 
 const GUTENBERG_HOST = 'https://www.gutenberg.org';
+const READ_REQUEST_TIMEOUT_MS = 120000;
 
 const clampNumber = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -85,6 +86,7 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
     setLoadingMoreChapters(true);
     try {
       const { data } = await api.get(`/books/gutenberg/${gutenbergId}/read`, {
+        timeout: READ_REQUEST_TIMEOUT_MS,
         params: {
           cursor: nextCursor,
           maxChapters: 5,
@@ -125,7 +127,9 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
 
       try {
         if (isGutenbergRoute) {
-          const { data } = await api.get(`/books/gutenberg/${gutenbergId}/read`);
+          const { data } = await api.get(`/books/gutenberg/${gutenbergId}/read`, {
+            timeout: READ_REQUEST_TIMEOUT_MS,
+          });
           const nextChapters = Array.isArray(data?.chapters) ? data.chapters : [];
           if (nextChapters.length === 0) {
             throw new Error('Book content response did not include chapters.');
@@ -147,6 +151,7 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
 
         if (parsedSourceRoute) {
           const { data: readData } = await api.get('/books/read', {
+            timeout: READ_REQUEST_TIMEOUT_MS,
             params: {
               source: parsedSourceRoute.source,
               id: parsedSourceRoute.sourceId,
@@ -173,7 +178,9 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
         }
 
         const { data: metadata } = await api.get(`/books/${bookId}`);
-        const { data: readData } = await api.get(`/books/${bookId}/read`);
+        const { data: readData } = await api.get(`/books/${bookId}/read`, {
+          timeout: READ_REQUEST_TIMEOUT_MS,
+        });
         const payload = readData?.data || readData;
         const nextChapters = Array.isArray(payload?.chapters) ? payload.chapters : [];
         if (nextChapters.length === 0) {
