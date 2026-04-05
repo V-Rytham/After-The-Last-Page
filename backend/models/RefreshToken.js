@@ -9,6 +9,8 @@ const refreshTokenSchema = new mongoose.Schema({
   ipAddress: { type: String, default: '' },
 }, { timestamps: true });
 
-refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+if (!refreshTokenSchema.indexes().some(([index]) => index.expiresAt === 1)) {
+  refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+}
 
 export const RefreshToken = mongoose.model('RefreshToken', refreshTokenSchema);

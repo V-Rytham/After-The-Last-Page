@@ -105,7 +105,7 @@ export const registerUser = async (req, res) => {
             isVerified: false,
             username: payload.username || undefined,
           },
-        }, { new: true })
+        }, { returnDocument: 'after' })
       : await User.create({
           name: payload.name,
           email,
