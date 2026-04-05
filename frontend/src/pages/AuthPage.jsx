@@ -178,7 +178,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
       const { data } = await api.post('/users/guest-login');
       const user = saveAuthSession(unwrapApiData(data));
       onAuthSuccess(user);
-      navigate(redirectPath, { replace: true });
+      navigate('/desk', { replace: true });
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Unable to continue as guest right now.');
     } finally {
