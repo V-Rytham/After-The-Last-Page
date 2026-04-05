@@ -7,6 +7,12 @@ import {
 } from '../utils/gutenbergReader.js';
 import { gutenbergCatalog } from '../seed/gutenbergCatalog.js';
 import { isDegradedMode } from '../utils/degradedMode.js';
+import {
+  aggregateBookSearch,
+  readBookFromSource,
+  splitCompositeSourceId,
+  SOURCE_NAMES,
+} from '../services/bookAggregationService.js';
 
 const BACKEND_TIMEOUT_MS = 70_000;
 const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -174,10 +180,10 @@ export const searchGutenbergBooks = async (req, res) => {
     const cached = readFreshCache(searchCache, query);
     if (cached) return res.json({ results: cached });
 
-    const source = Array.isArray(gutenbergCatalog) && gutenbergCatalog.length > 0
+    const catalogSource = Array.isArray(gutenbergCatalog) && gutenbergCatalog.length > 0
       ? gutenbergCatalog
       : fallbackBooks;
-    let results = source
+    const localGutenbergResults = catalogSource
       .filter((book) => {
         const idString = String(book?.gutenbergId || '');
         const title = String(book?.title || '').toLowerCase();
@@ -186,20 +192,38 @@ export const searchGutenbergBooks = async (req, res) => {
       })
       .slice(0, 30)
       .map((book) => toStableBookShape(book))
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((book) => ({
+        ...book,
+        source: SOURCE_NAMES.SOURCE_GUTENBERG,
+        sourceId: String(book.gutenbergId),
+        coverImage: `https://www.gutenberg.org/cache/epub/${book.gutenbergId}/pg${book.gutenbergId}.cover.medium.jpg`,
+      }));
 
-    if (results.length === 0 && /^\d+$/.test(query)) {
+    let aggregated = await aggregateBookSearch(query);
+    if (aggregated.length === 0 && /^\d+$/.test(query)) {
       try {
         const remoteBook = await fetchMetadataSingleFlight(Number(query));
-        if (remoteBook) results = [remoteBook];
+        if (remoteBook) {
+          aggregated = [{
+            ...remoteBook,
+            source: SOURCE_NAMES.SOURCE_GUTENBERG,
+            sourceId: String(remoteBook.gutenbergId),
+            coverImage: `https://www.gutenberg.org/cache/epub/${remoteBook.gutenbergId}/pg${remoteBook.gutenbergId}.cover.medium.jpg`,
+          }];
+        }
       } catch (error) {
-        if (Number(error?.statusCode) === 404 || Number(error?.statusCode) === 400) {
-          results = [];
-        } else {
+        if (Number(error?.statusCode) !== 404 && Number(error?.statusCode) !== 400) {
           throw error;
         }
       }
     }
+
+    const results = Array.from(
+      new Map(
+        [...localGutenbergResults, ...aggregated].map((book) => [String(book?.id || `${book?.source}:${book?.sourceId}`), book]),
+      ).values(),
+    );
 
     writeCache(searchCache, query, results);
 
@@ -247,9 +271,20 @@ export const readBook = async (req, res) => {
       title: payload.title,
       author: payload.author,
     });
-    res.json({
+    const responseData = {
       ...payload,
       bookId: persisted?._id ? String(persisted._id) : String(book._id),
+      source: SOURCE_NAMES.SOURCE_GUTENBERG,
+      sourceId: String(payload.gutenbergId),
+    };
+    res.json({
+      ...responseData,
+      success: true,
+      data: {
+        title: responseData.title,
+        author: responseData.author,
+        chapters: Array.isArray(responseData.chapters) ? responseData.chapters : [],
+      },
     });
   } catch (error) {
     const statusCode = Number(error?.statusCode) || 500;
@@ -318,15 +353,86 @@ export const readGutenbergBook = async (req, res) => {
           title: payload.title,
           author: payload.author,
         });
-    res.json({
+    const responseData = {
       ...payload,
       bookId: persisted?._id ? String(persisted._id) : `gutenberg:${payload.gutenbergId}`,
       fallback: isDegradedMode(),
+      source: SOURCE_NAMES.SOURCE_GUTENBERG,
+      sourceId: String(payload.gutenbergId),
+    };
+    res.json({
+      ...responseData,
+      success: true,
+      data: {
+        title: responseData.title,
+        author: responseData.author,
+        chapters: Array.isArray(responseData.chapters) ? responseData.chapters : [],
+      },
     });
   } catch (error) {
     const statusCode = Number(error?.statusCode) || 500;
     res.status(statusCode).json({
       message: mapReadErrorMessage(statusCode),
+    });
+  }
+};
+
+export const searchBooks = async (req, res) => searchGutenbergBooks(req, res);
+
+export const readBookBySource = async (req, res) => {
+  const sourceParam = String(req.query?.source || '').trim().toLowerCase();
+  const idParam = String(req.query?.id || '').trim();
+  const composite = splitCompositeSourceId(idParam);
+  const source = sourceParam || composite?.source || '';
+  const sourceId = composite?.sourceId || idParam;
+
+  if (!source || !sourceId) {
+    return res.status(400).json({
+      message: 'Both source and id are required.',
+      success: false,
+      data: { title: 'Unavailable', author: 'Unknown author', chapters: [{ index: 1, title: 'Unavailable', html: '<p>No readable source was provided.</p>' }] },
+    });
+  }
+
+  try {
+    const payload = await readBookFromSource({
+      source,
+      sourceId,
+      readGutenbergBookStateless,
+      buildReaderOptions: () => buildReaderOptions(req),
+    });
+
+    const chapters = Array.isArray(payload?.chapters) && payload.chapters.length > 0
+      ? payload.chapters
+      : [{ index: 1, title: 'Unavailable', html: '<p>No chapter content is available for this source.</p>' }];
+    return res.json({
+      success: true,
+      source,
+      sourceId,
+      data: {
+        title: String(payload?.title || 'Untitled'),
+        author: String(payload?.author || 'Unknown author'),
+        chapters,
+      },
+      title: String(payload?.title || 'Untitled'),
+      author: String(payload?.author || 'Unknown author'),
+      chapters,
+      sourceUrl: payload?.sourceUrl || null,
+    });
+  } catch (error) {
+    console.error('[BOOK] Source-aware read fallback triggered:', error?.message || error);
+    return res.json({
+      success: true,
+      source,
+      sourceId,
+      data: {
+        title: 'Preview unavailable',
+        author: 'Unknown author',
+        chapters: [{ index: 1, title: 'Fallback Preview', html: '<p>This source is temporarily unavailable. Please retry shortly.</p>' }],
+      },
+      title: 'Preview unavailable',
+      author: 'Unknown author',
+      chapters: [{ index: 1, title: 'Fallback Preview', html: '<p>This source is temporarily unavailable. Please retry shortly.</p>' }],
     });
   }
 };

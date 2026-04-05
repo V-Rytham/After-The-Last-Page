@@ -68,6 +68,16 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
   const paginationEngineRef = useRef(null);
 
   const isGutenbergRoute = Boolean(gutenbergId);
+  const parsedSourceRoute = useMemo(() => {
+    if (!bookId) return null;
+    const decoded = decodeURIComponent(String(bookId));
+    const separator = decoded.indexOf(':');
+    if (separator <= 0) return null;
+    const source = decoded.slice(0, separator).trim().toLowerCase();
+    const sourceId = decoded.slice(separator + 1).trim();
+    if (!source || !sourceId) return null;
+    return { source, sourceId, composite: decoded };
+  }, [bookId]);
   const resolvedBookId = book?._id || book?.id || (isGutenbergRoute ? `gutenberg:${gutenbergId}` : bookId);
 
   const fetchMoreChapters = useCallback(async () => {
@@ -135,9 +145,37 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
           return;
         }
 
+        if (parsedSourceRoute) {
+          const { data: readData } = await api.get('/books/read', {
+            params: {
+              source: parsedSourceRoute.source,
+              id: parsedSourceRoute.sourceId,
+            },
+          });
+          const payload = readData?.data || readData;
+          const nextChapters = Array.isArray(payload?.chapters) ? payload.chapters : [];
+          if (nextChapters.length === 0) {
+            throw new Error('Book content response did not include chapters.');
+          }
+
+          setBook({
+            _id: parsedSourceRoute.composite,
+            id: parsedSourceRoute.composite,
+            title: payload?.title || 'Untitled',
+            author: payload?.author || 'Unknown author',
+            source: parsedSourceRoute.source,
+            sourceId: parsedSourceRoute.sourceId,
+            sourceUrl: readData?.sourceUrl || null,
+          });
+          setChapters(nextChapters);
+          setCurrentChapter(1);
+          return;
+        }
+
         const { data: metadata } = await api.get(`/books/${bookId}`);
         const { data: readData } = await api.get(`/books/${bookId}/read`);
-        const nextChapters = Array.isArray(readData?.chapters) ? readData.chapters : [];
+        const payload = readData?.data || readData;
+        const nextChapters = Array.isArray(payload?.chapters) ? payload.chapters : [];
         if (nextChapters.length === 0) {
           throw new Error('Book content response did not include chapters.');
         }
@@ -155,7 +193,7 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
     };
 
     loadBook();
-  }, [bookId, gutenbergId, isGutenbergRoute]);
+  }, [bookId, gutenbergId, isGutenbergRoute, parsedSourceRoute]);
 
   const totalChapters = Math.max(1, chapters.length);
   const clampedChapter = clampNumber(currentChapter, 1, totalChapters);
@@ -173,7 +211,9 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
 
   const nextBookPath = book ? `/meet/${book._id || book.id}` : '/desk';
   const sourceUrl = book?.sourceUrl || (book?.gutenbergId ? `${GUTENBERG_HOST}/ebooks/${book.gutenbergId}` : null);
-  const sourceLabel = book?.gutenbergId ? `Project Gutenberg (eBook #${book.gutenbergId})` : 'Project Gutenberg';
+  const sourceLabel = book?.gutenbergId
+    ? `Project Gutenberg (eBook #${book.gutenbergId})`
+    : (book?.source ? `${String(book.source).charAt(0).toUpperCase()}${String(book.source).slice(1)}` : 'Source');
 
   const chapterHtmlForPagination = useMemo(() => {
     if (!activeChapter) return '';
