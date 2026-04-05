@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 import { Thread } from '../models/Thread.js';
-import { checkQuizAccess } from '../services/accessService.js';
 
 const buildSortQuery = (sort) => {
   if (sort === 'top' || sort === 'hot') {
@@ -23,15 +22,6 @@ const findCommentById = (comments, commentId) => {
   }
 
   return null;
-};
-
-const ensureQuizAccess = async ({ userId, bookId }) => {
-  const result = await checkQuizAccess({ userId, bookId });
-  if (!result.access) {
-    return { ok: false, status: 403, message: 'Quiz access is required for this book.' };
-  }
-
-  return { ok: true };
 };
 
 const toggleLike = (entity, actorId) => {
@@ -69,11 +59,6 @@ export const getThreadsByBook = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(bookId)) {
       return res.status(400).json({ message: 'Invalid book reference.' });
     }
-    const accessCheck = await ensureQuizAccess({ userId: req.user?._id, bookId });
-    if (!accessCheck.ok) {
-      return res.status(accessCheck.status).json({ message: accessCheck.message });
-    }
-
     const threads = await Thread.find({ bookId })
       .sort(buildSortQuery(req.query.sort))
       .skip((safePage - 1) * safeLimit)
@@ -106,11 +91,6 @@ export const createThread = async (req, res) => {
       return res.status(400).json({ message: 'Thread content must be 3000 characters or fewer.' });
     }
 
-    const accessCheck = await ensureQuizAccess({ userId: req.user?._id, bookId });
-    if (!accessCheck.ok) {
-      return res.status(accessCheck.status).json({ message: accessCheck.message });
-    }
-
     const authorAnonId = req.user ? req.user.anonymousId : 'Anonymous Reader';
 
     const thread = await Thread.create({
@@ -140,11 +120,6 @@ export const addComment = async (req, res) => {
     const thread = await Thread.findById(threadId);
     if (!thread) {
       return res.status(404).json({ message: 'Thread not found' });
-    }
-
-    const accessCheck = await ensureQuizAccess({ userId: req.user?._id, bookId: thread.bookId });
-    if (!accessCheck.ok) {
-      return res.status(accessCheck.status).json({ message: accessCheck.message });
     }
 
     const content = req.body.content?.trim();
@@ -193,11 +168,6 @@ export const likeThread = async (req, res) => {
       return res.status(404).json({ message: 'Thread not found' });
     }
 
-    const accessCheck = await ensureQuizAccess({ userId: req.user?._id, bookId: thread.bookId });
-    if (!accessCheck.ok) {
-      return res.status(accessCheck.status).json({ message: accessCheck.message });
-    }
-
     toggleLike(thread, req.user?._id);
     await thread.save();
 
@@ -218,11 +188,6 @@ export const likeComment = async (req, res) => {
     const thread = await Thread.findById(threadId);
     if (!thread) {
       return res.status(404).json({ message: 'Thread not found' });
-    }
-
-    const accessCheck = await ensureQuizAccess({ userId: req.user?._id, bookId: thread.bookId });
-    if (!accessCheck.ok) {
-      return res.status(accessCheck.status).json({ message: accessCheck.message });
     }
 
     const comment = findCommentById(thread.comments, commentId);
