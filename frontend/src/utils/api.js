@@ -1,8 +1,6 @@
 import axios from 'axios';
 let rateLimitedUntil = 0;
 
-axios.defaults.withCredentials = true;
-
 const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 const parseRetryAfterMs = (retryAfterHeader) => {
