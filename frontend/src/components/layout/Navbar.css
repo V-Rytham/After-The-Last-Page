@@ -4,7 +4,6 @@
   z-index: 80;
   width: 100%;
   padding: 0.45rem var(--page-gutter);
-  border-bottom: 1px solid var(--border-soft);
   background: var(--nav-bg);
   backdrop-filter: blur(6px);
   display: grid;
@@ -28,9 +27,6 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.16rem;
-  border: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-muted) 75%, transparent);
 }
 
 .navbar-pill {
@@ -45,15 +41,14 @@
 
 .navbar-pill:hover,
 .navbar-pill:focus-visible {
-  background: color-mix(in srgb, var(--surface-1) 80%, transparent);
+  background: var(--surface-muted);
   color: var(--text-primary);
   outline: none;
 }
 
 .navbar-pill.is-active {
-  background: var(--surface-1);
+  background: var(--accent-soft);
   color: var(--text-primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-soft) 75%, transparent);
 }
 
 .navbar-right { justify-self: end; display: inline-flex; align-items: center; gap: 0.5rem; }
@@ -208,3 +203,13 @@
 
   .navbar-pill { padding-inline: 0.72rem; }
 }
+
+.nav-signout {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.5rem;
+}
+.nav-signout:hover { background: var(--surface-muted); color: var(--text-primary); }
+@media (max-width: 767px) { .nav-signout { display: none; } }

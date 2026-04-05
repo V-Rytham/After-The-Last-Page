@@ -140,6 +140,41 @@ html[data-theme='sepia'] {
   --nav-link-active-border: var(--accent-border);
 }
 
+
+
+html[data-theme='mocha'] {
+  --btn-bg: #5f4538;
+  --accent-contrast: #fff5ef;
+  --btn-text: #fff5ef;
+  --btn-hover: #785a49;
+  --accent-primary: #b07855;
+  --book-card-overlay: rgba(57, 35, 28, 0.36);
+  --book-card-gradient: linear-gradient(180deg, rgba(125, 86, 66, 0.24), rgba(37, 23, 19, 0.15));
+  --book-card-shadow: 0 12px 24px rgba(21, 12, 10, 0.38);
+
+  --page-bg: #1f1512;
+  --page-bg-alt: #2a1c18;
+  --nav-bg: rgba(31, 21, 18, 0.9);
+  --surface-1: #2f201b;
+  --surface-2: #3a2822;
+  --surface-2-elevated: var(--surface-2);
+  --surface-muted: rgba(255, 224, 204, 0.08);
+  --text-primary: #f5e7dd;
+  --text-secondary: #dfc5b3;
+  --text-muted: #c0a08a;
+  --border-soft: rgba(255, 219, 196, 0.18);
+  --border-strong: rgba(255, 219, 196, 0.3);
+  --accent-warm: #c9926f;
+  --accent: var(--accent-primary);
+  --accent-ink: #ffe6d6;
+  --accent-soft: rgba(176, 120, 85, 0.2);
+  --accent-soft-strong: rgba(176, 120, 85, 0.3);
+  --accent-border: rgba(176, 120, 85, 0.44);
+  --success-soft: rgba(116, 194, 157, 0.16);
+  --warning-soft: rgba(212, 162, 96, 0.18);
+  --danger-soft: rgba(221, 121, 121, 0.18);
+  --selection: rgba(176, 120, 85, 0.28);
+}
 html[data-theme='dark'] {
   --btn-bg: rgba(110, 93, 253, 0.4);
   --accent-contrast: #f6f2ff;

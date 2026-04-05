@@ -1,46 +1,23 @@
-import fs from 'fs/promises';
-import path from 'path';
+import { v2 as cloudinary } from 'cloudinary';
 
-const UPLOAD_DIR = path.resolve(process.cwd(), 'backend', 'uploads', 'profiles');
-const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
+const required = [process.env.CLOUDINARY_CLOUD_NAME, process.env.CLOUDINARY_API_KEY, process.env.CLOUDINARY_API_SECRET].every(Boolean);
+if (required) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
 
-export const profileImageConfig = {
-  uploadDir: UPLOAD_DIR,
-  maxSizeBytes: MAX_UPLOAD_SIZE_BYTES,
-  allowedMimeTypes: ALLOWED_TYPES,
-};
-
-export const ensureProfileUploadDir = async () => {
-  await fs.mkdir(UPLOAD_DIR, { recursive: true });
-};
-
-export const safeUnlink = async (absolutePath) => {
-  if (!absolutePath) {
-    return;
+export const uploadProfileImage = async (dataUri) => {
+  if (!required) {
+    throw new Error('Cloudinary configuration missing. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.');
   }
 
-  try {
-    await fs.unlink(absolutePath);
-  } catch {
-    // intentionally ignored
-  }
-};
+  const uploaded = await cloudinary.uploader.upload(dataUri, {
+    folder: 'after-the-last-page/profiles',
+    transformation: [{ width: 320, height: 320, crop: 'fill', gravity: 'face' }],
+  });
 
-export const getImagePublicUrl = (req, relativePath) => {
-  if (!relativePath) {
-    return '';
-  }
-
-  if (/^https?:\/\//i.test(relativePath)) {
-    return relativePath;
-  }
-
-  const normalized = String(relativePath).startsWith('/') ? relativePath : `/${relativePath}`;
-  const configuredOrigin = String(process.env.PUBLIC_SERVER_URL || '').trim();
-  if (configuredOrigin) {
-    return `${configuredOrigin.replace(/\/$/, '')}${normalized}`;
-  }
-
-  return `${req.protocol}://${req.get('host')}${normalized}`;
+  return uploaded.secure_url;
 };

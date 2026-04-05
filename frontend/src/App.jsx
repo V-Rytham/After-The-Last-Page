@@ -16,59 +16,18 @@ import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import BookQuiz from './pages/BookQuiz';
 import RequestBookPage from './pages/RequestBookPage';
-import ReadEntryPage from './pages/ReadEntryPage';
 import api from './utils/api';
-import { clearAuthSession, getStoredToken, getStoredUser, saveAuthSession, updateStoredUser } from './utils/auth';
+import { clearAuthSession, getStoredUser, saveAuthSession, updateStoredUser } from './utils/auth';
 import { DEFAULT_UI_THEME, THEME_STORAGE_KEY, UI_THEMES } from './utils/uiThemes';
 import './index.css';
 
 const VALID_THEMES = UI_THEMES.map((theme) => theme.id);
-let isFetchingUser = false;
-
-const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
-
-const shouldRetry = (error) => {
-  const status = Number(error?.statusCode || error?.response?.status || 0);
-  if (status === 429) return true;
-  if (status >= 500) return true;
-  return !status;
-};
-
-const getRetryDelayMs = (error, attempt) => {
-  const retryAfterHeader = error?.response?.headers?.['retry-after'];
-  const retryAfter = Number(retryAfterHeader);
-  if (Number.isFinite(retryAfter) && retryAfter >= 0) {
-    return Math.round(retryAfter * 1000);
-  }
-
-  const baseMs = 600;
-  return Math.min(8000, baseMs * (2 ** attempt));
-};
-
-const retry = async (fn, retries = 3, attempt = 0) => {
-  try {
-    return await fn();
-  } catch (error) {
-    if (retries <= 0 || !shouldRetry(error)) {
-      throw error;
-    }
-
-    await sleep(getRetryDelayMs(error, attempt));
-    return retry(fn, retries - 1, attempt + 1);
-  }
-};
-
-const createAnonymousUserWithRetry = async () => {
-  const { data } = await retry(() => api.post('/users/anonymous'), 3);
-  return data;
-};
-
 const RequireMember = ({ currentUser, children }) => {
   const location = useLocation();
   const storedUser = getStoredUser();
-  const effectiveUser = currentUser && !currentUser.isAnonymous ? currentUser : storedUser;
+  const effectiveUser = currentUser || storedUser;
 
-  if (!effectiveUser || effectiveUser.isAnonymous) {
+  if (!effectiveUser) {
     return <Navigate to="/auth" replace state={{ from: location.pathname }} />;
   }
 
@@ -115,7 +74,7 @@ const App = () => {
   const bootstrapStartedRef = useRef(false);
   const [uiTheme, setUiTheme] = useState(() => {
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (storedTheme === 'midnight' || storedTheme === 'mocha') {
+    if (storedTheme === 'midnight') {
       return DEFAULT_UI_THEME;
     }
 
@@ -144,48 +103,20 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (bootstrapStartedRef.current) {
-      return;
-    }
-
+    if (bootstrapStartedRef.current) return;
     bootstrapStartedRef.current = true;
 
     const bootstrapUser = async () => {
-      if (isFetchingUser) {
-        return;
-      }
-
-      isFetchingUser = true;
-      const token = getStoredToken();
-
       try {
-        if (token) {
-          try {
-            const { data } = await api.get('/users/profile');
-            const user = updateStoredUser(data) || data;
-            setCurrentUser(user);
-            return;
-          } catch (error) {
-            const status = Number(error?.statusCode || error?.response?.status || 0);
-            if (status === 401 || status === 403) {
-              console.error('[AUTH] Stored session is invalid, replacing with guest session:', error);
-              clearAuthSession();
-            } else {
-              console.warn('[AUTH] Could not validate stored session, keeping existing user for now:', error);
-              setCurrentUser(getStoredUser());
-              return;
-            }
-          }
-        }
-
-        const data = await createAnonymousUserWithRetry();
+        const { data } = await api.get('/users/profile');
         const user = saveAuthSession(data);
         setCurrentUser(user);
-      } catch (error) {
-        console.error('[AUTH] Failed to register anonymous user:', error);
+        if (data?.preferences?.theme && VALID_THEMES.includes(data.preferences.theme)) {
+          setUiTheme(data.preferences.theme);
+        }
+      } catch {
+        clearAuthSession();
         setCurrentUser(null);
-      } finally {
-        isFetchingUser = false;
       }
     };
 
@@ -195,7 +126,28 @@ const App = () => {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', uiTheme);
     window.localStorage.setItem(THEME_STORAGE_KEY, uiTheme);
-  }, [uiTheme]);
+    if (currentUser?._id) {
+      api.patch('/users/preferences/theme', { theme: uiTheme }).catch(() => {});
+    }
+  }, [uiTheme, currentUser?._id]);
+
+
+  useEffect(() => {
+    const handleUnauthorized = async () => {
+      try {
+        await api.post('/users/refresh');
+        const { data } = await api.get('/users/profile');
+        const user = saveAuthSession(data);
+        setCurrentUser(user);
+      } catch {
+        clearAuthSession();
+        setCurrentUser(null);
+      }
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, []);
 
   const handleAuthSuccess = useCallback((user) => {
     setCurrentUser(user);
@@ -207,14 +159,10 @@ const App = () => {
   }, []);
 
   const handleLogout = async () => {
-    clearAuthSession();
-
     try {
-      const data = await createAnonymousUserWithRetry();
-      const guestUser = saveAuthSession(data);
-      setCurrentUser(guestUser);
-    } catch (error) {
-      console.error('[AUTH] Failed to create guest session after logout:', error);
+      await api.post('/users/logout');
+    } finally {
+      clearAuthSession();
       setCurrentUser(null);
     }
   };

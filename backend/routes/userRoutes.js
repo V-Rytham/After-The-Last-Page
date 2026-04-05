@@ -1,6 +1,5 @@
 import express from 'express';
 import {
-  registerAnonymousUser,
   registerUser,
   loginUser,
   getUserProfile,
@@ -8,18 +7,29 @@ import {
   updateUserProfileImage,
   removeUserProfileImage,
   checkUsernameAvailability,
+  verifySignupOtp,
+  resendOtp,
+  refreshSession,
+  logoutUser,
+  updateThemePreference,
+  loginWithGoogle,
 } from '../controllers/userController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, requireRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 router.get('/username-availability', checkUsernameAvailability);
-router.post('/anonymous', registerAnonymousUser);
 router.post('/signup', registerUser);
+router.post('/verify-otp', verifySignupOtp);
+router.post('/resend-otp', resendOtp);
 router.post('/login', loginUser);
-router.get('/profile', protect, getUserProfile);
-router.put('/profile', protect, updateUserProfile);
-router.put('/profile/image', protect, updateUserProfileImage);
-router.delete('/profile/image', protect, removeUserProfileImage);
+router.post('/oauth/google', loginWithGoogle);
+router.post('/refresh', refreshSession);
+router.post('/logout', logoutUser);
+router.get('/profile', protect, requireRole(['user']), getUserProfile);
+router.put('/profile', protect, requireRole(['user']), updateUserProfile);
+router.put('/profile/image', protect, requireRole(['user']), updateUserProfileImage);
+router.delete('/profile/image', protect, requireRole(['user']), removeUserProfileImage);
+router.patch('/preferences/theme', protect, requireRole(['user']), updateThemePreference);
 
 export default router;
