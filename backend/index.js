@@ -15,7 +15,6 @@ import { buildSessionRoutes } from './routes/sessionRoutes.js';
 import { buildMatchmakingRoutes } from './routes/matchmakingRoutes.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
 import { rateLimit } from './middleware/rateLimit.js';
-import cookieParser from 'cookie-parser';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import { isProd } from './utils/runtime.js';
 import { logger } from './utils/logger.js';
@@ -25,14 +24,11 @@ import { RealtimeSessionManager } from './services/realtimeSessionManager.js';
 import { requestTracing } from './middleware/requestLogging.js';
 import recommenderRoutes from './routes/recommenderRoutes.js';
 import { requireDatabase } from './middleware/degradedModeMiddleware.js';
+import { attachDevUserContext } from './middleware/devUserContext.js';
 
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', isProd() ? 1 : 0);
-
-if (!isProd() && process.env.DEV_AUTH_BYPASS === 'true') {
-  console.warn('⚠️ DEV AUTH BYPASS ENABLED — DO NOT USE IN PRODUCTION');
-}
 
 const httpServer = createServer(app);
 
@@ -129,26 +125,20 @@ const buildCorsOriginValidator = () => {
 app.use(cors({
   origin: buildCorsOriginValidator(),
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Book-Action-Id', 'X-Book-Action-Name'],
+  allowedHeaders: ['Content-Type', 'X-Book-Action-Id', 'X-Book-Action-Name'],
   exposedHeaders: ['X-Request-Id'],
   maxAge: 600,
   credentials: true,
 }));
 app.use(securityHeaders);
 app.use(requestTracing);
-app.use(cookieParser());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: false, limit: '200kb' }));
-
+app.use(attachDevUserContext);
 
 // Baseline abuse protection for all endpoints.
 app.use(rateLimit({ windowMs: 15 * 60_000, max: 100 }));
 // Tighten common abuse targets.
-app.use('/api/users/login', rateLimit({ windowMs: 60_000, max: 10 }));
-app.use('/api/users/signup', rateLimit({ windowMs: 60_000, max: 8 }));
-app.use('/api/users/verify-otp', rateLimit({ windowMs: 60_000, max: 6 }));
-app.use('/api/users/resend-otp', rateLimit({ windowMs: 60_000, max: 5 }));
-app.use('/api/users/oauth', rateLimit({ windowMs: 60_000, max: 15 }));
 app.use('/api/quiz', rateLimit({ windowMs: 60_000, max: 60 }));
 app.use('/api/access', rateLimit({ windowMs: 60_000, max: 90 }));
 
@@ -215,13 +205,5 @@ try {
 }
 
 httpServer.listen(PORT, () => {
-  if (isProd()) {
-    const jwtSecret = String(process.env.JWT_SECRET || '').trim();
-    if (!jwtSecret || jwtSecret === 'change_me_in_production') {
-      logger.error('Refusing to start in production with an unsafe JWT_SECRET.');
-      process.exit(1);
-    }
-  }
-
   logger.info({ port: PORT }, 'Nexus core listening');
 });

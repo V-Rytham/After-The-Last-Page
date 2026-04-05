@@ -1,40 +1,23 @@
 import express from 'express';
 import {
-  registerUser,
-  loginUser,
   getUserProfile,
   updateUserProfile,
   updateUserProfileImage,
   removeUserProfileImage,
   checkUsernameAvailability,
-  verifySignupOtp,
-  resendOtp,
-  refreshSession,
-  logoutUser,
   updateThemePreference,
-  loginWithGoogle,
-  loginGuestUser,
 } from '../controllers/userController.js';
-import { protect, requireRole } from '../middleware/authMiddleware.js';
 import { requireDatabase } from '../middleware/degradedModeMiddleware.js';
 
 const router = express.Router();
 
-router.use(requireDatabase({ feature: 'Authentication' }));
+router.use(requireDatabase({ feature: 'User profile' }));
 
 router.get('/username-availability', checkUsernameAvailability);
-router.post('/signup', registerUser);
-router.post('/verify-otp', verifySignupOtp);
-router.post('/resend-otp', resendOtp);
-router.post('/login', loginUser);
-router.post('/oauth/google', loginWithGoogle);
-router.post('/guest-login', loginGuestUser);
-router.post('/refresh', refreshSession);
-router.post('/logout', logoutUser);
-router.get('/profile', protect, requireRole(['user']), getUserProfile);
-router.put('/profile', protect, requireRole(['user']), updateUserProfile);
-router.put('/profile/image', protect, requireRole(['user']), updateUserProfileImage);
-router.delete('/profile/image', protect, requireRole(['user']), removeUserProfileImage);
-router.patch('/preferences/theme', protect, requireRole(['user']), updateThemePreference);
+router.get('/profile', getUserProfile);
+router.put('/profile', updateUserProfile);
+router.put('/profile/image', updateUserProfileImage);
+router.delete('/profile/image', removeUserProfileImage);
+router.patch('/preferences/theme', updateThemePreference);
 
 export default router;
