@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
 import { Otp } from '../models/Otp.js';
@@ -89,7 +90,10 @@ export const issueEmailOtp = async (user, { requestIp = '' } = {}) => {
     blockedUntil: null,
   });
 
-  await Otp.updateMany({ userId: user._id, consumedAt: null, expiresAt: { $lt: new Date() } }, { $set: { consumedAt: new Date() } });
+  await Otp.updateMany(
+    { userId: user._id, consumedAt: null, expiresAt: mongoose.trusted({ $lt: new Date() }) },
+    { $set: { consumedAt: new Date() } },
+  );
 
   if (transporter) {
     await transporter.sendMail({
