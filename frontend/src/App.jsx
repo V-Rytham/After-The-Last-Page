@@ -22,12 +22,20 @@ import { DEFAULT_UI_THEME, THEME_STORAGE_KEY, UI_THEMES } from './utils/uiThemes
 import './index.css';
 
 const VALID_THEMES = UI_THEMES.map((theme) => theme.id);
+const isDevAuthBypass = (
+  import.meta.env.DEV &&
+  (
+    import.meta.env.VITE_DEV_AUTH_BYPASS === 'true'
+    || (typeof process !== 'undefined' && process.env?.DEV_AUTH_BYPASS === 'true')
+  )
+);
+
 const RequireMember = ({ currentUser, children }) => {
   const location = useLocation();
   const storedUser = getStoredUser();
   const effectiveUser = currentUser || storedUser;
 
-  if (!effectiveUser) {
+  if (!effectiveUser && !isDevAuthBypass) {
     return <Navigate to="/auth" replace state={{ from: location.pathname }} />;
   }
 
@@ -107,6 +115,16 @@ const App = () => {
   useEffect(() => {
     if (bootstrapStartedRef.current) return;
     bootstrapStartedRef.current = true;
+
+    if (isDevAuthBypass) {
+      setCurrentUser({
+        _id: 'dev-user-id',
+        name: 'Dev User',
+        email: 'dev@local.test',
+        preferences: { theme: 'dark' },
+      });
+      return;
+    }
 
     const bootstrapUser = async () => {
       try {
