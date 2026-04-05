@@ -1,4 +1,4 @@
-import { getRedis } from '../config/redis.js';
+import { getCache } from '../config/cache.js';
 
 const ttlSeconds = Number.parseInt(process.env.BOOKFRIEND_SESSION_TTL_SECONDS || '7200', 10);
 
@@ -15,13 +15,13 @@ export const createSession = async ({ sessionId, userId, bookId, book }) => {
     updatedAt: new Date().toISOString(),
   };
 
-  const redis = getRedis();
-  await redis.set(keyForSession(sessionId), JSON.stringify(session), 'EX', ttlSeconds);
+  const cache = getCache();
+  await cache.set(keyForSession(sessionId), JSON.stringify(session), 'EX', ttlSeconds);
   return session;
 };
 
 export const getSession = async (sessionId) => {
-  const raw = await getRedis().get(keyForSession(sessionId));
+  const raw = await getCache().get(keyForSession(sessionId));
   return raw ? JSON.parse(raw) : null;
 };
 
@@ -33,11 +33,11 @@ export const appendMessage = async ({ sessionId, role, content }) => {
 
   session.messages.push({ role, content, timestamp: new Date().toISOString() });
   session.updatedAt = new Date().toISOString();
-  await getRedis().set(keyForSession(sessionId), JSON.stringify(session), 'EX', ttlSeconds);
+  await getCache().set(keyForSession(sessionId), JSON.stringify(session), 'EX', ttlSeconds);
   return session;
 };
 
 export const endSession = async (sessionId) => {
-  const deleted = await getRedis().del(keyForSession(sessionId));
+  const deleted = await getCache().del(keyForSession(sessionId));
   return deleted > 0;
 };

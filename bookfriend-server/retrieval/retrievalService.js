@@ -1,4 +1,4 @@
-import { getRedis } from '../config/redis.js';
+import { getCache } from '../config/cache.js';
 import { cosineSimilarity, embedTokens } from '../utils/embeddings.js';
 import { stripHtml, tokenize } from '../utils/text.js';
 
@@ -35,11 +35,11 @@ const getBookCacheKey = (book) => {
 const buildSignature = (chunks) => chunks.map((chunk) => `${chunk.chapterIndex ?? 'na'}:${chunk.text.length}`).join('|');
 
 const getOrBuildChunkVectors = async (book, chunks) => {
-  const redis = getRedis();
+  const cache = getCache();
   const cacheKey = `bookfriend:vectors:${getBookCacheKey(book)}`;
   const signature = buildSignature(chunks);
 
-  const raw = await redis.get(cacheKey);
+  const raw = await cache.get(cacheKey);
   if (raw) {
     const cached = JSON.parse(raw);
     if (cached?.signature === signature && Array.isArray(cached.vectors)) {
@@ -52,7 +52,7 @@ const getOrBuildChunkVectors = async (book, chunks) => {
     vector: embedTokens(tokenize(chunk.text)),
   }));
 
-  await redis.set(cacheKey, JSON.stringify({ signature, vectors }), 'EX', vectorTtlSeconds);
+  await cache.set(cacheKey, JSON.stringify({ signature, vectors }), 'EX', vectorTtlSeconds);
   return vectors;
 };
 
