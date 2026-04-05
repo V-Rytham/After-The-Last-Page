@@ -280,7 +280,7 @@ export const loginWithGoogle = async (req, res) => {
 export const refreshSession = async (req, res) => {
   try {
     assertAuthDatabaseReady();
-    console.log('REFRESH COOKIE:', req.cookies);
+    console.log('COOKIES RECEIVED:', req.cookies);
     const refreshToken = req.cookies?.atlp_refresh;
     if (!refreshToken) return error(res, 'Missing refresh token.', 'MISSING_REFRESH_TOKEN', 401);
 
@@ -334,6 +334,7 @@ export const logoutUser = async (req, res) => {
 };
 
 export const getUserProfile = async (req, res) => {
+  console.log('COOKIES RECEIVED:', req.cookies);
   console.log('PROFILE HIT - USER:', req.user?._id || null);
   return success(res, buildUserResponse(req.user));
 };
