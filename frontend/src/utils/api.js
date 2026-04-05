@@ -43,10 +43,6 @@ const shouldDispatchUnauthorized = (error, statusCode) => {
   const requestUrl = String(error?.config?.url || '');
   if (
     requestUrl.includes('/users/refresh')
-    || requestUrl.includes('/users/login')
-    || requestUrl.includes('/users/signup')
-    || requestUrl.includes('/users/verify-otp')
-    || requestUrl.includes('/users/resend-otp')
   ) return false;
 
   return true;

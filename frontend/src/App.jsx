@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import SessionNavigationGuard from './components/session/SessionNavigationGuard';
@@ -16,8 +16,7 @@ import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import BookQuiz from './pages/BookQuiz';
 import RequestBookPage from './pages/RequestBookPage';
-import api from './utils/api';
-import { clearAuthSession, getStoredUser, saveAuthSession, unwrapApiData, updateStoredUser } from './utils/auth';
+import { clearAuthSession, getStoredUser, updateStoredUser } from './utils/auth';
 import { DEFAULT_UI_THEME, THEME_STORAGE_KEY, UI_THEMES } from './utils/uiThemes';
 import './index.css';
 
@@ -79,9 +78,6 @@ const AppShell = ({ currentUser, onLogout, onUserUpdate, uiTheme, onThemeChange,
 
 const App = () => {
   const [currentUser, setCurrentUser] = useState(getStoredUser());
-  const bootstrapStartedRef = useRef(false);
-  const hasAttemptedUnauthorizedRefreshRef = useRef(false);
-  const refreshInFlightRef = useRef(false);
   const [uiTheme, setUiTheme] = useState(() => {
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
     if (storedTheme === 'midnight') {
@@ -113,92 +109,9 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (bootstrapStartedRef.current) return;
-    bootstrapStartedRef.current = true;
-
-    if (isDevAuthBypass) {
-      setCurrentUser({
-        _id: 'dev-user-id',
-        name: 'Dev User',
-        email: 'dev@local.test',
-        preferences: { theme: 'dark' },
-      });
-      return;
-    }
-
-    const bootstrapUser = async () => {
-      try {
-        const { data } = await api.get('/users/profile');
-        const payload = unwrapApiData(data);
-        const user = saveAuthSession(payload);
-        setCurrentUser(user);
-        if (payload?.preferences?.theme && VALID_THEMES.includes(payload.preferences.theme)) {
-          setUiTheme(payload.preferences.theme);
-        }
-      } catch (error) {
-        const status = error?.response?.status || error?.statusCode;
-
-        if (status === 401) {
-          try {
-            await api.post('/users/refresh');
-            const { data } = await api.get('/users/profile');
-            const payload = unwrapApiData(data);
-            const user = saveAuthSession(payload);
-            setCurrentUser(user);
-            if (payload?.preferences?.theme && VALID_THEMES.includes(payload.preferences.theme)) {
-              setUiTheme(payload.preferences.theme);
-            }
-          } catch {
-            clearAuthSession();
-            setCurrentUser(null);
-          }
-        } else {
-          console.error('Bootstrap error:', error);
-        }
-      }
-    };
-
-    bootstrapUser();
-  }, []);
-
-  useEffect(() => {
     document.documentElement.setAttribute('data-theme', uiTheme);
     window.localStorage.setItem(THEME_STORAGE_KEY, uiTheme);
-    if (currentUser?._id) {
-      api.patch('/users/preferences/theme', { theme: uiTheme }).catch(() => {});
-    }
   }, [uiTheme, currentUser?._id]);
-
-
-  useEffect(() => {
-    const handleUnauthorized = async (event) => {
-      const status = event?.detail?.status;
-      if (status !== 401) return;
-      if (refreshInFlightRef.current) return;
-      if (hasAttemptedUnauthorizedRefreshRef.current) return;
-      if (!currentUser?._id && !getStoredUser()?._id) return;
-
-      hasAttemptedUnauthorizedRefreshRef.current = true;
-      refreshInFlightRef.current = true;
-      try {
-        await api.post('/users/refresh');
-        const { data } = await api.get('/users/profile');
-        const user = saveAuthSession(unwrapApiData(data));
-        setCurrentUser(user);
-      } catch {
-        clearAuthSession();
-        setCurrentUser(null);
-      } finally {
-        refreshInFlightRef.current = false;
-        window.setTimeout(() => {
-          hasAttemptedUnauthorizedRefreshRef.current = false;
-        }, 2000);
-      }
-    };
-
-    window.addEventListener('auth:unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
-  }, [currentUser?._id]);
 
   const handleAuthSuccess = useCallback((user) => {
     setCurrentUser(user);
@@ -210,12 +123,8 @@ const App = () => {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await api.post('/users/logout');
-    } finally {
-      clearAuthSession();
-      setCurrentUser(null);
-    }
+    clearAuthSession();
+    setCurrentUser(getStoredUser());
   };
 
   return (
