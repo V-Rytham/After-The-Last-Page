@@ -63,6 +63,7 @@ const buildMockResponse = (config) => {
   if (method === 'post' && (path === '/auth/login' || path === '/auth/register')) return { user: mockUser, token: 'mock-token' };
   if (method === 'post' && path === '/auth/logout') return { ok: true };
   if (method === 'get' && (path === '/books' || path.startsWith('/books/search'))) return { books: mockBooks };
+  if (method === 'get' && path === '/books/default') return mockBooks;
   if (method === 'get' && path.includes('/read')) {
     return {
       bookId: path.split('/')[2] || 'mock-book-1',

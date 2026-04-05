@@ -1,5 +1,4 @@
 const GUTENDEX_BASE_URL = 'https://gutendex.com';
-const OPEN_LIBRARY_BASE_URL = 'https://openlibrary.org';
 const REQUEST_TIMEOUT_MS = 12000;
 
 const FALLBACK_COVER = 'https://placehold.co/420x630?text=No+Cover';
@@ -144,17 +143,6 @@ const mapGutendexSearchBook = (book) => ({
   sourceId: String(book?.id || ''),
 });
 
-const mapOpenLibrarySearchBook = (book) => ({
-  id: `openlibrary:${String(book?.key || '')}`,
-  title: String(book?.title || 'Untitled'),
-  author: String((Array.isArray(book?.author_name) ? book.author_name[0] : '') || 'Unknown author'),
-  coverImage: book?.cover_i
-    ? `https://covers.openlibrary.org/b/id/${encodeURIComponent(String(book.cover_i))}-L.jpg`
-    : FALLBACK_COVER,
-  source: 'openlibrary',
-  sourceId: String(book?.key || ''),
-});
-
 const dedupeBooks = (books = []) => {
   const seen = new Set();
   return books.filter((book) => {
@@ -183,33 +171,12 @@ const searchGutenberg = async (query) => {
   }
 };
 
-const searchOpenLibrary = async (query) => {
-  const isNumeric = /^\d+$/.test(query);
-
-  if (isNumeric) {
-    return [];
-  }
-
-  try {
-    const payload = await fetchJson(`${OPEN_LIBRARY_BASE_URL}/search.json?q=${encodeURIComponent(query)}&limit=20`);
-    const docs = Array.isArray(payload?.docs) ? payload.docs : [];
-    return docs.map(mapOpenLibrarySearchBook).filter((book) => book.sourceId);
-  } catch {
-    return [];
-  }
-};
-
 export const searchBooks = async (rawQuery) => {
   const query = String(rawQuery || '').trim();
   if (!query) return [];
 
-  const settled = await Promise.allSettled([
-    searchGutenberg(query),
-    searchOpenLibrary(query),
-  ]);
-
-  const merged = settled.flatMap((entry) => (entry.status === 'fulfilled' ? entry.value : []));
-  return dedupeBooks(merged).slice(0, 40);
+  const gutenbergResults = await searchGutenberg(query);
+  return dedupeBooks(gutenbergResults).slice(0, 40);
 };
 
 const readFromGutenberg = async (sourceId) => {
@@ -245,53 +212,11 @@ const readFromGutenberg = async (sourceId) => {
   }
 };
 
-const readFromOpenLibrary = async (sourceId) => {
-  const key = String(sourceId || '').trim();
-  const normalizedKey = key.startsWith('/') ? key : `/${key}`;
-  if (!normalizedKey.startsWith('/works/')) {
-    return createFallbackRead();
-  }
-
-  try {
-    const work = await fetchJson(`${OPEN_LIBRARY_BASE_URL}${normalizedKey}.json`);
-    const title = String(work?.title || 'OpenLibrary Book');
-
-    let author = 'Unknown author';
-    const firstAuthorKey = work?.authors?.[0]?.author?.key;
-    if (firstAuthorKey) {
-      try {
-        const authorPayload = await fetchJson(`${OPEN_LIBRARY_BASE_URL}${firstAuthorKey}.json`);
-        author = String(authorPayload?.name || author);
-      } catch {
-        author = 'Unknown author';
-      }
-    }
-
-    const description = typeof work?.description === 'string'
-      ? work.description
-      : String(work?.description?.value || '').trim();
-
-    const contentText = description || `${title} by ${author} is listed on Open Library. Full readable text is not available for this title.`;
-
-    return {
-      title,
-      author,
-      chapters: ensureChapters([{ index: 1, title: 'Preview', html: toHtmlParagraphs(contentText) }]),
-    };
-  } catch {
-    return createFallbackRead();
-  }
-};
-
 export const readBook = async (source, sourceId) => {
   const normalizedSource = String(source || '').trim().toLowerCase();
 
   if (normalizedSource === 'gutenberg') {
     return readFromGutenberg(sourceId);
-  }
-
-  if (normalizedSource === 'openlibrary') {
-    return readFromOpenLibrary(sourceId);
   }
 
   return createFallbackRead();
