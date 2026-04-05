@@ -30,6 +30,10 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', isProd() ? 1 : 0);
 
+if (!isProd() && process.env.DEV_AUTH_BYPASS === 'true') {
+  console.warn('⚠️ DEV AUTH BYPASS ENABLED — DO NOT USE IN PRODUCTION');
+}
+
 const httpServer = createServer(app);
 
 process.on('unhandledRejection', (reason) => {
