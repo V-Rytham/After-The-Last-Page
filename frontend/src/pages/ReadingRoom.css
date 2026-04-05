@@ -1,5 +1,6 @@
 .reader-root {
   height: 100vh;
+  height: 100dvh;
   width: 100%;
   overflow: hidden;
   background: inherit;
@@ -7,6 +8,7 @@
 
 .reader-surface {
   height: 100vh;
+  height: 100dvh;
   width: 100%;
   overflow: hidden;
   overflow-x: hidden;
@@ -21,8 +23,9 @@
 }
 
 .reader-page-viewport {
-  width: 95%;
+  width: min(100%, 72rem);
   height: calc(100vh - 1.9rem);
+  height: calc(100dvh - 1.9rem);
   overflow: hidden;
   margin: 0 auto;
 }
@@ -43,8 +46,8 @@
 }
 
 .theme-dark {
-  background: #171614;
-  color: #e9e3d8;
+  background: #101010;
+  color: #e7e8eb;
 }
 
 .theme-light .reader-toolbar {
@@ -58,8 +61,8 @@
 }
 
 .theme-dark .reader-toolbar {
-  background: rgba(23, 22, 20, 0.84);
-  border-color: rgba(229, 229, 229, 0.12);
+  background: rgba(12, 12, 13, 0.88);
+  border-color: rgba(235, 237, 245, 0.14);
 }
 
 
@@ -82,7 +85,7 @@
 .theme-dark .reading-column strong,
 .theme-dark .reader-book-name,
 .theme-dark .chapter-title {
-  color: #e9e3d8;
+  color: #e7e8eb;
 }
 
 .theme-light .reader-overline,
@@ -109,7 +112,7 @@
 .theme-dark .reader-footer,
 .theme-dark .settings-label,
 .theme-dark .finish-banner p {
-  color: #bdb5aa;
+  color: #adb2c0;
 }
 
 .theme-light .settings-panel {
@@ -490,7 +493,8 @@
   position: relative;
   overflow: hidden;
   overflow-x: hidden;
-  max-width: 100%;
+  max-width: min(100%, 74ch);
+  margin: 0 auto;
   padding: clamp(1.35rem, 3.2vh, 2.1rem) calc(clamp(1rem, 3.2vw, 2.6rem) * var(--reader-margin-scale)) clamp(4rem, 7vh, 4.9rem);
   font-family: var(--font-reading);
   letter-spacing: 0.01em;
@@ -585,12 +589,23 @@
   font-size: 1.125rem;
   overflow-wrap: anywhere;
   word-break: break-word;
+  max-inline-size: 100%;
 }
 
-.reader-content-wrapper * {
+.reader-content-wrapper *,
+.reader-content-wrapper h1,
+.reader-content-wrapper h2,
+.reader-content-wrapper h3,
+.reader-content-wrapper h4,
+.reader-content-wrapper h5,
+.reader-content-wrapper h6,
+.reader-content-wrapper li,
+.reader-content-wrapper blockquote {
   max-width: 100%;
   overflow-wrap: anywhere;
   word-break: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 
 .reading-column a {
@@ -626,8 +641,8 @@
 
 @media (min-width: 768px) {
   .reader-page-viewport {
-    width: 100%;
-    max-width: 760px;
+    width: min(100%, 96rem);
+    max-width: none;
   }
 
   .reading-column p {
@@ -745,9 +760,16 @@
 
 /* iPad Pro portrait (11" / 12.9") — keep iPad Mini/Air rules untouched. */
 @media (min-width: 834px) and (max-width: 1024px) and (orientation: portrait) {
+  .reader-page-viewport {
+    width: 100%;
+    height: calc(100dvh - 1.55rem);
+    max-width: none;
+  }
+
   .reader-content-wrapper {
-    padding-left: 30px;
-    padding-right: 30px;
+    max-width: min(100%, 72ch);
+    padding-left: clamp(1rem, 3.5vw, 2rem);
+    padding-right: clamp(1rem, 3.5vw, 2rem);
     padding-top: 4.25rem;
     padding-bottom: 4.75rem;
   }
@@ -759,6 +781,11 @@
 
   .chapter-title {
     max-width: 100%;
+  }
+
+  .reading-column p {
+    font-size: clamp(1.1rem, 2.2vw, 1.28rem);
+    line-height: 1.74;
   }
 
 }
@@ -882,7 +909,7 @@
 }
 
 .theme-dark .reader-surface {
-  background: linear-gradient(180deg, #24211d 0%, #1d1b18 100%);
+  background: linear-gradient(180deg, #121315 0%, #0a0a0b 100%);
 }
 
 .theme-light.reader-root {
@@ -894,7 +921,19 @@
 }
 
 .theme-dark.reader-root {
-  background: linear-gradient(180deg, #24211d 0%, #1d1b18 100%);
+  background: linear-gradient(180deg, #121315 0%, #0a0a0b 100%);
+}
+
+.theme-dark .reader-footer {
+  background: rgba(231, 232, 235, 0.08);
+}
+
+.theme-dark .progress-bar-container {
+  background: rgba(231, 232, 235, 0.2);
+}
+
+.theme-dark .progress-bar-fill {
+  opacity: 0.8;
 }
 
 .finish-overlay .finish-banner {
