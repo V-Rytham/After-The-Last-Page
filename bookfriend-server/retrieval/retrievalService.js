@@ -1,7 +1,8 @@
+import { getRedis } from '../config/redis.js';
 import { cosineSimilarity, embedTokens } from '../utils/embeddings.js';
 import { stripHtml, tokenize } from '../utils/text.js';
 
-const vectorIndexCache = new Map();
+const vectorTtlSeconds = Number.parseInt(process.env.BOOKFRIEND_VECTOR_CACHE_TTL_SECONDS || '3600', 10);
 
 const toChunkText = (chapter) => {
   const title = chapter?.title ? `${chapter.title}. ` : '';
@@ -31,12 +32,19 @@ const getBookCacheKey = (book) => {
   return `title:${String(book?.title || 'unknown')}`;
 };
 
-const getOrBuildChunkVectors = (book, chunks) => {
-  const cacheKey = getBookCacheKey(book);
-  const signature = chunks.map((chunk) => `${chunk.chapterIndex ?? 'na'}:${chunk.text.length}`).join('|');
-  const cached = vectorIndexCache.get(cacheKey);
-  if (cached?.signature === signature) {
-    return cached.vectors;
+const buildSignature = (chunks) => chunks.map((chunk) => `${chunk.chapterIndex ?? 'na'}:${chunk.text.length}`).join('|');
+
+const getOrBuildChunkVectors = async (book, chunks) => {
+  const redis = getRedis();
+  const cacheKey = `bookfriend:vectors:${getBookCacheKey(book)}`;
+  const signature = buildSignature(chunks);
+
+  const raw = await redis.get(cacheKey);
+  if (raw) {
+    const cached = JSON.parse(raw);
+    if (cached?.signature === signature && Array.isArray(cached.vectors)) {
+      return cached.vectors;
+    }
   }
 
   const vectors = chunks.map((chunk) => ({
@@ -44,11 +52,11 @@ const getOrBuildChunkVectors = (book, chunks) => {
     vector: embedTokens(tokenize(chunk.text)),
   }));
 
-  vectorIndexCache.set(cacheKey, { signature, vectors, updatedAt: Date.now() });
+  await redis.set(cacheKey, JSON.stringify({ signature, vectors }), 'EX', vectorTtlSeconds);
   return vectors;
 };
 
-export const retrieveRelevantChunks = ({ book, userMessage, chapterProgress, limit = 4 }) => {
+export const retrieveRelevantChunks = async ({ book, userMessage, chapterProgress, limit = 4 }) => {
   const chunks = getCandidateChunks(book);
 
   if (chapterProgress != null) {
@@ -66,7 +74,7 @@ export const retrieveRelevantChunks = ({ book, userMessage, chapterProgress, lim
     return [{ chapterIndex: null, text: String(book.synopsis) }];
   }
 
-  const chunkVectors = getOrBuildChunkVectors(book, chunks);
+  const chunkVectors = await getOrBuildChunkVectors(book, chunks);
   const queryVector = embedTokens(tokenize(userMessage));
 
   return chunkVectors

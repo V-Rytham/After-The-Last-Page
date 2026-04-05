@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import { NotFoundError } from '../lib/errors.js';
+import { sendSuccess } from '../lib/http.js';
 import { findBookForAgent } from '../retrieval/bookRepository.js';
 import { retrieveRelevantChunks } from '../retrieval/retrievalService.js';
 import { generateAgentReply } from '../services/llmService.js';
@@ -16,79 +18,65 @@ const getRetrievalLimit = () => {
 };
 
 export const startAgentSession = async (req, res) => {
-  try {
-    const { user_id: userId, book_id: bookId } = req.body || {};
+  const { user_id: userId, book_id: bookId } = req.validatedBody;
 
-    if (!userId || !bookId) {
-      return res.status(400).json({ message: 'user_id and book_id are required.' });
-    }
-
-    const book = await findBookForAgent(bookId);
-    if (!book) {
-      return res.status(404).json({ message: 'Book not found for this session.' });
-    }
-
-    const sessionId = crypto.randomUUID();
-    createSession({ sessionId, userId, bookId, book });
-
-    res.status(201).json({ session_id: sessionId });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to start BookFriend session.', error: error.message });
+  const book = await findBookForAgent(bookId);
+  if (!book) {
+    throw new NotFoundError('Book not found for this session.', 'BOOK_NOT_FOUND');
   }
+
+  const sessionId = crypto.randomUUID();
+  await createSession({ sessionId, userId, bookId, book });
+  return sendSuccess(res, { session_id: sessionId }, 201);
 };
 
 export const sendAgentMessage = async (req, res) => {
-  try {
-    const { session_id: sessionId, message, chapter_progress: chapterProgress } = req.body || {};
+  const { session_id: sessionId, message, chapter_progress: chapterProgress } = req.validatedBody;
 
-    if (!sessionId || !message) {
-      return res.status(400).json({ message: 'session_id and message are required.' });
-    }
-
-    const session = getSession(sessionId);
-    if (!session) {
-      return res.status(404).json({ message: 'Session not found or expired.' });
-    }
-
-    appendMessage({ sessionId, role: 'user', content: String(message) });
-
-    const retrievedChunks = retrieveRelevantChunks({
-      book: session.book,
-      userMessage: message,
-      chapterProgress,
-      limit: getRetrievalLimit(),
-    });
-
-    const promptPayload = buildBookFriendPrompt({
-      book: session.book,
-      retrievedChunks,
-      sessionMessages: session.messages,
-      userMessage: message,
-      maxHistory: getMaxHistory(),
-    });
-    console.log("Inside agenController.js calling generate AgenReply method");
-
-    const response = await generateAgentReply(promptPayload);
-    appendMessage({ sessionId, role: 'assistant', content: response });
-
-    res.json({ response });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to generate BookFriend response.', error: error.message });
+  const session = await getSession(sessionId);
+  if (!session) {
+    throw new NotFoundError('Session not found or expired.', 'SESSION_NOT_FOUND');
   }
+
+  if (req.user.role !== 'admin' && req.user.sub !== String(session.userId)) {
+    throw new NotFoundError('Session not found or expired.', 'SESSION_NOT_FOUND');
+  }
+
+  await appendMessage({ sessionId, role: 'user', content: String(message) });
+
+  const retrievedChunks = await retrieveRelevantChunks({
+    book: session.book,
+    userMessage: message,
+    chapterProgress,
+    limit: getRetrievalLimit(),
+  });
+
+  const promptPayload = buildBookFriendPrompt({
+    book: session.book,
+    retrievedChunks,
+    sessionMessages: session.messages,
+    userMessage: message,
+    maxHistory: getMaxHistory(),
+  });
+
+  const response = await generateAgentReply(promptPayload);
+  await appendMessage({ sessionId, role: 'assistant', content: response });
+
+  return sendSuccess(res, { response });
 };
 
 export const endAgentSession = async (req, res) => {
-  const { session_id: sessionId } = req.body || {};
+  const { session_id: sessionId } = req.validatedBody;
 
-  if (!sessionId) {
-    return res.status(400).json({ message: 'session_id is required.' });
+  const session = await getSession(sessionId);
+  if (!session) {
+    throw new NotFoundError('Session not found.', 'SESSION_NOT_FOUND');
   }
 
-  const deleted = endSession(sessionId);
-
-  if (!deleted) {
-    return res.status(404).json({ message: 'Session not found.' });
+  if (req.user.role !== 'admin' && req.user.sub !== String(session.userId)) {
+    throw new NotFoundError('Session not found.', 'SESSION_NOT_FOUND');
   }
 
-  return res.json({ message: 'Session deleted.' });
+  await endSession(sessionId);
+  return sendSuccess(res, { message: 'Session deleted.' });
 };
