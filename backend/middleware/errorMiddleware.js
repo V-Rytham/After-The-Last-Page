@@ -18,7 +18,13 @@ export const errorHandler = (err, req, res, next) => {
     errorCode: code,
     status,
     error: err?.message,
+    stack: err?.stack,
   }, 'Request failed');
+
+  if (process.env.NODE_ENV !== 'production' && err?.stack) {
+    // Keep stack traces visible in local/dev so backend failures are actionable.
+    console.error(err.stack);
+  }
 
   errorResponse(res, err?.message || 'Server error.', code, status);
 };

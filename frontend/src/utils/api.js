@@ -27,6 +27,12 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+const isTransientNetworkFailure = (error) => {
+  if (error?.response) return false;
+  const code = String(error?.code || '').toUpperCase();
+  return code === 'ERR_NETWORK' || code === 'ECONNREFUSED' || code === 'ECONNRESET';
+};
+
 api.interceptors.request.use(async (config) => {
   if (Date.now() < rateLimitedUntil) {
     await sleep(rateLimitedUntil - Date.now());
@@ -45,7 +51,14 @@ const shouldDispatchUnauthorized = (error, statusCode) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const config = error?.config;
+    if (config && isTransientNetworkFailure(error) && !config.__retryAfterNetworkFailure) {
+      config.__retryAfterNetworkFailure = true;
+      await sleep(350);
+      return api.request(config);
+    }
+
     const statusCode = Number(error?.response?.status || 0) || null;
 
     if (statusCode === 429) {
