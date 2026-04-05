@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../utils/api';
-import { getStoredToken } from '../../utils/auth';
 import './SessionNavigationGuard.css';
 
 const SENSITIVE_STATES = new Set(['SEARCHING', 'MATCHED', 'IN_CONVERSATION']);
@@ -35,12 +34,6 @@ export default function SessionNavigationGuard() {
   const pollingDelayRef = useRef(3000);
 
   const refreshStatus = useCallback(async () => {
-    if (!getStoredToken()) {
-      setSessionState('IDLE');
-      pollingDelayRef.current = 3000;
-      return 'IDLE';
-    }
-
     if (statusRequestInFlightRef.current) {
       return sessionState;
     }
@@ -68,10 +61,6 @@ export default function SessionNavigationGuard() {
   }, [sessionState]);
 
   const cleanupSession = useCallback(async (reason = 'nav-guard') => {
-    if (!getStoredToken()) {
-      setSessionState('IDLE');
-      return;
-    }
     if (cleanupInFlightRef.current) {
       return;
     }

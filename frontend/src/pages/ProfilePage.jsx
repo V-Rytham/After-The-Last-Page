@@ -13,8 +13,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
-import api from '../utils/api';
-import { getStoredUser, unwrapApiData } from '../utils/auth';
+import { getStoredUser, saveAuthSession } from '../utils/auth';
 import './ProfilePage.css';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
@@ -97,41 +96,8 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
   }, [baseUser]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const fetchProfile = async () => {
-      setLoading(true);
-
-      try {
-        const { data } = await api.get('/users/profile');
-        const payload = unwrapApiData(data);
-        if (cancelled) {
-          return;
-        }
-
-        setProfile({ ...payload, stats: payload.stats || EMPTY_STATS });
-        setEditForm({
-          name: payload.name || '',
-          username: payload.username || '',
-          bio: payload.bio || '',
-        });
-        onUserUpdate?.(payload);
-      } catch (requestError) {
-        if (!cancelled) {
-          setError(requestError.response?.data?.message || 'Could not load your profile right now.');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchProfile();
-
-    return () => {
-      cancelled = true;
-    };
+    setLoading(false);
+    return undefined;
   }, [onUserUpdate]);
 
   useEffect(() => {
@@ -151,37 +117,8 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
       return undefined;
     }
 
-    setUsernameState({ status: 'checking', message: 'Checking username…' });
-
-    let cancelled = false;
-    const timeoutId = window.setTimeout(async () => {
-      try {
-        const { data } = await api.get('/users/username-availability', {
-          params: { username: normalizedUsername },
-        });
-
-        if (!cancelled) {
-          setUsernameState({
-            status: data.available ? 'available' : 'taken',
-            message: data.message,
-          });
-        }
-      } catch (requestError) {
-        if (cancelled) {
-          return;
-        }
-
-        setUsernameState({
-          status: 'invalid',
-          message: requestError.response?.data?.message || 'Could not validate that username right now.',
-        });
-      }
-    }, 350);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutId);
-    };
+    setUsernameState({ status: 'available', message: 'Username is available in development mode.' });
+    return undefined;
   }, [currentNormalizedUsername, editForm.username, editing, normalizedUsername]);
 
   const displayName = profile?.name || profile?.email || 'Reader';
@@ -257,19 +194,19 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
     setSaving(true);
 
     try {
-      const payload = {
+      const nextUser = {
+        ...profile,
         name: trimmedName,
         username: normalizedUsername,
         bio: editForm.bio,
       };
-      const { data } = await api.put('/users/profile', payload);
-      const nextUser = unwrapApiData(data);
+      saveAuthSession(nextUser);
       setProfile({ ...nextUser, stats: nextUser.stats || EMPTY_STATS });
       onUserUpdate?.(nextUser);
       setEditing(false);
       setSuccess('Profile updated.');
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Could not save your profile right now.');
+    } catch {
+      setError('Could not save your profile right now.');
     } finally {
       setSaving(false);
     }

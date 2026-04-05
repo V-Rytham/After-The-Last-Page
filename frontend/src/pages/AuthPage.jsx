@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, LogIn, UserPlus } from 'lucide-react';
-import api from '../utils/api';
-import { saveAuthSession, unwrapApiData } from '../utils/auth';
+import { DEV_USER, saveAuthSession } from '../utils/auth';
 import './AuthPage.css';
 
 const initialSignupState = { name: '', username: '', email: '', password: '', confirmPassword: '' };
@@ -18,9 +17,9 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleBusy] = useState(false);
   const googleButtonRef = useRef(null);
-  const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
+  const googleClientId = '';
 
   const redirectPath = location.state?.from || '/desk';
 
@@ -30,92 +29,26 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
     }
   }, [currentUser?._id, navigate, redirectPath]);
 
-  const introCopy = useMemo(() => 'Create an account or sign in to keep your reading identity with you.', []);
+  const introCopy = useMemo(() => 'Development mode is active. Continue with a local reader profile.', []);
 
-  useEffect(() => {
-    if (!googleClientId || needsVerification) return undefined;
-    let cancelled = false;
-
-    const renderGoogleButton = () => {
-      if (cancelled || !googleButtonRef.current || !window.google?.accounts?.id) return;
-      googleButtonRef.current.innerHTML = '';
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: async (googleResponse) => {
-          try {
-            setError('');
-            setGoogleBusy(true);
-            const idToken = String(googleResponse?.credential || '').trim();
-            if (!idToken) {
-              setError('Google sign-in did not return a valid token.');
-              return;
-            }
-
-            const { data } = await api.post('/users/oauth/google', { idToken });
-            const user = saveAuthSession(unwrapApiData(data));
-            onAuthSuccess(user);
-            navigate(redirectPath, { replace: true });
-          } catch (requestError) {
-            setError(requestError.response?.data?.message || 'Google sign-in is unavailable right now.');
-          } finally {
-            setGoogleBusy(false);
-          }
-        },
-      });
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        type: 'standard',
-        shape: 'pill',
-        size: 'large',
-        text: mode === 'signup' ? 'signup_with' : 'signin_with',
-        theme: 'outline',
-        logo_alignment: 'left',
-        width: 320,
-      });
-    };
-
-    if (window.google?.accounts?.id) {
-      renderGoogleButton();
-      return undefined;
-    }
-
-    const scriptId = 'google-identity-services';
-    let script = document.getElementById(scriptId);
-    const onLoad = () => renderGoogleButton();
-
-    if (!script) {
-      script = document.createElement('script');
-      script.id = scriptId;
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.addEventListener('load', onLoad);
-      document.head.appendChild(script);
-    } else {
-      script.addEventListener('load', onLoad);
-    }
-
-    return () => {
-      cancelled = true;
-      script?.removeEventListener('load', onLoad);
-    };
-  }, [googleClientId, mode, navigate, needsVerification, onAuthSuccess, redirectPath]);
+  const continueWithDevUser = () => {
+    const formSource = mode === 'signup' ? signupForm : loginForm;
+    const user = saveAuthSession({
+      ...DEV_USER,
+      name: String(formSource.name || '').trim() || DEV_USER.name,
+      email: String(formSource.email || '').trim() || DEV_USER.email,
+      username: String(signupForm.username || '').trim() || DEV_USER.username,
+    });
+    onAuthSuccess(user);
+    navigate(redirectPath, { replace: true });
+  };
 
   const handleLogin = async (event) => {
     event.preventDefault();
     setError('');
     setSubmitting(true);
-
-    try {
-      await api.post('/users/login', loginForm);
-      const { data } = await api.get('/users/profile');
-      const user = saveAuthSession(unwrapApiData(data));
-      onAuthSuccess(user);
-      navigate(redirectPath, { replace: true });
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to sign in right now.');
-    } finally {
-      setSubmitting(false);
-    }
+    continueWithDevUser();
+    setSubmitting(false);
   };
 
   const handleSignup = async (event) => {
@@ -128,62 +61,30 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
     }
 
     setSubmitting(true);
-    try {
-      await api.post('/users/signup', {
-        name: signupForm.name,
-        username: signupForm.username,
-        email: signupForm.email,
-        password: signupForm.password,
-      });
-      setNeedsVerification(true);
-      setOtpForm({ email: signupForm.email, otpCode: '' });
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to create your account right now.');
-    } finally {
-      setSubmitting(false);
-    }
+    setNeedsVerification(true);
+    setOtpForm({ email: signupForm.email, otpCode: '000000' });
+    setSubmitting(false);
   };
 
   const handleOtpSubmit = async (event) => {
     event.preventDefault();
     setError('');
     setSubmitting(true);
-
-    try {
-      await api.post('/users/verify-otp', otpForm);
-      const { data } = await api.get('/users/profile');
-      const user = saveAuthSession(unwrapApiData(data));
-      onAuthSuccess(user);
-      navigate(redirectPath, { replace: true });
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'OTP verification failed.');
-    } finally {
-      setSubmitting(false);
-    }
+    continueWithDevUser();
+    setSubmitting(false);
   };
 
   const resendOtp = async () => {
-    setError('');
-    try {
-      await api.post('/users/resend-otp', { email: otpForm.email });
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to resend OTP right now.');
-    }
+    setError('In development mode, OTP is mocked. Use 000000.');
   };
 
   const handleGuestLogin = async () => {
     setError('');
     setSubmitting(true);
-    try {
-      const { data } = await api.post('/users/guest-login');
-      const user = saveAuthSession(unwrapApiData(data));
-      onAuthSuccess(user);
-      navigate('/desk', { replace: true });
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to continue as guest right now.');
-    } finally {
-      setSubmitting(false);
-    }
+    const user = saveAuthSession({ ...DEV_USER, name: 'Guest Reader', username: 'guestreader' });
+    onAuthSuccess(user);
+    navigate('/desk', { replace: true });
+    setSubmitting(false);
   };
 
   return (

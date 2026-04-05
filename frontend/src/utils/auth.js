@@ -1,14 +1,25 @@
 const USER_KEY = 'currentUser';
 
+export const DEV_USER = {
+  _id: 'dev-user-id',
+  name: 'Dev Reader',
+  username: 'devreader',
+  email: 'dev@local.test',
+  bio: 'Reading in local development mode.',
+  joinedAt: '2026-01-01T00:00:00.000Z',
+  stats: { booksCompleted: 0, discussionsParticipated: 0 },
+  preferences: { theme: 'dark' },
+};
+
 export const getStoredToken = () => null;
 
 export const getStoredUser = () => {
   const rawUser = localStorage.getItem(USER_KEY);
-  if (!rawUser) return null;
+  if (!rawUser) return { ...DEV_USER };
   try {
-    return JSON.parse(rawUser);
+    return { ...DEV_USER, ...JSON.parse(rawUser) };
   } catch {
-    return null;
+    return { ...DEV_USER };
   }
 };
 
@@ -21,7 +32,7 @@ export const saveAuthSession = (payload) => {
 export const unwrapApiData = (payload) => payload?.data ?? payload;
 
 export const clearAuthSession = () => {
-  localStorage.removeItem(USER_KEY);
+  localStorage.setItem(USER_KEY, JSON.stringify(DEV_USER));
 };
 
 export const updateStoredUser = (patch) => {
