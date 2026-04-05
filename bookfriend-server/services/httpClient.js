@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { getRedis } from '../config/redis.js';
+import { getCache } from '../config/cache.js';
 import { AppError } from '../lib/errors.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -15,9 +15,9 @@ const responseToData = async (response) => {
 };
 
 export const cachedRequest = async ({ cacheKey, cacheTtlSeconds = 60, ...requestOptions }) => {
-  const redis = getRedis();
+  const cache = getCache();
   if (cacheKey) {
-    const cached = await redis.get(cacheKey);
+    const cached = await cache.get(cacheKey);
     if (cached) {
       return JSON.parse(cached);
     }
@@ -26,7 +26,7 @@ export const cachedRequest = async ({ cacheKey, cacheTtlSeconds = 60, ...request
   const data = await requestWithRetry(requestOptions);
 
   if (cacheKey) {
-    await redis.set(cacheKey, JSON.stringify(data), 'EX', cacheTtlSeconds);
+    await cache.set(cacheKey, JSON.stringify(data), 'EX', cacheTtlSeconds);
   }
 
   return data;

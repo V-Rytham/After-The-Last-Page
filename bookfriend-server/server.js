@@ -3,13 +3,13 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { connectDB, getLastDbError, isDbConnected } from './config/db.js';
-import { connectRedis } from './config/redis.js';
+import { connectCache } from './config/cache.js';
 import { loadBookFriendEnv, resolveLlmProvider } from './config/env.js';
 import { logger, withRequestContext } from './lib/logger.js';
 import { sendSuccess } from './lib/http.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { attachRequestContext } from './middleware/requestContext.js';
-import { redisRateLimit } from './middleware/rateLimit.js';
+import { memoryRateLimit } from './middleware/rateLimit.js';
 import agentRoutes from './routes/agentRoutes.js';
 
 loadBookFriendEnv();
@@ -67,7 +67,7 @@ app.use(cors({
 app.use(cookieParser());
 app.use(express.json({ limit: '200kb' }));
 app.use(express.urlencoded({ extended: false, limit: '200kb' }));
-app.use(redisRateLimit);
+app.use(memoryRateLimit);
 
 app.get('/health', (req, res) => {
   const { provider } = resolveLlmProvider();
@@ -100,7 +100,7 @@ process.on('uncaughtException', (error) => {
 });
 
 await connectDB();
-await connectRedis();
+await connectCache();
 
 const { provider } = resolveLlmProvider();
 app.listen(port, () => {
