@@ -72,6 +72,7 @@ const AppShell = ({ currentUser, onLogout, onUserUpdate, uiTheme, onThemeChange,
 const App = () => {
   const [currentUser, setCurrentUser] = useState(getStoredUser());
   const bootstrapStartedRef = useRef(false);
+  const refreshInFlightRef = useRef(false);
   const [uiTheme, setUiTheme] = useState(() => {
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
     if (storedTheme === 'midnight') {
@@ -134,6 +135,9 @@ const App = () => {
 
   useEffect(() => {
     const handleUnauthorized = async () => {
+      if (refreshInFlightRef.current) return;
+
+      refreshInFlightRef.current = true;
       try {
         await api.post('/users/refresh');
         const { data } = await api.get('/users/profile');
@@ -142,6 +146,8 @@ const App = () => {
       } catch {
         clearAuthSession();
         setCurrentUser(null);
+      } finally {
+        refreshInFlightRef.current = false;
       }
     };
 

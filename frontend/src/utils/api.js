@@ -34,6 +34,15 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+const shouldDispatchUnauthorized = (error, statusCode) => {
+  if (statusCode !== 401 || typeof window === 'undefined') return false;
+
+  const requestUrl = String(error?.config?.url || '');
+  if (requestUrl.includes('/users/refresh')) return false;
+
+  return true;
+};
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -44,7 +53,7 @@ api.interceptors.response.use(
       rateLimitedUntil = Math.max(rateLimitedUntil, Date.now() + (retryAfterMs ?? 4000));
     }
 
-    if (statusCode === 401 && typeof window !== 'undefined') {
+    if (shouldDispatchUnauthorized(error, statusCode)) {
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
     }
 
