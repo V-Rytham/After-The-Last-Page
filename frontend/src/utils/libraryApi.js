@@ -36,6 +36,12 @@ export const searchBooks = async (query, signal) => {
   return list.map(normalizeBook).filter(Boolean);
 };
 
+export const fetchDefaultBooks = async (signal) => {
+  const payload = await api.get('/books/default', { signal });
+  const list = Array.isArray(payload) ? payload : [];
+  return list.map(normalizeBook).filter(Boolean);
+};
+
 export const readBook = async ({ source, sourceId }) => {
   const payload = await api.get('/books/read', {
     params: { source, id: sourceId },

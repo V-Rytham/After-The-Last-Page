@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { readBook } from '../utils/libraryApi';
-import { trackBookOpened, updateReadingSession, getReadingSessionsForCurrentUser } from '../utils/readingSession';
+import { trackBookOpened, updateReadingSession } from '../utils/readingSession';
 import './ReadingRoom.css';
 
 const FALLBACK_CHAPTER = {
@@ -36,6 +36,7 @@ const ReadingRoom = () => {
           sourceId,
         });
         setChapters(safeChapters);
+        setCurrentChapterIndex(0);
 
         trackBookOpened({
           source,
@@ -43,11 +44,6 @@ const ReadingRoom = () => {
           title: payload?.title,
           author: payload?.author,
         });
-
-        const sessions = getReadingSessionsForCurrentUser();
-        const sessionKey = `${String(source).toLowerCase()}:${String(sourceId)}`;
-        const savedIndex = Number(sessions?.[sessionKey]?.lastChapterIndex || 0);
-        setCurrentChapterIndex(savedIndex >= 0 && savedIndex < safeChapters.length ? savedIndex : 0);
       } catch {
         setBook({ title: 'Unavailable', author: 'Unknown author', source, sourceId });
         setChapters([FALLBACK_CHAPTER]);
@@ -59,6 +55,12 @@ const ReadingRoom = () => {
 
     run();
   }, [source, sourceId]);
+
+  useEffect(() => {
+    if (currentChapterIndex >= chapters.length) {
+      setCurrentChapterIndex(0);
+    }
+  }, [currentChapterIndex, chapters.length]);
 
   useEffect(() => {
     updateReadingSession({

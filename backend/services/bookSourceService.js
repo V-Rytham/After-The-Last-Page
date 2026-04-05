@@ -276,7 +276,7 @@ const readFromOpenLibrary = async (sourceId) => {
     return {
       title,
       author,
-      chapters: ensureChapters([{ index: 1, title: 'Preview', html: toHtmlParagraphs(contentText) }]),
+      chapters: ensureChapters([{ index: 1, title: 'Overview', html: toHtmlParagraphs(contentText) }]),
     };
   } catch {
     return createFallbackRead();
