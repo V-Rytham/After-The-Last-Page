@@ -8,10 +8,21 @@ import { getApiBaseUrl, getSocketServerUrl } from '../utils/serviceUrls';
 import './MeetingHub.css';
 
 const socketServer = getSocketServerUrl();
+const BOOK_READ_TIMEOUT_MS = 120000;
 
 const MeetingHub = () => {
   const { bookId } = useParams();
   const navigate = useNavigate();
+  const parsedSourceRoute = React.useMemo(() => {
+    if (!bookId) return null;
+    const decoded = decodeURIComponent(String(bookId));
+    const separator = decoded.indexOf(':');
+    if (separator <= 0) return null;
+    const source = decoded.slice(0, separator).trim().toLowerCase();
+    const sourceId = decoded.slice(separator + 1).trim();
+    if (!source || !sourceId) return null;
+    return { source, sourceId, composite: decoded };
+  }, [bookId]);
 
   const [phase, setPhase] = useState('preferences');
   const [book, setBook] = useState(null);
@@ -58,6 +69,26 @@ const MeetingHub = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        if (parsedSourceRoute) {
+          const { data: readData } = await api.get('/books/read', {
+            timeout: BOOK_READ_TIMEOUT_MS,
+            params: {
+              source: parsedSourceRoute.source,
+              id: parsedSourceRoute.sourceId,
+            },
+          });
+          const payload = readData?.data || readData;
+          setBook({
+            _id: parsedSourceRoute.composite,
+            id: parsedSourceRoute.composite,
+            title: payload?.title || 'Untitled',
+            author: payload?.author || 'Unknown author',
+            source: parsedSourceRoute.source,
+            sourceId: parsedSourceRoute.sourceId,
+          });
+          return;
+        }
+
         const access = await api.get(`/access/check?bookId=${encodeURIComponent(bookId)}&context=meet`);
         if (!access?.data?.access) {
           navigate(`/quiz/${encodeURIComponent(bookId)}`, { replace: true, state: { from: `/meet/${bookId}` } });
@@ -184,7 +215,7 @@ const MeetingHub = () => {
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
     };
-	  }, [bookId, navigate]);
+	  }, [bookId, navigate, parsedSourceRoute]);
 
   const sessionIsSensitive = phase === 'searching' || phase === 'connected' || phase === 'bookfriend';
 
@@ -427,6 +458,11 @@ const MeetingHub = () => {
   if (!book) return <div className="p-10 text-center mt-20 font-serif">Book not found. Perhaps it's still being written?</div>;
 
   const handleStartSearch = async () => {
+    if (parsedSourceRoute) {
+      setMatchNotice('Live matching currently supports library books saved in your desk. You can still use the community thread for this source.');
+      return;
+    }
+
     if (!socketRef.current?.connected) {
       setMatchNotice('Live matching is unavailable right now. Please try again shortly, or enter the community thread.');
       return;
@@ -533,7 +569,12 @@ const MeetingHub = () => {
             </div>
             {matchNotice && <div className="meeting-notice" role="status">{matchNotice}</div>}
             <div className="mt-8 text-center flex-column-center gap-4">
-              <button className="btn-primary" disabled={!prefType || !socketReady} onClick={handleStartSearch}>Find a reading partner <ArrowRight size={18} /></button>
+              <button className="btn-primary" disabled={!prefType || !socketReady || Boolean(parsedSourceRoute)} onClick={handleStartSearch}>Find a reading partner <ArrowRight size={18} /></button>
+              {parsedSourceRoute && (
+                <p className="text-muted text-center mb-0">
+                  This source can be discussed in the community thread, but live reader matching is only available for books in your desk.
+                </p>
+              )}
               <button className="btn-secondary" onClick={() => navigate(`/thread/${bookId}`)}>Skip to Community Thread instead</button>
             </div>
           </div>
