@@ -192,6 +192,43 @@ export const loginUser = async (req, res) => {
   }
 };
 
+
+export const loginGuestUser = async (req, res) => {
+  try {
+    assertAuthDatabaseReady();
+
+    const guestEmail = String(process.env.GUEST_USER_EMAIL || 'guest@afterthelastpage.dev').trim().toLowerCase();
+    const guestName = String(process.env.GUEST_USER_NAME || 'Guest Reader').trim() || 'Guest Reader';
+
+    let user = await User.findOne({ email: guestEmail });
+
+    if (!user) {
+      user = await User.create({
+        name: guestName,
+        email: guestEmail,
+        provider: 'local',
+        isVerified: true,
+      });
+    } else {
+      let changed = false;
+      if (!user.isVerified) {
+        user.isVerified = true;
+        changed = true;
+      }
+      if (!user.name) {
+        user.name = guestName;
+        changed = true;
+      }
+      if (changed) await user.save();
+    }
+
+    await issueSession(req, res, user);
+    return success(res, { user: buildUserResponse(user), guest: true });
+  } catch (err) {
+    return error(res, err.message || 'Guest login failed.', err.code, err.statusCode || 500);
+  }
+};
+
 export const loginWithGoogle = async (req, res) => {
   try {
     assertAuthDatabaseReady();

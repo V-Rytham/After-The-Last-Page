@@ -13,6 +13,7 @@ import {
   logoutUser,
   updateThemePreference,
   loginWithGoogle,
+  loginGuestUser,
 } from '../controllers/userController.js';
 import { protect, requireRole } from '../middleware/authMiddleware.js';
 import { profileImageUpload } from '../middleware/profileUpload.js';
@@ -25,6 +26,7 @@ router.post('/verify-otp', verifySignupOtp);
 router.post('/resend-otp', resendOtp);
 router.post('/login', loginUser);
 router.post('/oauth/google', loginWithGoogle);
+router.post('/guest-login', loginGuestUser);
 router.post('/refresh', refreshSession);
 router.post('/logout', logoutUser);
 router.get('/profile', protect, requireRole(['user']), getUserProfile);
