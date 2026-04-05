@@ -2,6 +2,20 @@ import React, { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getGutenbergCoverUrl, PLACEHOLDER_COVER } from '../../utils/libraryApi';
 
+const getGenreText = (book) => {
+  const values = [
+    ...(Array.isArray(book?.genres) ? book.genres : []),
+    ...(Array.isArray(book?.genre) ? book.genre : []),
+    ...(typeof book?.genre === 'string' ? [book.genre] : []),
+    ...(Array.isArray(book?.tags) ? book.tags : []),
+  ]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
+
+  if (values.length === 0) return 'Unknown';
+  return Array.from(new Set(values)).slice(0, 3).join(', ');
+};
+
 const BookCard = ({ book, loading = false }) => {
   const [imageError, setImageError] = useState(false);
 
@@ -25,7 +39,7 @@ const BookCard = ({ book, loading = false }) => {
   const id = book?.id || `${source}:${sourceId}`;
   const title = String(book?.title || 'Untitled');
   const author = String(book?.author || 'Unknown author');
-  const genreText = book?.genres?.length ? book.genres.join(', ') : 'Unknown';
+  const genreText = getGenreText(book);
   const coverSrc = imageError
     ? PLACEHOLDER_COVER
     : (book?.cover_url || book?.coverImage || (source === 'gutenberg' ? getGutenbergCoverUrl(sourceId) : PLACEHOLDER_COVER));
