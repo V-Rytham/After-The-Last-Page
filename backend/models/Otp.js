@@ -4,7 +4,7 @@ const otpSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   email: { type: String, required: true, lowercase: true, trim: true, index: true },
   otpCodeHash: { type: String, required: true },
-  expiresAt: { type: Date, required: true },
+  expiresAt: { type: Date, required: true, expires: 0 },
   resendCount: { type: Number, default: 0 },
   consumedAt: { type: Date, default: null },
   attemptCount: { type: Number, default: 0 },
@@ -12,8 +12,5 @@ const otpSchema = new mongoose.Schema({
   requestIp: { type: String, default: '', index: true },
 }, { timestamps: true });
 
-if (!otpSchema.indexes().some(([index]) => index.expiresAt === 1)) {
-  otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-}
 
 export const Otp = mongoose.model('Otp', otpSchema);
