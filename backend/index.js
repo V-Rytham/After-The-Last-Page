@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import mongoose from 'mongoose';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { connectDB } from './config/db.js';
@@ -19,7 +18,6 @@ import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import { isProd } from './utils/runtime.js';
 import { logger } from './utils/logger.js';
 import { connectRedis } from './utils/redisClient.js';
-import { success } from './utils/apiResponse.js';
 import { RealtimeSessionManager } from './services/realtimeSessionManager.js';
 import { requestTracing } from './middleware/requestLogging.js';
 import recommenderRoutes from './routes/recommenderRoutes.js';
@@ -36,11 +34,12 @@ const httpServer = createServer(app);
 
 process.on('unhandledRejection', (reason) => {
   logger.error({ reason }, 'Unhandled promise rejection');
+  console.error('[UnhandledRejection]', reason);
 });
 
 process.on('uncaughtException', (error) => {
-  logger.error({ error: error?.message }, 'Uncaught exception');
-  process.exit(1);
+  logger.error({ error: error?.message, stack: error?.stack }, 'Uncaught exception');
+  console.error('[UncaughtException]', error);
 });
 
 const io = new Server(httpServer, {
@@ -164,22 +163,7 @@ app.use('/api/session', requireDatabase({ feature: 'Realtime sessions' }), build
 app.use('/api/matchmaking', requireDatabase({ feature: 'Meet' }), buildMatchmakingRoutes(sessionManager));
 app.use('/api/recommender', requireDatabase({ feature: 'Recommendations' }), recommenderRoutes);
 
-app.get('/api/health', (req, res) => {
-  try {
-    const dbConnected = mongoose.connection.readyState === 1;
-
-    return success(res, {
-      status: dbConnected ? 'ok' : 'degraded',
-      db: dbConnected ? 'connected' : 'disconnected',
-      uptime: process.uptime(),
-    });
-  } catch (_ERROR) {
-    return success(res, {
-      status: 'degraded',
-      db: 'unknown',
-    });
-  }
-});
+app.get('/api/health', (_req, res) => res.status(200).json({ status: 'ok' }));
 
 app.use(notFound);
 app.use(errorHandler);
@@ -189,11 +173,12 @@ const PORT = process.env.PORT || 5000;
 httpServer.on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
     logger.error({ port: PORT }, 'Port already in use');
-    process.exit(1);
+    console.error(`[ServerError] Port ${PORT} already in use.`);
+    return;
   }
 
-  logger.error({ error: error?.message }, 'Fatal server error');
-  process.exit(1);
+  logger.error({ error: error?.message, stack: error?.stack }, 'Fatal server error');
+  console.error('[ServerError]', error);
 });
 
 try {
