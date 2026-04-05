@@ -21,7 +21,6 @@ export const tokenDurations = {
 export const signAccessToken = (user) => jwt.sign({
   sub: String(user._id),
   role: user.role || 'user',
-  isVerified: Boolean(user.isVerified),
 }, process.env.JWT_SECRET, { expiresIn: '15m' });
 
 export const signRefreshToken = (user) => jwt.sign({

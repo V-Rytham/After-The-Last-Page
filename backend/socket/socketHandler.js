@@ -1,5 +1,6 @@
-import jwt from 'jsonwebtoken';
 import { checkMeetAccess } from '../services/accessService.js';
+import { verifyUserJwt } from '../utils/auth.js';
+import { logger } from '../utils/logger.js';
 
 export default function registerSocketEvents(io, sessionManager) {
   if (!sessionManager) {
@@ -21,26 +22,17 @@ export default function registerSocketEvents(io, sessionManager) {
 
   io.use((socket, next) => {
     try {
-      const token = socket.handshake?.auth?.token
-        || socket.handshake?.headers?.authorization?.split('Bearer ')[1]
-        || socket.handshake?.query?.token;
-
+      const token = String(socket.handshake?.auth?.token || '').trim();
       if (!token) {
-        const error = new Error('Unauthorized');
-        error.data = { code: 'UNAUTHORIZED' };
-        next(error);
+        const authError = new Error('Unauthorized');
+        authError.data = { code: 'UNAUTHORIZED' };
+        next(authError);
         return;
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.userId = decoded?.id || decoded?._id || null;
-
-      if (!socket.userId) {
-        const error = new Error('Unauthorized');
-        error.data = { code: 'UNAUTHORIZED' };
-        next(error);
-        return;
-      }
+      const decoded = verifyUserJwt(token);
+      socket.userId = decoded.sub;
+      socket.userRole = decoded.role;
 
       next();
     } catch (error) {
@@ -51,7 +43,7 @@ export default function registerSocketEvents(io, sessionManager) {
   });
 
   io.on('connection', (socket) => {
-    console.log(`[SOCKET] User connected: ${socket.id}`);
+    logger.info({ socketId: socket.id, userId: socket.userId }, 'Socket connected');
     sessionManager.registerSocket({ userId: socket.userId, socketId: socket.id });
     onlineCount += 1;
     emitStats();
@@ -114,7 +106,7 @@ export default function registerSocketEvents(io, sessionManager) {
     });
 
     socket.on('disconnect', () => {
-      console.log(`[SOCKET] User disconnected: ${socket.id}`);
+      logger.info({ socketId: socket.id, userId: socket.userId }, 'Socket disconnected');
       onlineCount = Math.max(0, onlineCount - 1);
       sessionManager.unregisterSocket({ socketId: socket.id });
       emitStats();

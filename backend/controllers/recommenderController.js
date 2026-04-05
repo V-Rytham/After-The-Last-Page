@@ -228,14 +228,14 @@ export const getRecommendations = async (req, res) => {
       });
     }
 
-    return res.json({
+    return success(res, {
       currentBookId: req.body?.currentBookId || null,
       recommendations,
       source,
     });
   } catch (error) {
     console.error('[RECOMMENDER ERROR]', error);
-    return res.status(200).json({
+    return res.status(500).json({
       currentBookId: req.body?.currentBookId || null,
       recommendations: emptyShelves(),
       source: 'error-fallback',

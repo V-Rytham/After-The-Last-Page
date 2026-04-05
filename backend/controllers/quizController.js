@@ -3,6 +3,7 @@ import { UserProgress } from '../models/UserProgress.js';
 import { fetchBookQuizQuestions } from '../services/quizQuestionEngine.js';
 import { resolveBookOrThrow } from '../services/accessService.js';
 import { buildSafeErrorBody } from '../utils/runtime.js';
+import { success, error } from '../utils/apiResponse.js';
 import { quizJobManager } from '../services/quizJobManager.js';
 import { getDegradedQuizProgress, isDegradedMode, setDegradedQuizProgress } from '../utils/degradedMode.js';
 
@@ -49,7 +50,7 @@ export const submitQuiz = async (req, res) => {
       const passed = normalizedAnswers.length > 0;
       const scorePercent = 100;
       setDegradedQuizProgress({ userId: effectiveUserId, bookId, passed, score: scorePercent });
-      return res.json({ passed, score: scorePercent, fallback: true });
+      return success(res, { passed, score: scorePercent, fallback: true });
     }
 
     await resolveBookOrThrow(bookId);
@@ -100,7 +101,7 @@ export const submitQuiz = async (req, res) => {
       { upsert: true, new: true },
     );
 
-    return res.json({ passed, score: scorePercent });
+    return success(res, { passed, score: scorePercent });
   } catch (error) {
     const status = error.statusCode || 500;
     return res.status(status).json(buildSafeErrorBody('Failed to submit quiz.', error));
@@ -123,10 +124,10 @@ export const getQuizQuestions = async (req, res) => {
     if (isDegradedMode()) {
       const progress = getDegradedQuizProgress({ userId: effectiveUserId, bookId });
       if (progress?.quizPassed) {
-        return res.json({ questions: [], fallback: true, message: 'Quiz already completed in degraded mode.' });
+        return success(res, { questions: [], fallback: true, message: 'Quiz already completed in degraded mode.' });
       }
 
-      return res.json({
+      return success(res, {
         questions: [],
         fallback: true,
         message: 'Quiz generation unavailable in degraded mode. Progress is stored in-memory when submitted.',
@@ -170,7 +171,7 @@ export const getQuizQuestions = async (req, res) => {
     const completed = quizJobManager.getResult({ userId: effectiveUserId, jobId: existingStatus.jobId });
     const questions = Array.isArray(completed?.questions) ? completed.questions : [];
 
-    return res.json({
+    return success(res, {
       questions: questions.map((q) => ({
         question: q.question,
         options: q.options,

@@ -15,6 +15,7 @@ import {
   loginWithGoogle,
 } from '../controllers/userController.js';
 import { protect, requireRole } from '../middleware/authMiddleware.js';
+import { profileImageUpload } from '../middleware/profileUpload.js';
 
 const router = express.Router();
 
@@ -28,7 +29,7 @@ router.post('/refresh', refreshSession);
 router.post('/logout', logoutUser);
 router.get('/profile', protect, requireRole(['user']), getUserProfile);
 router.put('/profile', protect, requireRole(['user']), updateUserProfile);
-router.put('/profile/image', protect, requireRole(['user']), updateUserProfileImage);
+router.put('/profile/image', protect, requireRole(['user']), profileImageUpload, updateUserProfileImage);
 router.delete('/profile/image', protect, requireRole(['user']), removeUserProfileImage);
 router.patch('/preferences/theme', protect, requireRole(['user']), updateThemePreference);
 

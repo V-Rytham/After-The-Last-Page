@@ -2,10 +2,16 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
 import { Otp } from '../models/Otp.js';
+import { connectRedis } from '../utils/redisClient.js';
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const OTP_RESEND_COOLDOWN_MS = 45 * 1000;
 const OTP_MAX_RESENDS = 5;
+const OTP_MAX_ATTEMPTS = 5;
+const EMAIL_THROTTLE_WINDOW_MS = 15 * 60 * 1000;
+const EMAIL_THROTTLE_MAX = 6;
+const IP_THROTTLE_WINDOW_MS = 15 * 60 * 1000;
+const IP_THROTTLE_MAX = 20;
 
 const buildTransport = () => {
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
@@ -20,10 +26,38 @@ const buildTransport = () => {
 };
 
 const transporter = buildTransport();
-
 const generateOtpCode = () => String(crypto.randomInt(100000, 999999));
 
-export const issueEmailOtp = async (user) => {
+const throttle = async ({ key, max, windowMs, message }) => {
+  const redis = await connectRedis();
+  const count = await redis.incr(key);
+  if (count === 1) await redis.pexpire(key, windowMs);
+  if (count > max) {
+    const err = new Error(message);
+    err.statusCode = 429;
+    err.code = 'OTP_THROTTLED';
+    throw err;
+  }
+};
+
+export const issueEmailOtp = async (user, { requestIp = '' } = {}) => {
+  const email = String(user.email || '').toLowerCase().trim();
+  await throttle({
+    key: `otp:email:${email}`,
+    max: EMAIL_THROTTLE_MAX,
+    windowMs: EMAIL_THROTTLE_WINDOW_MS,
+    message: 'Too many OTP requests for this email. Please try again later.',
+  });
+
+  if (requestIp) {
+    await throttle({
+      key: `otp:ip:${requestIp}`,
+      max: IP_THROTTLE_MAX,
+      windowMs: IP_THROTTLE_WINDOW_MS,
+      message: 'Too many OTP requests from this IP. Please try again later.',
+    });
+  }
+
   const existing = await Otp.findOne({ userId: user._id, consumedAt: null }).sort({ createdAt: -1 });
   if (existing) {
     const elapsed = Date.now() - new Date(existing.createdAt).getTime();
@@ -46,12 +80,16 @@ export const issueEmailOtp = async (user) => {
 
   await Otp.create({
     userId: user._id,
+    email,
     otpCodeHash,
     expiresAt,
     resendCount: existing ? existing.resendCount + 1 : 0,
+    requestIp: String(requestIp || ''),
+    attemptCount: 0,
+    blockedUntil: null,
   });
 
-  await Otp.updateMany({ userId: user._id, _id: { $ne: undefined }, consumedAt: null, expiresAt: { $lt: new Date() } }, { $set: { consumedAt: new Date() } });
+  await Otp.updateMany({ userId: user._id, consumedAt: null, expiresAt: { $lt: new Date() } }, { $set: { consumedAt: new Date() } });
 
   if (transporter) {
     await transporter.sendMail({
@@ -60,8 +98,6 @@ export const issueEmailOtp = async (user) => {
       subject: 'Your After The Last Page verification code',
       text: `Your OTP code is ${otpCode}. It expires in 10 minutes.`,
     });
-  } else {
-    console.info(`[OTP] Verification code for ${user.email}: ${otpCode}`);
   }
 
   return { expiresAt };
@@ -75,6 +111,12 @@ export const verifyEmailOtp = async ({ userId, otpCode }) => {
     throw error;
   }
 
+  if (otp.blockedUntil && otp.blockedUntil.getTime() > Date.now()) {
+    const error = new Error('OTP temporarily blocked due to too many attempts.');
+    error.statusCode = 429;
+    throw error;
+  }
+
   if (otp.expiresAt.getTime() < Date.now()) {
     const error = new Error('OTP has expired.');
     error.statusCode = 400;
@@ -83,11 +125,18 @@ export const verifyEmailOtp = async ({ userId, otpCode }) => {
 
   const valid = await bcrypt.compare(String(otpCode), otp.otpCodeHash);
   if (!valid) {
+    otp.attemptCount = Number(otp.attemptCount || 0) + 1;
+    if (otp.attemptCount >= OTP_MAX_ATTEMPTS) {
+      otp.blockedUntil = new Date(Date.now() + OTP_TTL_MS);
+    }
+    await otp.save();
+
     const error = new Error('Invalid OTP code.');
     error.statusCode = 400;
     throw error;
   }
 
   otp.consumedAt = new Date();
+  otp.attemptCount = Number(otp.attemptCount || 0);
   await otp.save();
 };

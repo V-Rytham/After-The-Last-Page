@@ -37,6 +37,10 @@ export class RealtimeSessionManager {
     return this.sessions.upsert(userId, patch);
   }
 
+
+  setState(userId, state, extra = {}) {
+    return this.sessions.setState(userId, state, extra);
+  }
   registerSocket({ userId, socketId }) {
     const normalizedUserId = normalizeId(userId);
     const normalizedSocketId = normalizeId(socketId);

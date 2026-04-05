@@ -15,49 +15,58 @@ const getMeetFallbackTtlMs = () => {
 
 export const resolveBookOrThrow = async (bookId) => {
   if (!mongoose.Types.ObjectId.isValid(bookId)) {
-    const error = new Error('Invalid book reference.');
-    error.statusCode = 400;
-    throw error;
+    const err = new Error('Invalid book reference.');
+    err.statusCode = 400;
+    throw err;
   }
 
   const book = await Book.findById(bookId).select('_id');
   if (!book) {
-    const error = new Error('Book not found.');
-    error.statusCode = 404;
-    throw error;
+    const err = new Error('Book not found.');
+    err.statusCode = 404;
+    throw err;
   }
-
   return book;
 };
 
+const serializeProgress = (progress) => (progress ? {
+  quizAttempted: Boolean(progress.quizAttempted),
+  quizPassed: Boolean(progress.quizPassed),
+  score: Number(progress.score || 0),
+  attemptedAt: progress.attemptedAt || null,
+} : null);
+
 export const checkQuizAccess = async ({ userId, bookId }) => {
   if (!userId) {
-    const error = new Error('Unauthorized.');
-    error.statusCode = 401;
-    throw error;
+    const err = new Error('Unauthorized.');
+    err.statusCode = 401;
+    throw err;
   }
 
   await resolveBookOrThrow(bookId);
 
-  const progress = await UserProgress.findOne({ userId, bookId }).select('quizAttempted quizPassed score attemptedAt');
-  const access = Boolean(progress?.quizAttempted && progress?.quizPassed);
+  const progress = await UserProgress.findOne({ userId, bookId })
+    .select('quizAttempted quizPassed score attemptedAt');
 
   return {
-    access,
-    progress: progress
-      ? {
-          quizAttempted: Boolean(progress.quizAttempted),
-          quizPassed: Boolean(progress.quizPassed),
-          score: Number(progress.score || 0),
-          attemptedAt: progress.attemptedAt || null,
-        }
-      : null,
+    access: Boolean(progress?.quizAttempted && progress?.quizPassed),
+    progress: serializeProgress(progress),
   };
 };
 
 export const checkMeetAccess = async ({ userId, bookId }) => {
-  const quiz = await checkQuizAccess({ userId, bookId });
-  if (quiz.access) {
+  if (!userId) {
+    const err = new Error('Unauthorized.');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  await resolveBookOrThrow(bookId);
+
+  const progress = await UserProgress.findOne({ userId, bookId })
+    .select('quizAttempted quizPassed meetFallbackGranted meetFallbackGrantedAt');
+
+  if (progress?.quizAttempted && progress?.quizPassed) {
     return { access: true, mode: 'quiz' };
   }
 
@@ -65,8 +74,7 @@ export const checkMeetAccess = async ({ userId, bookId }) => {
     return { access: false, mode: 'none' };
   }
 
-  const progress = await UserProgress.findOne({ userId, bookId }).select('meetFallbackGranted meetFallbackGrantedAt');
-  if (!progress?.meetFallbackGranted || !progress.meetFallbackGrantedAt) {
+  if (!progress?.meetFallbackGranted || !progress?.meetFallbackGrantedAt) {
     return { access: false, mode: 'none' };
   }
 
