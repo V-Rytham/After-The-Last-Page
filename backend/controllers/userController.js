@@ -279,6 +279,10 @@ export const loginWithGoogle = async (req, res) => {
 
 export const refreshSession = async (req, res) => {
   try {
+    if (process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true') {
+      return success(res, { success: true });
+    }
+
     assertAuthDatabaseReady();
     console.log('COOKIES RECEIVED:', req.cookies);
     const refreshToken = req.cookies?.atlp_refresh;
@@ -334,6 +338,17 @@ export const logoutUser = async (req, res) => {
 };
 
 export const getUserProfile = async (req, res) => {
+  if (process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true') {
+    return res.json({
+      _id: req.user._id,
+      name: req.user.name,
+      email: req.user.email,
+      preferences: {
+        theme: 'dark',
+      },
+    });
+  }
+
   console.log('COOKIES RECEIVED:', req.cookies);
   console.log('PROFILE HIT - USER:', req.user?._id || null);
   return success(res, buildUserResponse(req.user));

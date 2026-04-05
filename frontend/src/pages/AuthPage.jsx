@@ -171,6 +171,21 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
     }
   };
 
+  const handleGuestLogin = async () => {
+    setError('');
+    setSubmitting(true);
+    try {
+      const { data } = await api.post('/users/guest-login');
+      const user = saveAuthSession(unwrapApiData(data));
+      onAuthSuccess(user);
+      navigate(redirectPath, { replace: true });
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to continue as guest right now.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="auth-page animate-fade-in">
       <div className="auth-shell">
@@ -219,6 +234,9 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
               <button type="submit" className="btn-primary auth-submit" disabled={submitting}>
                 {submitting ? 'Signing in...' : 'Login'} <ArrowRight size={18} />
               </button>
+              <button type="button" className="auth-tab" onClick={handleGuestLogin} disabled={submitting || googleBusy}>
+                Continue as guest
+              </button>
               {googleClientId ? (
                 <div className="auth-social">
                   <span className="auth-social-divider">or</span>
@@ -235,6 +253,9 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
               <label className="auth-label"><span>Confirm password</span><input name="confirmPassword" type="password" autoComplete="new-password" value={signupForm.confirmPassword} onChange={(e) => setSignupForm((prev) => ({ ...prev, confirmPassword: e.target.value }))} className="auth-input" required /></label>
               <button type="submit" className="btn-primary auth-submit" disabled={submitting}>
                 {submitting ? 'Creating account...' : 'Sign up'} <ArrowRight size={18} />
+              </button>
+              <button type="button" className="auth-tab" onClick={handleGuestLogin} disabled={submitting || googleBusy}>
+                Continue as guest
               </button>
               {googleClientId ? (
                 <div className="auth-social">
