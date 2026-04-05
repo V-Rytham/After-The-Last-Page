@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { getApiBaseUrl } from './serviceUrls';
 let rateLimitedUntil = 0;
-const RECOVERY_MODE = String(import.meta.env.VITE_RECOVERY_MOCK_API ?? 'true').toLowerCase() !== 'false';
+const RECOVERY_MODE = String(import.meta.env.VITE_RECOVERY_MOCK_API ?? 'false').toLowerCase() === 'true';
 const REAL_ENDPOINTS = new Set(
   String(import.meta.env.VITE_RECOVERY_REAL_ENDPOINTS ?? '/health')
     .split(',')
@@ -25,7 +26,7 @@ const parseRetryAfterMs = (retryAfterHeader) => {
 };
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: getApiBaseUrl(),
   timeout: 60000,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
