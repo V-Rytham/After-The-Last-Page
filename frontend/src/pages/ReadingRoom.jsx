@@ -19,6 +19,14 @@ const GUTENBERG_HOST = 'https://www.gutenberg.org';
 
 const clampNumber = (value, min, max) => Math.min(max, Math.max(min, value));
 
+const unwrapApiData = (payload) => {
+  if (!payload || typeof payload !== 'object') return payload;
+  if (Object.prototype.hasOwnProperty.call(payload, 'data') && payload.data && typeof payload.data === 'object') {
+    return payload.data;
+  }
+  return payload;
+};
+
 const escapeHtml = (value) => (
   String(value)
     .replaceAll('&', '&amp;')
@@ -80,7 +88,8 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
           maxChapters: 5,
         },
       });
-      const incoming = Array.isArray(data?.chapters) ? data.chapters : [];
+      const readPayload = unwrapApiData(data);
+      const incoming = Array.isArray(readPayload?.chapters) ? readPayload.chapters : [];
       if (incoming.length > 0) {
         setChapters((prev) => ([
           ...prev,
@@ -90,9 +99,13 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
           })),
         ]));
       }
-      setIsPartialContent(data?.status === 'partial');
-      setNextCursor(data?.nextCursor ?? null);
-      setEstimatedChapters(Number.isFinite(Number(data?.totalChaptersEstimated)) ? Number(data.totalChaptersEstimated) : null);
+      setIsPartialContent(readPayload?.status === 'partial');
+      setNextCursor(readPayload?.nextCursor ?? null);
+      setEstimatedChapters(
+        Number.isFinite(Number(readPayload?.totalChaptersEstimated))
+          ? Number(readPayload.totalChaptersEstimated)
+          : null,
+      );
     } catch (error) {
       console.error('Failed to fetch more chapters:', error);
       setContentErrorMessage(error?.uiMessage || 'Still loading, please retry.');
@@ -116,28 +129,34 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
       try {
         if (isGutenbergRoute) {
           const { data } = await api.get(`/books/gutenberg/${gutenbergId}/read`);
-          const nextChapters = Array.isArray(data?.chapters) ? data.chapters : [];
+          const readPayload = unwrapApiData(data);
+          const nextChapters = Array.isArray(readPayload?.chapters) ? readPayload.chapters : [];
           if (nextChapters.length === 0) {
             throw new Error('Book content response did not include chapters.');
           }
 
           setBook({
-            _id: data?.bookId || null,
-            title: data.title,
-            author: data.author,
-            gutenbergId: data.gutenbergId,
+            _id: readPayload?.bookId || null,
+            title: readPayload?.title,
+            author: readPayload?.author,
+            gutenbergId: readPayload?.gutenbergId,
           });
           setChapters(nextChapters);
-          setIsPartialContent(data?.status === 'partial');
-          setNextCursor(data?.nextCursor ?? null);
-          setEstimatedChapters(Number.isFinite(Number(data?.totalChaptersEstimated)) ? Number(data.totalChaptersEstimated) : null);
+          setIsPartialContent(readPayload?.status === 'partial');
+          setNextCursor(readPayload?.nextCursor ?? null);
+          setEstimatedChapters(
+            Number.isFinite(Number(readPayload?.totalChaptersEstimated))
+              ? Number(readPayload.totalChaptersEstimated)
+              : null,
+          );
           setCurrentChapter(1);
           return;
         }
 
         const { data: metadata } = await api.get(`/books/${bookId}`);
         const { data: readData } = await api.get(`/books/${bookId}/read`);
-        const nextChapters = Array.isArray(readData?.chapters) ? readData.chapters : [];
+        const readPayload = unwrapApiData(readData);
+        const nextChapters = Array.isArray(readPayload?.chapters) ? readPayload.chapters : [];
         if (nextChapters.length === 0) {
           throw new Error('Book content response did not include chapters.');
         }
