@@ -25,6 +25,8 @@ import { requestTracing } from './middleware/requestLogging.js';
 import recommenderRoutes from './routes/recommenderRoutes.js';
 import { requireDatabase } from './middleware/degradedModeMiddleware.js';
 import { attachDevUserContext } from './middleware/devUserContext.js';
+import authRoutes from './routes/authRoutes.js';
+import { attachAuthContext } from './middleware/auth.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -134,7 +136,11 @@ app.use(securityHeaders);
 app.use(requestTracing);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: false, limit: '200kb' }));
-app.use(attachDevUserContext);
+app.use(attachAuthContext);
+
+if (String(process.env.DEV_AUTH_BYPASS || '').toLowerCase() === 'true') {
+  app.use(attachDevUserContext);
+}
 
 // Baseline abuse protection for all endpoints.
 app.use(rateLimit({ windowMs: 15 * 60_000, max: 100 }));
@@ -147,6 +153,7 @@ const sessionManager = new RealtimeSessionManager(io);
 registerSocketEvents(io, sessionManager);
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/threads', requireDatabase({ status: 503, feature: 'Threads' }), threadRoutes);

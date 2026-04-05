@@ -8,8 +8,11 @@ import {
   updateThemePreference,
 } from '../controllers/userController.js';
 import { requireDatabase } from '../middleware/degradedModeMiddleware.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+
+router.use(requireAuth);
 
 router.use(requireDatabase({ feature: 'User profile' }));
 

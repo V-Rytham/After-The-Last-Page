@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false, index: true },
   profileImageUrl: { type: String, trim: true, default: '' },
   provider: { type: String, enum: ['local', 'google'], default: 'local', index: true },
-  role: { type: String, enum: ['user'], default: 'user' },
+  role: { type: String, enum: ['user', 'admin'], default: 'user' },
   rating: { type: Number, default: 5.0, min: 0, max: 5 },
   preferences: {
     theme: { type: String, enum: ['light', 'dark', 'sepia', 'mocha'], default: 'dark' },

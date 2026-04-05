@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, LogIn, UserPlus } from 'lucide-react';
 import { DEV_USER, saveAuthSession } from '../utils/auth';
+import api from '../utils/api';
 import './AuthPage.css';
 
 const initialSignupState = { name: '', username: '', email: '', password: '', confirmPassword: '' };
@@ -29,7 +30,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
     }
   }, [currentUser?._id, navigate, redirectPath]);
 
-  const introCopy = useMemo(() => 'Development mode is active. Continue with a local reader profile.', []);
+  const introCopy = useMemo(() => 'Sign in to sync your library, reading sessions, and recommendations.', []);
 
   const continueWithDevUser = () => {
     const formSource = mode === 'signup' ? signupForm : loginForm;
@@ -47,8 +48,19 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
     event.preventDefault();
     setError('');
     setSubmitting(true);
-    continueWithDevUser();
-    setSubmitting(false);
+    try {
+      const { data } = await api.post('/auth/login', {
+        email: loginForm.email,
+        password: loginForm.password,
+      });
+      const user = saveAuthSession(data?.user);
+      onAuthSuccess(user);
+      navigate(redirectPath, { replace: true });
+    } catch (error) {
+      setError(error?.uiMessage || 'Unable to sign in.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSignup = async (event) => {
@@ -61,9 +73,21 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
     }
 
     setSubmitting(true);
-    setNeedsVerification(true);
-    setOtpForm({ email: signupForm.email, otpCode: '000000' });
-    setSubmitting(false);
+    try {
+      const { data } = await api.post('/auth/register', {
+        name: signupForm.name,
+        username: signupForm.username,
+        email: signupForm.email,
+        password: signupForm.password,
+      });
+      const user = saveAuthSession(data?.user);
+      onAuthSuccess(user);
+      navigate(redirectPath, { replace: true });
+    } catch (error) {
+      setError(error?.uiMessage || 'Unable to create account.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleOtpSubmit = async (event) => {
@@ -75,7 +99,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
   };
 
   const resendOtp = async () => {
-    setError('In development mode, OTP is mocked. Use 000000.');
+    setError('Email verification is not required right now.');
   };
 
   const handleGuestLogin = async () => {

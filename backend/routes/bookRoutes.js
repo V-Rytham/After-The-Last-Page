@@ -1,4 +1,5 @@
 import express from 'express';
+import { requireAuth } from '../middleware/auth.js';
 import {
   getBooks,
   getBookById,
@@ -10,6 +11,8 @@ import {
 } from '../controllers/bookController.js';
 
 const router = express.Router();
+
+router.use(requireAuth);
 
 router.get('/', getBooks);
 router.get('/search', searchBooksUnifiedController);
