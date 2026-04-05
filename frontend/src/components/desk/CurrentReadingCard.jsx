@@ -12,8 +12,10 @@ const CurrentReadingCard = ({ book, session }) => {
     );
   }
 
-  const progress = Math.max(0, Math.min(100, Number(session?.progressPercent || 0)));
+  const totalPages = Number(session?.totalPages || 0);
   const currentPage = Number(session?.currentPage || 0);
+  const computedProgress = totalPages > 0 ? (currentPage / totalPages) * 100 : Number(session?.progressPercent || 0);
+  const progress = Math.max(0, Math.min(100, computedProgress));
   const route = book?.gutenbergId ? `/read/gutenberg/${book.gutenbergId}` : '/library';
   const coverUrl = getBestCoverUrl(book);
 

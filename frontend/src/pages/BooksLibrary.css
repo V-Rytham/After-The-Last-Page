@@ -188,7 +188,7 @@
 }
 
 .editorial-grid--recent {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .editorial-grid--recommendations {
@@ -208,6 +208,16 @@
   border-radius: 14px;
   padding: 12px;
   transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.editorial-book-card h3 {
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.editorial-book-card p,
+.editorial-book-card__status {
+  font-size: 0.82rem;
 }
 
 .editorial-book-card__cover {
