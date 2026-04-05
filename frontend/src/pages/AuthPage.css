@@ -215,6 +215,30 @@
   margin-top: 0.15rem;
 }
 
+.auth-social {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.auth-social-divider {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-0);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.auth-google-btn {
+  display: flex;
+  justify-content: center;
+  min-height: 2.75rem;
+}
+
+.auth-google-btn.is-busy {
+  opacity: 0.75;
+  pointer-events: none;
+}
+
 @keyframes auth-spin {
   to {
     transform: rotate(360deg);
