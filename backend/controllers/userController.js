@@ -15,6 +15,7 @@ import {
 } from '../utils/authTokens.js';
 import { issueEmailOtp, verifyEmailOtp } from '../services/otpService.js';
 import { uploadProfileImage } from '../utils/profileImage.js';
+import { isDegradedMode } from '../utils/degradedMode.js';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || undefined);
 
@@ -57,6 +58,13 @@ const buildUserResponse = (user) => ({
   joinedAt: user.createdAt,
 });
 
+const assertAuthDatabaseReady = () => {
+  if (!isDegradedMode()) return;
+  const error = new Error('Authentication is temporarily unavailable while the database reconnects.');
+  error.statusCode = 503;
+  throw error;
+};
+
 const issueSession = async (req, res, user) => {
   const accessToken = signAccessToken(user);
   const refreshToken = signRefreshToken(user);
@@ -75,6 +83,7 @@ const issueSession = async (req, res, user) => {
 
 export const registerUser = async (req, res) => {
   try {
+    assertAuthDatabaseReady();
     const payload = signupSchema.parse(req.body);
     const email = payload.email.toLowerCase();
 
@@ -121,6 +130,7 @@ export const registerUser = async (req, res) => {
 
 export const verifySignupOtp = async (req, res) => {
   try {
+    assertAuthDatabaseReady();
     const payload = otpVerifySchema.parse(req.body);
     const user = await User.findOne({ email: payload.email.toLowerCase() });
     if (!user) return res.status(404).json({ message: 'User not found.' });
@@ -141,6 +151,7 @@ export const verifySignupOtp = async (req, res) => {
 
 export const resendOtp = async (req, res) => {
   try {
+    assertAuthDatabaseReady();
     const email = z.string().trim().email().parse(req.body?.email).toLowerCase();
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: 'User not found.' });
@@ -155,6 +166,7 @@ export const resendOtp = async (req, res) => {
 
 export const loginUser = async (req, res) => {
   try {
+    assertAuthDatabaseReady();
     const payload = loginSchema.parse(req.body);
     const user = await User.findOne({ email: payload.email.toLowerCase() });
     if (!user || !user.passwordHash || !(await bcrypt.compare(payload.password, user.passwordHash))) {
@@ -177,6 +189,7 @@ export const loginUser = async (req, res) => {
 
 export const loginWithGoogle = async (req, res) => {
   try {
+    assertAuthDatabaseReady();
     const idToken = z.string().min(20).parse(req.body?.idToken);
     const ticket = await googleClient.verifyIdToken({
       idToken,
@@ -212,6 +225,7 @@ export const loginWithGoogle = async (req, res) => {
 
 export const refreshSession = async (req, res) => {
   try {
+    assertAuthDatabaseReady();
     const refreshToken = req.cookies?.atlp_refresh;
     if (!refreshToken) return res.status(401).json({ message: 'Missing refresh token.' });
 

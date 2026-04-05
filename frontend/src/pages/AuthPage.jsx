@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, LogIn, UserPlus } from 'lucide-react';
 import api from '../utils/api';
@@ -18,6 +18,9 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const googleButtonRef = useRef(null);
+  const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
 
   const redirectPath = location.state?.from || '/desk';
 
@@ -28,6 +31,74 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
   }, [currentUser?._id, navigate, redirectPath]);
 
   const introCopy = useMemo(() => 'Create an account or sign in to keep your reading identity with you.', []);
+
+  useEffect(() => {
+    if (!googleClientId || needsVerification) return undefined;
+    let cancelled = false;
+
+    const renderGoogleButton = () => {
+      if (cancelled || !googleButtonRef.current || !window.google?.accounts?.id) return;
+      googleButtonRef.current.innerHTML = '';
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async (googleResponse) => {
+          try {
+            setError('');
+            setGoogleBusy(true);
+            const idToken = String(googleResponse?.credential || '').trim();
+            if (!idToken) {
+              setError('Google sign-in did not return a valid token.');
+              return;
+            }
+
+            const { data } = await api.post('/users/oauth/google', { idToken });
+            const user = saveAuthSession(data.user);
+            onAuthSuccess(user);
+            navigate(redirectPath, { replace: true });
+          } catch (requestError) {
+            setError(requestError.response?.data?.message || 'Google sign-in is unavailable right now.');
+          } finally {
+            setGoogleBusy(false);
+          }
+        },
+      });
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        type: 'standard',
+        shape: 'pill',
+        size: 'large',
+        text: mode === 'signup' ? 'signup_with' : 'signin_with',
+        theme: 'outline',
+        logo_alignment: 'left',
+        width: 320,
+      });
+    };
+
+    if (window.google?.accounts?.id) {
+      renderGoogleButton();
+      return undefined;
+    }
+
+    const scriptId = 'google-identity-services';
+    let script = document.getElementById(scriptId);
+    const onLoad = () => renderGoogleButton();
+
+    if (!script) {
+      script = document.createElement('script');
+      script.id = scriptId;
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.addEventListener('load', onLoad);
+      document.head.appendChild(script);
+    } else {
+      script.addEventListener('load', onLoad);
+    }
+
+    return () => {
+      cancelled = true;
+      script?.removeEventListener('load', onLoad);
+    };
+  }, [googleClientId, mode, navigate, needsVerification, onAuthSuccess, redirectPath]);
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -146,6 +217,12 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
               <button type="submit" className="btn-primary auth-submit" disabled={submitting}>
                 {submitting ? 'Signing in...' : 'Login'} <ArrowRight size={18} />
               </button>
+              {googleClientId ? (
+                <div className="auth-social">
+                  <span className="auth-social-divider">or</span>
+                  <div ref={googleButtonRef} className={`auth-google-btn ${googleBusy ? 'is-busy' : ''}`} />
+                </div>
+              ) : null}
             </form>
           ) : (
             <form className="auth-form" onSubmit={handleSignup}>
@@ -157,6 +234,12 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
               <button type="submit" className="btn-primary auth-submit" disabled={submitting}>
                 {submitting ? 'Creating account...' : 'Sign up'} <ArrowRight size={18} />
               </button>
+              {googleClientId ? (
+                <div className="auth-social">
+                  <span className="auth-social-divider">or</span>
+                  <div ref={googleButtonRef} className={`auth-google-btn ${googleBusy ? 'is-busy' : ''}`} />
+                </div>
+              ) : null}
             </form>
           )}
         </section>
