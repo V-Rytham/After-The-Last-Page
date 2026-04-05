@@ -1,0 +1,56 @@
+[
+  {
+    "type": "build",
+    "file": "backend/controllers/recommenderController.js",
+    "line": 231,
+    "stack": "ReferenceError: success is not defined",
+    "reproducibility": "always when getRecommendations runs to success() path",
+    "root_cause": "Controller called success() helper without importing it.",
+    "fix_applied": "Imported success from ../utils/apiResponse.js."
+  },
+  {
+    "type": "build",
+    "file": "backend/controllers/bookController.js",
+    "line": 343,
+    "stack": "ESLint no-unused-vars on catch(error)",
+    "reproducibility": "always during npm run lint",
+    "root_cause": "Unused catch variable violated repo lint rule.",
+    "fix_applied": "Renamed catch parameter to _ERROR to satisfy lint convention."
+  },
+  {
+    "type": "build",
+    "file": "frontend/src/pages/AuthPage.jsx",
+    "line": 18,
+    "stack": "ESLint no-unused-vars on setNeedsVerification",
+    "reproducibility": "always during npm run lint",
+    "root_cause": "State setter was declared but never used.",
+    "fix_applied": "Removed unused setter from destructuring."
+  },
+  {
+    "type": "runtime",
+    "file": "backend/index.js",
+    "line": 211,
+    "stack": "Process exited when Redis was unavailable/misconfigured",
+    "reproducibility": "always if REDIS_URL is missing or Redis is down",
+    "root_cause": "Startup catch block called process.exit(1) for Redis connection failures.",
+    "fix_applied": "Server now logs degraded mode and continues startup when Redis is unavailable."
+  },
+  {
+    "type": "runtime",
+    "file": "backend/utils/redisClient.js",
+    "line": 12,
+    "stack": "Error: REDIS_URL is required for production-grade state management.",
+    "reproducibility": "always when REDIS_URL is absent",
+    "root_cause": "Redis client constructor threw hard error for missing env var.",
+    "fix_applied": "connectRedis/getRedisClient now return null with warning when REDIS_URL is not set."
+  },
+  {
+    "type": "runtime",
+    "file": "backend/middleware/rateLimit.js",
+    "line": 19,
+    "stack": "Rate limiting middleware propagated Redis connection errors as request failures",
+    "reproducibility": "always when Redis unavailable and any route is hit",
+    "root_cause": "Middleware expected connectRedis() to always return a working client.",
+    "fix_applied": "Middleware now bypasses rate limiting safely when Redis client is unavailable."
+  }
+]

@@ -204,11 +204,14 @@ try {
 
 
 try {
-  await connectRedis();
-  logger.info('Redis connected');
+  const redisClient = await connectRedis();
+  if (redisClient) {
+    logger.info('Redis connected');
+  } else {
+    logger.warn('Redis disabled. Continuing in degraded mode.');
+  }
 } catch (error) {
-  logger.error({ error: error?.message || error }, 'Failed to connect Redis');
-  process.exit(1);
+  logger.warn({ error: error?.message || error }, 'Failed to connect Redis. Continuing in degraded mode.');
 }
 
 httpServer.listen(PORT, () => {

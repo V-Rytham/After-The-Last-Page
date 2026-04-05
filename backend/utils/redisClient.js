@@ -3,13 +3,18 @@ import { logger } from './logger.js';
 
 let client;
 let connectPromise;
+let redisDisabledLogged = false;
 
 export const getRedisClient = () => {
   if (client) return client;
 
   const url = process.env.REDIS_URL;
   if (!url) {
-    throw new Error('REDIS_URL is required for production-grade state management.');
+    if (!redisDisabledLogged) {
+      logger.warn('REDIS_URL is not configured. Redis-backed features will run in degraded mode.');
+      redisDisabledLogged = true;
+    }
+    return null;
   }
 
   client = createClient({ url, socket: { reconnectStrategy: (retries) => Math.min(retries * 100, 2000) } });
@@ -22,6 +27,7 @@ export const getRedisClient = () => {
 
 export const connectRedis = async () => {
   const redis = getRedisClient();
+  if (!redis) return null;
   if (redis.isOpen) return redis;
   if (!connectPromise) {
     connectPromise = redis.connect().finally(() => {
