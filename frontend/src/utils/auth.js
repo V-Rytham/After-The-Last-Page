@@ -15,16 +15,19 @@ export const getStoredToken = () => null;
 
 export const getStoredUser = () => {
   const rawUser = localStorage.getItem(USER_KEY);
-  if (!rawUser) return { ...DEV_USER };
+  if (!rawUser) return null;
+
   try {
-    return { ...DEV_USER, ...JSON.parse(rawUser) };
+    return JSON.parse(rawUser);
   } catch {
-    return { ...DEV_USER };
+    localStorage.removeItem(USER_KEY);
+    return null;
   }
 };
 
 export const saveAuthSession = (payload) => {
   const user = payload?.user || payload;
+  if (!user) return null;
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   return user;
 };
@@ -32,7 +35,7 @@ export const saveAuthSession = (payload) => {
 export const unwrapApiData = (payload) => payload?.data ?? payload;
 
 export const clearAuthSession = () => {
-  localStorage.setItem(USER_KEY, JSON.stringify(DEV_USER));
+  localStorage.removeItem(USER_KEY);
 };
 
 export const updateStoredUser = (patch) => {

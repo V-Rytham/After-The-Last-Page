@@ -16,7 +16,8 @@ import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import BookQuiz from './pages/BookQuiz';
 import RequestBookPage from './pages/RequestBookPage';
-import { clearAuthSession, getStoredUser, updateStoredUser } from './utils/auth';
+import { clearAuthSession, getStoredUser, saveAuthSession, updateStoredUser } from './utils/auth';
+import api from './utils/api';
 import { DEFAULT_UI_THEME, THEME_STORAGE_KEY, UI_THEMES } from './utils/uiThemes';
 import './index.css';
 
@@ -77,7 +78,7 @@ const AppShell = ({ currentUser, onLogout, onUserUpdate, uiTheme, onThemeChange,
 };
 
 const App = () => {
-  const [currentUser, setCurrentUser] = useState(getStoredUser());
+  const [currentUser, setCurrentUser] = useState(() => getStoredUser());
   const [uiTheme, setUiTheme] = useState(() => {
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
     if (storedTheme === 'midnight') {
@@ -108,6 +109,38 @@ const App = () => {
     }
   }, []);
 
+
+  useEffect(() => {
+    let active = true;
+
+    const bootstrapSession = async () => {
+      try {
+        const { data } = await api.get('/auth/me');
+        const user = saveAuthSession(data?.user || null);
+        if (active) setCurrentUser(user);
+      } catch {
+        clearAuthSession();
+        if (active) setCurrentUser(null);
+      }
+    };
+
+    bootstrapSession();
+
+    const handleUnauthorized = () => {
+      clearAuthSession();
+      setCurrentUser(null);
+      if (typeof window !== 'undefined' && !window.location.hash.startsWith('#/auth')) {
+        window.location.hash = '#/auth';
+      }
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      active = false;
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
+  }, []);
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', uiTheme);
     window.localStorage.setItem(THEME_STORAGE_KEY, uiTheme);
@@ -123,8 +156,13 @@ const App = () => {
   }, []);
 
   const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Ignore logout network errors and clear local state.
+    }
     clearAuthSession();
-    setCurrentUser(getStoredUser());
+    setCurrentUser(null);
   };
 
   return (
