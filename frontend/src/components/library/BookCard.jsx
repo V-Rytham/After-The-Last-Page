@@ -20,17 +20,24 @@ const BookCard = ({ book, loading = false }) => {
     );
   }
 
-  const id = book?.id || book?.gutenbergId;
+  const source = String(book?.source || (book?.gutenbergId ? 'gutenberg' : 'gutenberg')).toLowerCase();
+  const sourceId = String(book?.sourceId || book?.gutenbergId || book?.id || '');
+  const id = book?.id || `${source}:${sourceId}`;
   const title = String(book?.title || 'Untitled');
   const author = String(book?.author || 'Unknown author');
   const tags = Array.isArray(book?.tags) ? book.tags.filter(Boolean) : [];
   const visibleTags = tags.slice(0, 2);
   if (tags.length > 2) visibleTags.push(`+${tags.length - 2}`);
-  const coverSrc = imageError ? PLACEHOLDER_COVER : (book?.cover_url || book?.coverImage || getGutenbergCoverUrl(id));
+  const coverSrc = imageError
+    ? PLACEHOLDER_COVER
+    : (book?.cover_url || book?.coverImage || (source === 'gutenberg' ? getGutenbergCoverUrl(sourceId) : PLACEHOLDER_COVER));
+  const readPath = source === 'gutenberg'
+    ? `/read/gutenberg/${sourceId}`
+    : `/read/${encodeURIComponent(id)}`;
 
   return (
     <article className="library-book-card">
-      <Link className="library-cover-link" to={`/read/gutenberg/${id}`} aria-label={`Read ${title}`}>
+      <Link className="library-cover-link" to={readPath} aria-label={`Read ${title}`}>
         <div className="library-book-cover">
           <img src={coverSrc} alt={`${title} cover`} loading="lazy" decoding="async" onError={() => setImageError(true)} />
         </div>
@@ -40,7 +47,7 @@ const BookCard = ({ book, loading = false }) => {
       <div className="library-book-tags" aria-label="Book tags">
         {visibleTags.map((tag) => <span key={`${id}-${tag}`}>{tag}</span>)}
       </div>
-      <Link className="library-book-cta" to={`/read/gutenberg/${id}`}>Read</Link>
+      <Link className="library-book-cta" to={readPath}>Read</Link>
     </article>
   );
 };

@@ -87,20 +87,34 @@ export const getGutenbergCoverUrl = (gutenbergId) => {
 };
 
 const normalizeBook = (book) => {
-  const id = Number(book?.gutenbergId || book?.id || 0);
-  if (!Number.isFinite(id) || id <= 0) return null;
+  const explicitSource = String(book?.source || '').trim().toLowerCase();
+  const source = explicitSource || (Number(book?.gutenbergId || book?.id) > 0 ? 'gutenberg' : 'unknown');
+  const sourceId = String(
+    book?.sourceId
+    || (source === 'gutenberg' ? (book?.gutenbergId || book?.id) : '')
+    || book?.id
+    || '',
+  ).trim();
+  if (!sourceId) return null;
 
   const title = String(book?.title || 'Untitled').trim() || 'Untitled';
   const author = Array.isArray(book?.authors) && book.authors.length
     ? String(book.authors[0]?.name || 'Unknown author')
     : String(book?.author || 'Unknown author');
+  const gutenbergId = Number(book?.gutenbergId || (source === 'gutenberg' ? sourceId : 0));
+  const normalizedId = String(book?.id || `${source}:${sourceId}`);
 
   return {
-    gutenbergId: id,
+    id: normalizedId,
+    source,
+    sourceId,
+    gutenbergId: Number.isFinite(gutenbergId) && gutenbergId > 0 ? gutenbergId : null,
     title,
     author,
     tags: inferTags(book),
-    coverImage: book?.formats?.['image/jpeg'] || book?.coverImage || getGutenbergCoverUrl(id),
+    coverImage: book?.formats?.['image/jpeg']
+      || book?.coverImage
+      || (Number.isFinite(gutenbergId) && gutenbergId > 0 ? getGutenbergCoverUrl(gutenbergId) : PLACEHOLDER_COVER),
   };
 };
 
@@ -124,7 +138,7 @@ export const addRecentBook = (book) => {
   const normalized = normalizeBook(book);
   if (!normalized) return readRecentBooks();
 
-  const existing = readRecentBooks().filter((entry) => Number(entry.gutenbergId) !== normalized.gutenbergId);
+  const existing = readRecentBooks().filter((entry) => String(entry.id) !== String(normalized.id));
   const next = [normalized, ...existing].slice(0, 24);
   window.localStorage.setItem(RECENT_BOOKS_KEY, JSON.stringify(next));
   return next;
@@ -173,7 +187,7 @@ export const fetchBookByGutenbergId = async (gutenbergId) => {
 
   const request = fetchWithRetry(async () => {
     const { data } = await api.get(`/books/gutenberg/${id}/preview`);
-    const normalized = normalizeBook(data);
+    const normalized = normalizeBook({ ...data, source: 'gutenberg', sourceId: String(id) });
     if (!normalized) throw new Error('Unable to fetch this Gutenberg book.');
     idLookupCache.set(id, { value: normalized, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
     return normalized;
@@ -209,7 +223,7 @@ export const searchBooks = async (query, signal) => {
     lastSearchAt = Date.now();
 
     try {
-      const { data } = await api.get('/books/gutenberg/search', { params: { q: term }, signal });
+      const { data } = await api.get('/books/search', { params: { q: term }, signal });
       const books = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
       const normalized = books.map((book) => normalizeBook(book)).filter(Boolean).slice(0, 24);
       searchCache.set(cacheKey, { value: normalized, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
@@ -254,7 +268,7 @@ const sortBooks = (books, sort) => {
     case 'author-desc':
       return list.sort((a, b) => b.author.localeCompare(a.author));
     case 'newest':
-      return list.sort((a, b) => b.gutenbergId - a.gutenbergId);
+      return list.sort((a, b) => (Number(b.gutenbergId) || 0) - (Number(a.gutenbergId) || 0));
     case 'popular':
     default:
       return list.sort((a, b) => {
@@ -324,7 +338,7 @@ export const fetchLibraryBooks = async ({ search = '', category = 'all', sort = 
   }
 
   const deduped = Array.from(
-    new Map(normalized.map((book) => [book.gutenbergId, { ...book, category: inferCategory(book) }])).values(),
+    new Map(normalized.map((book) => [String(book.id), { ...book, category: inferCategory(book) }])).values(),
   );
 
   const filtered = category === 'all'
@@ -338,7 +352,7 @@ export const fetchLibraryBooks = async ({ search = '', category = 'all', sort = 
   const paged = sorted.slice(start, start + safePerPage);
 
   return {
-    books: paged.map((entry) => ({ ...entry, id: entry.gutenbergId })),
+    books: paged.map((entry) => ({ ...entry })),
     total: sorted.length,
   };
 };
