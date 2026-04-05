@@ -106,7 +106,8 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
     setSubmitting(true);
 
     try {
-      const { data } = await api.post('/users/login', loginForm);
+      await api.post('/users/login', loginForm);
+      const { data } = await api.get('/users/profile');
       const user = saveAuthSession(unwrapApiData(data));
       onAuthSuccess(user);
       navigate(redirectPath, { replace: true });
@@ -149,7 +150,8 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
     setSubmitting(true);
 
     try {
-      const { data } = await api.post('/users/verify-otp', otpForm);
+      await api.post('/users/verify-otp', otpForm);
+      const { data } = await api.get('/users/profile');
       const user = saveAuthSession(unwrapApiData(data));
       onAuthSuccess(user);
       navigate(redirectPath, { replace: true });
