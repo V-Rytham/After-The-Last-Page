@@ -1,80 +1,93 @@
-.navbar-redesign {
+.navbar {
   position: sticky;
   top: 0;
   z-index: 80;
   width: 100%;
-  padding: 0.45rem var(--page-gutter);
-  background: var(--nav-bg);
-  backdrop-filter: blur(6px);
-  display: grid;
-  grid-template-columns: minmax(13rem, 1fr) auto minmax(13rem, 1fr);
+  height: 64px;
+  padding: 0 32px;
+  background: color-mix(in srgb, var(--surface-1) 78%, transparent);
+  backdrop-filter: blur(8px);
+  display: flex;
   align-items: center;
-  gap: 0.75rem;
-  border: 0;
-  box-shadow: none;
+  justify-content: space-between;
 }
 
-.navbar-brand-link { display: grid; gap: 0.18rem; }
-.navbar-title { font-size: 1.02rem; line-height: 1.1; color: var(--text-primary); }
-.navbar-subtitle {
-  font-size: 0.62rem;
-  letter-spacing: 0.17em;
-  color: var(--text-muted);
-  white-space: nowrap;
+.navbar-left,
+.navbar-right {
+  flex: 1 1 0;
 }
 
-.navbar-center {
-  justify-self: center;
+.navbar-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.navbar-brand-link {
+  display: inline-flex;
+  align-items: center;
+}
+
+.navbar-title {
+  font-size: 0.98rem;
+  line-height: 1;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.center-nav {
   display: inline-flex;
   align-items: center;
   gap: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
 }
 
-.navbar-pill {
-  min-height: 2.1rem;
-  padding: 0;
-  border-radius: 999px;
+.center-nav-link {
+  min-height: 2rem;
   display: inline-flex;
   align-items: center;
   color: var(--text-secondary);
-  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  font-family: var(--font-body);
+  font-size: 0.94rem;
+  font-weight: 400;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s ease, border-color 0.2s ease;
 }
 
-.navbar-pill:hover,
-.navbar-pill:focus-visible {
-  background: transparent;
+.center-nav-link:hover,
+.center-nav-link:focus-visible {
   color: var(--text-primary);
   outline: none;
 }
 
-.navbar-pill.is-active {
-  background: transparent;
-  color: var(--text-primary);
-  box-shadow: none;
+.center-nav-link.is-active {
+  color: var(--accent);
+  font-weight: 500;
+  border-bottom-color: var(--accent);
 }
 
-.navbar-right { justify-self: end; display: inline-flex; align-items: center; gap: 0.5rem; }
+.right-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .theme-icon-btn,
 .nav-avatar-btn {
-  width: 2.1rem;
-  height: 2.1rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 999px;
-  border: 1px solid var(--border-soft);
-  background: var(--surface-1);
+  border: 0;
+  background: transparent;
   color: var(--text-primary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 .theme-icon-btn:hover,
 .nav-avatar-btn:hover,
 .theme-icon-btn:focus-visible,
-.nav-avatar-btn:focus-visible { background: var(--surface-muted); outline: none; }
+.nav-avatar-btn:focus-visible { background: var(--surface-muted); color: var(--text-primary); outline: none; }
 
 .nav-avatar-image { width: 100%; height: 100%; object-fit: cover; border-radius: 999px; }
 .nav-avatar-fallback { font-size: 0.8rem; font-weight: 700; }
@@ -121,23 +134,15 @@
 .mobile-drawer { display: none; }
 
 @media (max-width: 767px) {
-  .navbar-redesign {
-    grid-template-columns: 1fr auto;
-    gap: 0.75rem;
-    padding: 0.45rem var(--page-gutter);
+  .navbar {
+    padding: 0 1rem;
   }
 
-  .navbar-center,
+  .center-nav,
   .theme-icon-btn,
   .profile-menu-wrap { display: none; }
 
   .mobile-menu-avatar { display: inline-flex; }
-
-  .navbar-subtitle {
-    max-width: calc(100vw - 8rem);
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 
   .mobile-drawer {
     display: block;
@@ -236,10 +241,9 @@
 }
 
 @media (min-width: 768px) and (max-width: 1080px) {
-  .navbar-redesign {
-    grid-template-columns: minmax(11.5rem, 1fr) auto minmax(11.5rem, 1fr);
-    gap: 0.75rem;
+  .navbar {
+    padding: 0 1.25rem;
   }
 
-  .navbar-center { gap: 32px; }
+  .center-nav { gap: 20px; }
 }
