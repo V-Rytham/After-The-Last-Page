@@ -103,6 +103,21 @@ const normalizeBook = (book) => {
     : String(book?.author || 'Unknown author');
   const gutenbergId = Number(book?.gutenbergId || (source === 'gutenberg' ? sourceId : 0));
   const normalizedId = String(book?.id || `${source}:${sourceId}`);
+  const inferredTags = inferTags(book);
+  const rawGenres = [
+    ...(Array.isArray(book?.genres) ? book.genres : []),
+    ...(Array.isArray(book?.genre) ? book.genre : []),
+    ...(typeof book?.genre === 'string' ? [book.genre] : []),
+    ...(Array.isArray(book?.tags) ? book.tags : []),
+  ];
+  const genres = Array.from(
+    new Set(
+      rawGenres
+        .map((value) => toTitleCase(String(value || '').split('--')[0].trim()))
+        .filter(Boolean),
+    ),
+  ).slice(0, 3);
+  const normalizedGenres = genres.length > 0 ? genres : inferredTags;
 
   return {
     id: normalizedId,
@@ -111,7 +126,8 @@ const normalizeBook = (book) => {
     gutenbergId: Number.isFinite(gutenbergId) && gutenbergId > 0 ? gutenbergId : null,
     title,
     author,
-    tags: inferTags(book),
+    tags: inferredTags,
+    genres: normalizedGenres,
     coverImage: book?.formats?.['image/jpeg']
       || book?.coverImage
       || (Number.isFinite(gutenbergId) && gutenbergId > 0 ? getGutenbergCoverUrl(gutenbergId) : PLACEHOLDER_COVER),
