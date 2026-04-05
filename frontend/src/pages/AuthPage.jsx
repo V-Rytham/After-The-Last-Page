@@ -137,11 +137,11 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
             <form className="auth-form" onSubmit={handleLogin}>
               <label className="auth-label">
                 <span>Email</span>
-                <input name="email" type="email" value={loginForm.email} onChange={(event) => setLoginForm((prev) => ({ ...prev, email: event.target.value }))} className="auth-input" required />
+                <input name="email" type="email" autoComplete="email" value={loginForm.email} onChange={(event) => setLoginForm((prev) => ({ ...prev, email: event.target.value }))} className="auth-input" required />
               </label>
               <label className="auth-label">
                 <span>Password</span>
-                <input name="password" type="password" value={loginForm.password} onChange={(event) => setLoginForm((prev) => ({ ...prev, password: event.target.value }))} className="auth-input" required />
+                <input name="password" type="password" autoComplete="current-password" value={loginForm.password} onChange={(event) => setLoginForm((prev) => ({ ...prev, password: event.target.value }))} className="auth-input" required />
               </label>
               <button type="submit" className="btn-primary auth-submit" disabled={submitting}>
                 {submitting ? 'Signing in...' : 'Login'} <ArrowRight size={18} />
@@ -149,11 +149,11 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
             </form>
           ) : (
             <form className="auth-form" onSubmit={handleSignup}>
-              <label className="auth-label"><span>Name</span><input name="name" type="text" value={signupForm.name} onChange={(e) => setSignupForm((prev) => ({ ...prev, name: e.target.value }))} className="auth-input" required /></label>
-              <label className="auth-label"><span>Username</span><input name="username" type="text" value={signupForm.username} onChange={(e) => setSignupForm((prev) => ({ ...prev, username: e.target.value }))} className="auth-input" /></label>
-              <label className="auth-label"><span>Email</span><input name="email" type="email" value={signupForm.email} onChange={(e) => setSignupForm((prev) => ({ ...prev, email: e.target.value }))} className="auth-input" required /></label>
-              <label className="auth-label"><span>Password</span><input name="password" type="password" value={signupForm.password} onChange={(e) => setSignupForm((prev) => ({ ...prev, password: e.target.value }))} className="auth-input" required /></label>
-              <label className="auth-label"><span>Confirm password</span><input name="confirmPassword" type="password" value={signupForm.confirmPassword} onChange={(e) => setSignupForm((prev) => ({ ...prev, confirmPassword: e.target.value }))} className="auth-input" required /></label>
+              <label className="auth-label"><span>Name</span><input name="name" type="text" autoComplete="name" value={signupForm.name} onChange={(e) => setSignupForm((prev) => ({ ...prev, name: e.target.value }))} className="auth-input" required /></label>
+              <label className="auth-label"><span>Username</span><input name="username" type="text" autoComplete="username" value={signupForm.username} onChange={(e) => setSignupForm((prev) => ({ ...prev, username: e.target.value }))} className="auth-input" /></label>
+              <label className="auth-label"><span>Email</span><input name="email" type="email" autoComplete="email" value={signupForm.email} onChange={(e) => setSignupForm((prev) => ({ ...prev, email: e.target.value }))} className="auth-input" required /></label>
+              <label className="auth-label"><span>Password</span><input name="password" type="password" autoComplete="new-password" value={signupForm.password} onChange={(e) => setSignupForm((prev) => ({ ...prev, password: e.target.value }))} className="auth-input" required /></label>
+              <label className="auth-label"><span>Confirm password</span><input name="confirmPassword" type="password" autoComplete="new-password" value={signupForm.confirmPassword} onChange={(e) => setSignupForm((prev) => ({ ...prev, confirmPassword: e.target.value }))} className="auth-input" required /></label>
               <button type="submit" className="btn-primary auth-submit" disabled={submitting}>
                 {submitting ? 'Creating account...' : 'Sign up'} <ArrowRight size={18} />
               </button>
