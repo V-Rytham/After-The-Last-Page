@@ -90,7 +90,7 @@ export default function LandingPage({ currentUser }) {
 
     const loadBooks = async () => {
       try {
-        const { data } = await api.get('/books');
+        const data = await api.get('/books');
         if (mounted) setBooks(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('[HOME] Failed to load books', error);

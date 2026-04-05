@@ -115,7 +115,7 @@ const App = () => {
 
     const bootstrapSession = async () => {
       try {
-        const { data } = await api.get('/auth/me');
+        const data = await api.get('/auth/me');
         const user = saveAuthSession(data?.user || null);
         if (active) setCurrentUser(user);
       } catch {

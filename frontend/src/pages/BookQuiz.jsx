@@ -119,7 +119,7 @@ export default function BookQuiz() {
 
   const checkExistingAccess = useCallback(async () => {
     try {
-      const { data } = await api.get(`/access/check?bookId=${encodeURIComponent(bookId)}`);
+      const data = await api.get(`/access/check?bookId=${encodeURIComponent(bookId)}`);
       if (data?.access) {
         navigate(nextPath, { replace: true });
         return true;
@@ -164,7 +164,7 @@ export default function BookQuiz() {
         processingStartRef.current = Date.now();
       }
 
-      const { data: startData } = await withTimeout(
+      const startData = await withTimeout(
         (signal) => api.post('/quiz/start', { bookId, force }, { signal }),
         12000,
       );
@@ -196,7 +196,7 @@ export default function BookQuiz() {
         }
 
         try {
-          const { data } = await api.get(`/quiz/status/${encodeURIComponent(jobId)}`);
+          const data = await api.get(`/quiz/status/${encodeURIComponent(jobId)}`);
           const progress = Number(data?.progress || 0);
           if (isMountedRef.current) {
             setQuizJobProgress(Number.isFinite(progress) ? progress : 0);
@@ -220,7 +220,7 @@ export default function BookQuiz() {
             return;
           }
 
-          const { data: resultData } = await api.get(`/quiz/result/${encodeURIComponent(jobId)}`);
+          const resultData = await api.get(`/quiz/result/${encodeURIComponent(jobId)}`);
           processingStartRef.current = null;
 
           const normalized = normalizeQuestions(resultData);
@@ -340,7 +340,7 @@ export default function BookQuiz() {
     setResult(null);
 
     try {
-      const { data } = await api.post('/quiz/submit', {
+      const data = await api.post('/quiz/submit', {
         bookId,
         answers,
         jobId: quizJobId,

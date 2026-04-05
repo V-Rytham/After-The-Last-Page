@@ -370,7 +370,7 @@ export default function BookThread() {
     setSubmittingThread(true);
 
     try {
-      const { data } = await api.post('/threads', {
+      const data = await api.post('/threads', {
         bookId: book._id || book.id,
         title: threadForm.title,
         chapterReference: threadForm.chapterReference,
@@ -403,7 +403,7 @@ export default function BookThread() {
     setPendingReplyKey(replyKey);
 
     try {
-      const { data } = await api.post(`/threads/${threadId}/comments`, {
+      const data = await api.post(`/threads/${threadId}/comments`, {
         content,
         parentId,
       });
@@ -421,7 +421,7 @@ export default function BookThread() {
 
   const handleLikeThread = async (threadId) => {
     try {
-      const { data } = await api.post(`/threads/${threadId}/like`);
+      const data = await api.post(`/threads/${threadId}/like`);
       setThreadInState(data);
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Unable to heart this thread right now.');
@@ -430,7 +430,7 @@ export default function BookThread() {
 
   const handleLikeComment = async (threadId, commentId) => {
     try {
-      const { data } = await api.post(`/threads/${threadId}/comments/${commentId}/like`);
+      const data = await api.post(`/threads/${threadId}/comments/${commentId}/like`);
       setThreadInState(data);
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Unable to heart this response right now.');

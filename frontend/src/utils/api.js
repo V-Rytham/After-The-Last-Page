@@ -31,6 +31,16 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+const RECOVERY_USER_ID_KEY = 'atlpg_recovery_user_id';
+const getRecoveryUserId = () => {
+  if (typeof window === 'undefined') return 'server-session';
+  const existing = window.localStorage.getItem(RECOVERY_USER_ID_KEY);
+  if (existing) return existing;
+  const generated = `session_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  window.localStorage.setItem(RECOVERY_USER_ID_KEY, generated);
+  return generated;
+};
+
 const mockUser = {
   _id: 'recovery-user',
   name: 'Recovery Mode User',
@@ -52,6 +62,22 @@ const buildMockResponse = (config) => {
   if (method === 'post' && (path === '/auth/login' || path === '/auth/register')) return { user: mockUser, token: 'mock-token' };
   if (method === 'post' && path === '/auth/logout') return { ok: true };
   if (method === 'get' && (path === '/books' || path.startsWith('/books/search'))) return { books: mockBooks };
+  if (method === 'get' && path.includes('/read')) {
+    return {
+      bookId: path.split('/')[2] || 'mock-book-1',
+      title: mockBooks[0].title,
+      author: mockBooks[0].author,
+      chapters: [
+        {
+          index: 1,
+          title: 'Unavailable',
+          html: '<p>This book could not be loaded from Gutenberg.</p>',
+        },
+      ],
+      status: 'complete',
+      nextCursor: null,
+    };
+  }
   if (method === 'get' && path.startsWith('/books/')) return { ...mockBooks[0], _id: path.split('/')[2] || mockBooks[0]._id };
   if (method === 'get' && path === '/session/status') return { active: false, state: 'IDLE' };
   if (method === 'post' && (path === '/session/start' || path === '/session/end' || path === '/matchmaking/join' || path === '/matchmaking/leave')) return { ok: true };
@@ -80,6 +106,9 @@ api.interceptors.request.use(async (config) => {
     await sleep(rateLimitedUntil - Date.now());
   }
 
+  config.headers = config.headers || {};
+  config.headers['X-User-Id'] = getRecoveryUserId();
+
   if (RECOVERY_MODE && !REAL_ENDPOINTS.has(String(config?.url || ''))) {
     config.adapter = async () => ({
       data: buildMockResponse(config),
@@ -105,7 +134,15 @@ const shouldDispatchUnauthorized = (error, statusCode) => {
 };
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const normalized = response.data?.data ?? response.data;
+    console.info('[API] frontend received data', {
+      url: String(response?.config?.url || ''),
+      hasData: normalized != null,
+      keys: normalized && typeof normalized === 'object' ? Object.keys(normalized).slice(0, 8) : [],
+    });
+    return normalized;
+  },
   async (error) => {
     const config = error?.config;
     if (config && isTransientNetworkFailure(error) && !config.__retryAfterNetworkFailure) {

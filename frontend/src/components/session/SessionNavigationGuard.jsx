@@ -40,7 +40,7 @@ export default function SessionNavigationGuard() {
 
     statusRequestInFlightRef.current = true;
     try {
-      const { data } = await api.get('/session/status');
+      const data = await api.get('/session/status');
       const state = String(data?.session?.state || 'IDLE').toUpperCase();
       setSessionState(state);
       pollingDelayRef.current = 3000;
