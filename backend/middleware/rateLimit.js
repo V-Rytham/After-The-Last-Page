@@ -17,6 +17,10 @@ export const rateLimit = ({
   try {
     const key = `${prefix}:${getKey(req, keyGenerator)}`;
     const redis = await connectRedis();
+    if (!redis) {
+      next();
+      return;
+    }
 
     const count = await redis.incr(key);
     if (count === 1) {

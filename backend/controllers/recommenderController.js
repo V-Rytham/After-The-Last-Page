@@ -3,6 +3,7 @@ import { Book } from '../models/Book.js';
 import { UserProgress } from '../models/UserProgress.js';
 import { gutenbergCatalog } from '../seed/gutenbergCatalog.js';
 import { recommendFromDatabase } from '../recommenderSystem/recommenderSystem.js';
+import { success } from '../utils/apiResponse.js';
 
 const asStringArray = (value) => {
   if (!Array.isArray(value)) {

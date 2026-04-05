@@ -340,7 +340,7 @@ export const searchBooksUnifiedController = async (req, res) => {
     if (!query) return success(res, { results: [] });
     const results = await searchBooksUnified(query);
     return success(res, { results });
-  } catch (error) {
+  } catch (_ERROR) {
     return res.status(500).json({ message: 'Failed to search books across providers.' });
   }
 };

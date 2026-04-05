@@ -15,7 +15,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
   const [loginForm, setLoginForm] = useState(initialLoginState);
   const [signupForm, setSignupForm] = useState(initialSignupState);
   const [otpForm, setOtpForm] = useState({ email: '', otpCode: '' });
-  const [needsVerification, setNeedsVerification] = useState(false);
+  const [needsVerification] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [googleBusy] = useState(false);
