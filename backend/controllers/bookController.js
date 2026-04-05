@@ -1,5 +1,6 @@
 import { success } from '../utils/apiResponse.js';
 import { searchBooks, readBook } from '../services/bookSourceService.js';
+import { gutenbergCatalog } from '../seed/gutenbergCatalog.js';
 
 const UNAVAILABLE_CHAPTER = {
   index: 1,
@@ -25,6 +26,25 @@ const ensureReadContract = (payload) => {
   };
 };
 
+const normalizeCuratedAuthor = (author) => {
+  const raw = String(author || '').trim();
+  if (!raw) return 'Unknown author';
+
+  if (!raw.includes(',')) return raw;
+
+  const [lastName, ...rest] = raw.split(',').map((part) => part.trim()).filter(Boolean);
+  if (!lastName || rest.length === 0) return raw;
+  return `${rest.join(' ')} ${lastName}`.trim();
+};
+
+const curatedDefaultBooks = gutenbergCatalog.slice(0, 50).map((book) => ({
+  title: String(book?.title || 'Untitled'),
+  author: normalizeCuratedAuthor(book?.author),
+  source: 'gutenberg',
+  sourceId: String(book?.gutenbergId || ''),
+  coverImage: `https://www.gutenberg.org/cache/epub/${encodeURIComponent(String(book?.gutenbergId || ''))}/pg${encodeURIComponent(String(book?.gutenbergId || ''))}.cover.medium.jpg`,
+})).filter((book) => book.sourceId);
+
 export const getBooks = async (_req, res) => success(res, []);
 
 export const getBookById = async (_req, res) => success(res, null);
@@ -38,6 +58,8 @@ export const searchBooksController = async (req, res) => {
   const results = await searchBooks(query);
   return success(res, results);
 };
+
+export const defaultBooksController = async (_req, res) => success(res, curatedDefaultBooks);
 
 export const readBookController = async (req, res) => {
   const source = String(req.query?.source || '').trim();

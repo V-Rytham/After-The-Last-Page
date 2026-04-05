@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import SearchBar from '../components/library/SearchBar';
 import BookGrid from '../components/library/BookGrid';
-import { searchBooks } from '../utils/libraryApi';
+import { fetchDefaultBooks, searchBooks } from '../utils/libraryApi';
 import './Library.css';
 
 const Library = () => {
@@ -12,23 +12,25 @@ const Library = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!String(search || '').trim()) {
+      setSubmittedSearch('');
+    }
+  }, [search]);
+
+  useEffect(() => {
     const controller = new AbortController();
 
     const run = async () => {
-      if (!submittedSearch) {
-        setBooks([]);
-        setError('');
-        return;
-      }
-
       setLoading(true);
       setError('');
       try {
-        const results = await searchBooks(submittedSearch, controller.signal);
+        const results = submittedSearch
+          ? await searchBooks(submittedSearch, controller.signal)
+          : await fetchDefaultBooks(controller.signal);
         setBooks(results);
       } catch (requestError) {
         setBooks([]);
-        setError(String(requestError?.uiMessage || requestError?.message || 'Unable to search books right now.'));
+        setError(String(requestError?.uiMessage || requestError?.message || 'Unable to load books right now.'));
       } finally {
         setLoading(false);
       }
@@ -48,7 +50,6 @@ const Library = () => {
           onClear={() => {
             setSearch('');
             setSubmittedSearch('');
-            setBooks([]);
             setError('');
           }}
           onSubmit={() => setSubmittedSearch(String(search || '').trim())}
