@@ -113,8 +113,7 @@ export default function LandingPage({ currentUser }) {
   const continueReadingRoute = useMemo(() => {
     const candidate = activeProgress?.book;
     if (!candidate) return '/desk';
-    if (candidate?._id || candidate?.id) return `/read/${candidate._id || candidate.id}`;
-    if (candidate?.gutenbergId) return `/read/gutenberg/${candidate.gutenbergId}`;
+    if (candidate?.source && candidate?.sourceId) return `/read/${candidate.source}/${encodeURIComponent(candidate.sourceId)}`;
     return '/desk';
   }, [activeProgress]);
 

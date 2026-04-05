@@ -1,422 +1,79 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import api from '../utils/api';
-import { getReadingSessionsForCurrentUser } from '../utils/readingSession';
-import DeskHeader from '../components/desk/DeskHeader';
-import CurrentReadingCard from '../components/desk/CurrentReadingCard';
-import BookCardEditorial from '../components/desk/BookCardEditorial';
-import RecommendationRow from '../components/desk/RecommendationRow';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { getReadingHistoryForCurrentUser, getReadingSessionsForCurrentUser } from '../utils/readingSession';
+import { buildReadRoute } from '../utils/libraryApi';
 import './BooksLibrary.css';
 
-const deskDataCache = {
-  byUser: new Map(),
-  inflightByUser: new Map(),
-};
-
-const DESK_CACHE_TTL_MS = 90_000;
-const MAX_RECENT_ACTIVITY = 6;
-const MAX_RECOMMENDATIONS_PER_TYPE = 12;
-
-const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
-
-const shouldRetry = (error) => {
-  const status = Number(error?.statusCode || error?.response?.status || 0);
-  return status === 429 || status >= 500 || !status;
-};
-
-const withRetry = async (fn, retries = 2, attempt = 0) => {
-  try {
-    return await fn();
-  } catch (error) {
-    if (retries <= 0 || !shouldRetry(error)) throw error;
-    await sleep(Math.min(5000, 450 * (2 ** attempt)));
-    return withRetry(fn, retries - 1, attempt + 1);
-  }
-};
-
-const getBookKey = (book) => String(book?._id || book?.id || book?.gutenbergId || `${book?.title || 'book'}-${book?.author || 'unknown'}`);
-const getBookObjectId = (book) => String(book?._id || book?.id || '');
-
-const getBookSession = (sessions, book) => {
-  if (!book || !sessions || typeof sessions !== 'object') return null;
-  const sessionByKey = sessions[getBookKey(book)] || sessions[getBookObjectId(book)];
-  if (sessionByKey) return sessionByKey;
-  const gutenbergSession = sessions[String(book?.gutenbergId || '')];
-  return gutenbergSession || null;
-};
-
-const getGreetingPrefix = () => {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return 'Good morning';
-  if (hour >= 12 && hour < 17) return 'Good afternoon';
-  if (hour >= 17 && hour < 22) return 'Good evening';
-  return 'Good night';
-};
-
-const getDisplayName = (currentUser) => {
-  const rawName = String(currentUser?.name || currentUser?.username || currentUser?.email || currentUser?.anonymousId || 'Reader').trim();
-  if (!rawName) return 'Reader';
-  if (rawName.includes('@')) return rawName.split('@')[0];
-  if (rawName.startsWith('Reader #')) return 'Reader';
-  return rawName.split(' ')[0];
-};
-
-const toUserCacheKey = (currentUser) => String(currentUser?._id || currentUser?.email || currentUser?.username || currentUser?.anonymousId || 'guest');
-
-const getRecentActivity = (books, sessions) => books
-  .map((book) => {
-    const session = getBookSession(sessions, book);
-    if (!session) return null;
-    return { book, session };
-  })
-  .filter(Boolean)
-  .sort((a, b) => new Date(b.session?.lastOpenedAt || 0).getTime() - new Date(a.session?.lastOpenedAt || 0).getTime())
-  .slice(0, MAX_RECENT_ACTIVITY);
-
-const getLastActiveBook = (books, sessions) => getRecentActivity(books, sessions)
-  .find(({ session }) => Number(session?.progressPercent || 0) > 0 && Number(session?.progressPercent || 0) < 100 && !session?.isFinished)
-  || null;
-
-const normalizeTitleTokens = (title) => String(title || '')
-  .toLowerCase()
-  .replace(/[^a-z0-9\s]/g, ' ')
-  .split(/\s+/)
-  .filter((token) => token.length >= 4);
-
-const scoreBookSimilarity = (candidate, contextBooks = []) => {
-  if (!candidate || contextBooks.length === 0) return 0;
-  let score = 0;
-
-  for (const baseBook of contextBooks) {
-    if (!baseBook) continue;
-    const baseAuthor = String(baseBook?.author || '').trim().toLowerCase();
-    const candidateAuthor = String(candidate?.author || '').trim().toLowerCase();
-    if (baseAuthor && candidateAuthor && baseAuthor === candidateAuthor) {
-      score += 5;
-    }
-
-    const baseTokens = new Set(normalizeTitleTokens(baseBook?.title));
-    const candidateTokens = new Set(normalizeTitleTokens(candidate?.title));
-    for (const token of baseTokens) {
-      if (candidateTokens.has(token)) score += 1;
-    }
-  }
-
-  return score;
-};
-
-const dedupeBooks = (books = []) => {
-  const seen = new Set();
-  return books.filter((book) => {
-    const key = getBookKey(book);
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-};
-
-const toIdSet = (values = []) => new Set(values.map(String).filter(Boolean));
-
-const buildContentBasedRecommendations = ({ allBooks, recentActivity, readIdSet, currentBook }) => {
-  const contextBooks = [currentBook, ...recentActivity.map((entry) => entry.book)].filter(Boolean).slice(0, 5);
-
-  return dedupeBooks(allBooks)
-    .filter((book) => {
-      const key = getBookKey(book);
-      return key && !readIdSet.has(key) && String(book?._id || '') !== String(currentBook?._id || '');
-    })
-    .map((book) => ({ book, score: scoreBookSimilarity(book, contextBooks) }))
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return String(a.book?.title || '').localeCompare(String(b.book?.title || ''));
-    })
-    .map((entry) => entry.book)
-    .slice(0, MAX_RECOMMENDATIONS_PER_TYPE);
-};
-
-const buildTrendingRecommendations = ({ allBooks, excludeIdSet }) => dedupeBooks(allBooks)
-  .filter((book) => {
-    const key = getBookKey(book);
-    return key && !excludeIdSet.has(key);
-  })
-  .sort((a, b) => new Date(b?.lastAccessedAt || 0).getTime() - new Date(a?.lastAccessedAt || 0).getTime())
-  .slice(0, MAX_RECOMMENDATIONS_PER_TYPE);
-
-const normalizeRecommendationGroups = (payload) => {
-  const groups = payload?.recommendations ?? payload?.data?.recommendations ?? payload;
-
-  if (!groups) {
-    return { contentBased: [], popular: [] };
-  }
-
-  if (Array.isArray(groups)) {
-    return { contentBased: groups.filter(Boolean), popular: [] };
-  }
-
-  const contentBased = dedupeBooks([
-    ...(Array.isArray(groups.contentBased) ? groups.contentBased : []),
-    ...(Array.isArray(groups.based_on_book) ? groups.based_on_book : []),
-    ...(Array.isArray(groups.same_author) ? groups.same_author : []),
-    ...(Array.isArray(groups.genre_based) ? groups.genre_based : []),
-    ...(Array.isArray(groups.series_continuation) ? groups.series_continuation : []),
-  ]);
-
-  const popular = dedupeBooks([
-    ...(Array.isArray(groups.popular) ? groups.popular : []),
-    ...(Array.isArray(groups.trending) ? groups.trending : []),
-  ]);
-
-  return { contentBased, popular };
-};
-
-const fetchDeskData = async () => {
-  const sessions = getReadingSessionsForCurrentUser();
-
-  const booksPayload = await withRetry(() => api.get('/books'));
-  const allBooks = Array.isArray(booksPayload) ? booksPayload.filter(Boolean) : [];
-  const recentActivity = getRecentActivity(allBooks, sessions);
-  const active = getLastActiveBook(allBooks, sessions);
-  const recommendationBase = active?.book || recentActivity[0]?.book || allBooks[0] || null;
-
-  const candidateReadIds = Object.keys(sessions || {})
-    .map(String)
-    .filter(Boolean)
-    .slice(0, 120);
-  const readIdSet = toIdSet(candidateReadIds);
-
-  let recommendationError = '';
-  let contentRecommendations = [];
-  let popularRecommendations = [];
-
-  if (recommendationBase) {
-    try {
-      const recResponse = await withRetry(() => api.post('/recommender', {
-        book: {
-          gutenbergId: recommendationBase?.gutenbergId,
-          title: recommendationBase?.title,
-          author: recommendationBase?.author,
-        },
-        readBookIds: candidateReadIds,
-        currentBookId: String(active?.book?._id || recommendationBase?._id || ''),
-        limitPerShelf: MAX_RECOMMENDATIONS_PER_TYPE,
-      }));
-
-      const normalized = normalizeRecommendationGroups(recResponse);
-      contentRecommendations = normalized.contentBased
-        .filter((book) => !readIdSet.has(getBookKey(book)))
-        .slice(0, MAX_RECOMMENDATIONS_PER_TYPE);
-      popularRecommendations = normalized.popular
-        .filter((book) => !readIdSet.has(getBookKey(book)))
-        .slice(0, MAX_RECOMMENDATIONS_PER_TYPE);
-    } catch (error) {
-      recommendationError = String(error?.uiMessage || error?.message || 'Recommendations are unavailable right now.');
-    }
-  }
-
-  if (contentRecommendations.length === 0) {
-    contentRecommendations = buildContentBasedRecommendations({
-      allBooks,
-      recentActivity,
-      readIdSet,
-      currentBook: recommendationBase,
-    });
-  }
-
-  const popularExclude = new Set([
-    ...readIdSet,
-    ...contentRecommendations.map(getBookKey),
-  ]);
-  if (popularRecommendations.length === 0) {
-    popularRecommendations = buildTrendingRecommendations({
-      allBooks,
-      excludeIdSet: popularExclude,
-    });
-  }
-
-  if (contentRecommendations.length === 0 && popularRecommendations.length === 0) {
-    recommendationError = recommendationError || 'No recommendations available right now. Browse books to discover your next read.';
-  }
-
-  return {
-    books: allBooks,
-    sessions,
-    recommendationBase,
-    contentRecommendations,
-    popularRecommendations,
-    recommendationError,
-    fetchedAt: Date.now(),
-  };
-};
-
-const loadDeskData = async (currentUser, { force = false } = {}) => {
-  const userKey = toUserCacheKey(currentUser);
-  const cached = deskDataCache.byUser.get(userKey);
-
-  if (!force && cached && Date.now() - cached.fetchedAt < DESK_CACHE_TTL_MS) {
-    return cached;
-  }
-
-  const inflight = deskDataCache.inflightByUser.get(userKey);
-  if (inflight) return inflight;
-
-  const request = fetchDeskData()
-    .then((payload) => {
-      deskDataCache.byUser.set(userKey, payload);
-      return payload;
-    })
-    .finally(() => {
-      deskDataCache.inflightByUser.delete(userKey);
-    });
-
-  deskDataCache.inflightByUser.set(userKey, request);
-  return request;
-};
-
 const BooksLibrary = ({ currentUser }) => {
-  const [books, setBooks] = useState([]);
+  const [history, setHistory] = useState([]);
   const [sessions, setSessions] = useState({});
-  const [contentRecommendations, setContentRecommendations] = useState([]);
-  const [popularRecommendations, setPopularRecommendations] = useState([]);
-  const [recommendationBase, setRecommendationBase] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [recommendationLoading, setRecommendationLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [recommendationError, setRecommendationError] = useState('');
-
-  const refreshDesk = useCallback(async ({ force = false } = {}) => {
-    try {
-      setLoading(true);
-      setRecommendationLoading(true);
-      setError('');
-      const payload = await loadDeskData(currentUser, { force });
-      setBooks(Array.isArray(payload.books) ? payload.books : []);
-      setSessions(payload.sessions && typeof payload.sessions === 'object' ? payload.sessions : {});
-      setContentRecommendations(Array.isArray(payload.contentRecommendations) ? payload.contentRecommendations : []);
-      setPopularRecommendations(Array.isArray(payload.popularRecommendations) ? payload.popularRecommendations : []);
-      setRecommendationBase(payload.recommendationBase || null);
-      setRecommendationError(payload.recommendationError || '');
-    } catch (loadError) {
-      setBooks([]);
-      setContentRecommendations([]);
-      setPopularRecommendations([]);
-      setSessions(getReadingSessionsForCurrentUser());
-      setError(String(loadError?.uiMessage || loadError?.message || 'Unable to load your desk right now.'));
-    } finally {
-      setLoading(false);
-      setRecommendationLoading(false);
-    }
-  }, [currentUser]);
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      await refreshDesk({ force: true });
-    })();
-
-    const refreshFromStorage = () => {
-      if (!alive) return;
+    const refresh = () => {
+      setHistory(getReadingHistoryForCurrentUser());
       setSessions(getReadingSessionsForCurrentUser());
     };
 
-    window.addEventListener('storage', refreshFromStorage);
-    window.addEventListener('focus', refreshFromStorage);
-
+    refresh();
+    window.addEventListener('storage', refresh);
+    window.addEventListener('focus', refresh);
     return () => {
-      alive = false;
-      window.removeEventListener('storage', refreshFromStorage);
-      window.removeEventListener('focus', refreshFromStorage);
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('focus', refresh);
     };
-  }, [refreshDesk]);
+  }, [currentUser?._id]);
 
-  const greeting = `${getGreetingPrefix()}, ${getDisplayName(currentUser)}.`;
-  const currentReading = useMemo(() => getLastActiveBook(books, sessions), [books, sessions]);
-  const recentActivity = useMemo(() => getRecentActivity(books, sessions), [books, sessions]);
-  const sessionForBook = useCallback((book) => getBookSession(sessions, book), [sessions]);
-
-  const recommendationTitle = `Because you read ${recommendationBase?.title || currentReading?.book?.title || 'your recent books'}`;
-  const hasRecommendations = contentRecommendations.length > 0 || popularRecommendations.length > 0;
+  const continueReading = useMemo(() => history.find((entry) => {
+    const session = sessions[entry.key];
+    return session && Number(session.lastChapterIndex || 0) < Math.max(1, Number(session.chapterCount || 1));
+  }) || null, [history, sessions]);
 
   return (
     <div className="desk-page editorial-theme">
       <div className="desk-shell">
-        <DeskHeader />
-
-        <section className="desk-hero" aria-label="Current reading">
-          <h2>{greeting}</h2>
-          {loading
-            ? <div className="desk-skeleton desk-skeleton--hero" />
-            : <CurrentReadingCard book={currentReading?.book} session={currentReading?.session} />}
-        </section>
-
-        <section className="desk-section" aria-label="Recent activity">
-          <div className="desk-section__heading">
-            <h2>Recent activity</h2>
-            <p>Your latest opens and completions.</p>
-          </div>
-          {loading ? (
-            <div className="card-row card-row--recent" role="status" aria-label="Loading recent activity">
-              {Array.from({ length: MAX_RECENT_ACTIVITY }).map((_, index) => <div key={`activity-skeleton-${index}`} className="desk-skeleton desk-skeleton--card" />)}
-            </div>
-          ) : recentActivity.length > 0 ? (
-            <div className="card-row card-row--recent" role="list">
-              {recentActivity.map(({ book, session }) => (
-                <BookCardEditorial key={getBookKey(book)} book={book} session={session} />
-              ))}
-            </div>
+        <section className="desk-hero" aria-label="Continue reading">
+          <h2>Your Desk</h2>
+          {continueReading ? (
+            <article className="current-reading-card">
+              <div className="current-reading-card__content">
+                <div className="current-reading-card__meta">
+                  <p className="current-reading-card__eyebrow">CONTINUE READING</p>
+                  <h3>{continueReading.title}</h3>
+                  <p>{continueReading.author}</p>
+                </div>
+                <div className="current-reading-card__footer">
+                  <Link className="current-reading-card__resume" to={buildReadRoute(continueReading)}>Resume</Link>
+                </div>
+              </div>
+            </article>
           ) : (
-            <p className="desk-empty-copy">No recent activity yet. Open a book to start your reading timeline.</p>
+            <article className="current-reading-card current-reading-card--empty">
+              <p>No active read yet. Open a book in Library to start.</p>
+              <Link to="/library" className="desk-btn desk-btn--secondary">Browse books</Link>
+            </article>
           )}
         </section>
 
-        {recommendationLoading && (
-          <section className="desk-section" aria-label="Recommendations loading">
-            <div className="desk-section__heading">
-              <h2>{recommendationTitle}</h2>
-              <p>Finding books matched to your reading history.</p>
-            </div>
-            <div className="card-row card-row--recommendations" role="status" aria-label="Loading recommendations">
-              {Array.from({ length: 6 }).map((_, index) => <div key={`recommendation-skeleton-${index}`} className="desk-skeleton desk-skeleton--card" />)}
-            </div>
-          </section>
-        )}
-
-        {!recommendationLoading && hasRecommendations && (
-          <>
-            {contentRecommendations.length > 0 && (
-              <RecommendationRow
-                title={recommendationTitle}
-                subtitle="Content-based picks from your reading patterns"
-                books={contentRecommendations}
-                getSessionForBook={sessionForBook}
-              />
-            )}
-
-            {popularRecommendations.length > 0 && (
-              <RecommendationRow
-                title="Trending now"
-                subtitle="Popular books readers are opening right now"
-                books={popularRecommendations}
-                getSessionForBook={sessionForBook}
-              />
-            )}
-          </>
-        )}
-
-        {!recommendationLoading && !hasRecommendations && (
-          <section className="desk-section" aria-label="Recommendations unavailable">
-            <div className="desk-section__heading">
-              <h2>Recommendations</h2>
-            </div>
-            <p className="desk-empty-copy">{recommendationError || 'No recommendations available yet.'}</p>
-            <button type="button" className="desk-btn desk-btn--secondary" onClick={() => refreshDesk({ force: true })}>Retry recommendations</button>
-          </section>
-        )}
-
-        {!loading && error && (
-          <section className="desk-section" aria-label="Desk unavailable">
-            <p className="desk-empty-copy">{error}</p>
-            <button type="button" className="desk-btn desk-btn--secondary" onClick={() => refreshDesk({ force: true })}>Retry loading desk</button>
-          </section>
-        )}
+        <section className="desk-section" aria-label="Recently opened">
+          <div className="desk-section__heading">
+            <h2>Recently opened</h2>
+          </div>
+          <div className="card-row card-row--recent" role="list">
+            {history.map((entry) => (
+              <Link key={entry.key} to={buildReadRoute(entry)} className="editorial-book-card">
+                <div className="editorial-book-card__cover">
+                  {entry.coverImage ? (
+                    <img src={entry.coverImage} alt={`${entry.title} cover`} loading="lazy" decoding="async" />
+                  ) : (
+                    <div className="editorial-book-card__fallback" aria-hidden="true">{entry.title.slice(0, 1)}</div>
+                  )}
+                </div>
+                <h3>{entry.title}</h3>
+                <p>{entry.author}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -1,372 +1,56 @@
-import { Book } from '../models/Book.js';
-import mongoose from 'mongoose';
-import {
-  parseStrictGutenbergId,
-  readGutenbergBookStateless,
-  fetchGutenbergMetadata,
-} from '../utils/gutenbergReader.js';
-import { gutenbergCatalog } from '../seed/gutenbergCatalog.js';
-import { isDegradedMode } from '../utils/degradedMode.js';
-import { searchBooksUnified } from '../services/bookSourceService.js';
 import { success } from '../utils/apiResponse.js';
+import { searchBooks, readBook } from '../services/bookSourceService.js';
 
-const BACKEND_TIMEOUT_MS = 70_000;
-const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
-const SEARCH_THROTTLE_MS = 450;
-let lastRemoteSearchAt = 0;
-const searchCache = new Map();
-const metadataCache = new Map();
-const inflightMetadata = new Map();
-const fallbackBooks = [
-  { gutenbergId: 1342, title: 'Pride and Prejudice', author: 'Jane Austen' },
-  { gutenbergId: 11, title: 'Alice in Wonderland', author: 'Lewis Carroll' },
-  { gutenbergId: 84, title: 'Frankenstein', author: 'Mary Shelley' },
-];
+const UNAVAILABLE_CHAPTER = {
+  index: 1,
+  title: 'Unavailable',
+  html: '<p>This book is currently unavailable.</p>',
+};
 
-const toStableBookShape = (book) => {
-  const gutenbergId = Number(book?.gutenbergId);
-  if (!Number.isFinite(gutenbergId) || gutenbergId <= 0) {
-    return null;
-  }
+const ensureReadContract = (payload) => {
+  const chapters = Array.isArray(payload?.chapters)
+    ? payload.chapters
+      .map((chapter, index) => ({
+        index: Number(chapter?.index) || index + 1,
+        title: String(chapter?.title || `Chapter ${index + 1}`),
+        html: String(chapter?.html || ''),
+      }))
+      .filter((chapter) => chapter.html)
+    : [];
 
-  const objectId = book?._id ? String(book._id) : null;
   return {
-    ...book,
-    id: objectId || `gutenberg:${gutenbergId}`,
-    _id: objectId || null,
-    gutenbergId,
-    title: String(book?.title || 'Untitled'),
-    author: String(book?.author || 'Unknown author'),
+    title: String(payload?.title || 'Unavailable'),
+    author: String(payload?.author || 'Unknown author'),
+    chapters: chapters.length > 0 ? chapters : [UNAVAILABLE_CHAPTER],
   };
 };
 
-const parseOptionalPositiveInt = (value, fallback = null) => {
-  if (value == null || value === '') return fallback;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
-  const normalized = Math.floor(parsed);
-  return normalized >= 0 ? normalized : fallback;
-};
+export const getBooks = async (_req, res) => success(res, []);
 
-const buildReaderOptions = (req) => {
-  const cursor = parseOptionalPositiveInt(req.query?.cursor, 0);
-  const maxChapters = parseOptionalPositiveInt(req.query?.maxChapters, null);
-  const processingBudgetMs = parseOptionalPositiveInt(req.query?.processingBudgetMs, 40_000);
-  return {
-    cursor,
-    maxChapters,
-    processingBudgetMs,
-    timeoutMs: BACKEND_TIMEOUT_MS,
-  };
-};
+export const getBookById = async (_req, res) => success(res, null);
 
-const mapReadErrorMessage = (statusCode) => {
-  if (statusCode === 404) return 'Unable to fetch this book. Check the ID.';
-  if (statusCode === 504) return 'This book is large and taking longer than expected.';
-  return 'Unable to fetch this book right now. Please retry.';
-};
-const ensureChapters = (payload, fallbackTitle = 'Unavailable', fallbackMessage = 'This book could not be loaded from Gutenberg.') => {
-  const chapters = Array.isArray(payload?.chapters) ? payload.chapters : [];
-  if (chapters.length > 0) {
-    return chapters.map((chapter, index) => ({
-      ...chapter,
-      index: Number(chapter?.index) || index + 1,
-      title: String(chapter?.title || `Chapter ${index + 1}`),
-      content: String(chapter?.content || ''),
-      html: String(chapter?.html || `<p>${String(chapter?.content || '').trim()}</p>`),
-    }));
-  }
-  return [{ index: 1, title: fallbackTitle, content: fallbackMessage, html: `<p>${fallbackMessage}</p>` }];
-};
-
-const readFreshCache = (cache, key) => {
-  const cached = cache.get(key);
-  if (!cached) return null;
-  if (Date.now() > cached.expiresAt) {
-    cache.delete(key);
-    return null;
-  }
-  return cached.value;
-};
-
-const writeCache = (cache, key, value) => {
-  cache.set(key, { value, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
-};
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const normalizeSearchResult = (book) => toStableBookShape({
-  ...book,
-  gutenbergId: Number(book?.gutenbergId || book?.id),
-});
-
-const fetchMetadataSingleFlight = async (gutenbergId) => {
-  const id = Number(gutenbergId);
-  if (!Number.isSafeInteger(id) || id <= 0) {
-    const error = new Error('Invalid Gutenberg ID.');
-    error.statusCode = 400;
-    throw error;
+export const searchBooksController = async (req, res) => {
+  const query = String(req.query?.q || '').trim();
+  if (!query) {
+    return success(res, []);
   }
 
-  const cached = readFreshCache(metadataCache, id);
-  if (cached) return cached;
-
-  const existing = inflightMetadata.get(id);
-  if (existing) return existing;
-
-  const request = (async () => {
-    const waitMs = Math.max(0, SEARCH_THROTTLE_MS - (Date.now() - lastRemoteSearchAt));
-    if (waitMs > 0) await sleep(waitMs);
-    lastRemoteSearchAt = Date.now();
-
-    const payload = await fetchGutenbergMetadata(id, { timeoutMs: 15_000 });
-    const normalized = normalizeSearchResult(payload);
-    if (!normalized) {
-      const error = new Error('Unable to fetch this Gutenberg book.');
-      error.statusCode = 404;
-      throw error;
-    }
-    writeCache(metadataCache, id, normalized);
-    return normalized;
-  })().finally(() => {
-    inflightMetadata.delete(id);
-  });
-
-  inflightMetadata.set(id, request);
-  return request;
+  const results = await searchBooks(query);
+  return success(res, results);
 };
 
-const fetchBookByObjectId = async (routeId, projection = null) => {
-  if (!mongoose.Types.ObjectId.isValid(routeId)) {
-    return null;
-  }
+export const readBookController = async (req, res) => {
+  const source = String(req.query?.source || '').trim();
+  const sourceId = String(req.query?.id || '').trim();
 
-  return Book.findById(routeId).select(projection);
-};
-
-const upsertMetadata = async ({ gutenbergId, title, author }) => {
-  const book = await Book.findOneAndUpdate(
-    { gutenbergId },
-    {
-      $set: {
-        title,
-        author,
-        gutenbergId,
-        lastAccessedAt: new Date(),
-      },
-    },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
-  ).select('_id title author gutenbergId');
-
-  return book;
-};
-
-export const getBooks = async (req, res) => {
-  try {
-    if (isDegradedMode()) {
-      return success(res, fallbackBooks.map((book) => toStableBookShape(book)).filter(Boolean));
-    }
-
-    const books = await Book.find({})
-      .select('_id title author gutenbergId')
-      .sort({ lastAccessedAt: -1, _id: -1 })
-      .lean();
-
-    return success(res, books.map((book) => toStableBookShape(book)).filter(Boolean));
-  } catch (error) {
-    console.error('[BOOK] Failed to fetch books list:', error?.message || error);
-    return res.status(500).json({ message: 'Server error fetching books.' });
-  }
-};
-
-export const searchGutenbergBooks = async (req, res) => {
-  try {
-    const query = String(req.query?.q || '').trim().toLowerCase();
-    if (!query) {
-      return success(res, { results: [] });
-    }
-
-    const cached = readFreshCache(searchCache, query);
-    if (cached) return success(res, { results: cached });
-
-    const source = Array.isArray(gutenbergCatalog) && gutenbergCatalog.length > 0
-      ? gutenbergCatalog
-      : fallbackBooks;
-    let results = source
-      .filter((book) => {
-        const idString = String(book?.gutenbergId || '');
-        const title = String(book?.title || '').toLowerCase();
-        const author = String(book?.author || '').toLowerCase();
-        return title.includes(query) || author.includes(query) || idString === query;
-      })
-      .slice(0, 30)
-      .map((book) => toStableBookShape(book))
-      .filter(Boolean);
-
-    if (results.length === 0 && /^\d+$/.test(query)) {
-      try {
-        const remoteBook = await fetchMetadataSingleFlight(Number(query));
-        if (remoteBook) results = [remoteBook];
-      } catch (error) {
-        if (Number(error?.statusCode) === 404 || Number(error?.statusCode) === 400) {
-          results = [];
-        } else {
-          throw error;
-        }
-      }
-    }
-
-    writeCache(searchCache, query, results);
-
-    return success(res, { results });
-  } catch (error) {
-    console.error('[BOOK] Failed to search Gutenberg books:', error?.message || error);
-    return res.status(500).json({ message: 'Server error searching Gutenberg books.' });
-  }
-};
-
-export const getBookById = async (req, res) => {
-  try {
-    if (isDegradedMode()) {
-      return res.status(503).json({ message: 'Book metadata lookup unavailable in degraded mode.', fallback: true });
-    }
-
-    const book = await fetchBookByObjectId(req.params.id, 'title author gutenbergId');
-    if (!book) {
-      return res.status(404).json({ message: 'Book not found' });
-    }
-
-    return success(res, book);
-  } catch (error) {
-    console.error('[BOOK] Failed to fetch book by id:', error?.message || error);
-    return res.status(500).json({ message: 'Server error fetching book' });
-  }
-};
-
-export const readBook = async (req, res) => {
-  try {
-    if (isDegradedMode()) {
-      return res.status(503).json({ message: 'Book reading by database id is unavailable in degraded mode.', fallback: true });
-    }
-
-    const book = await fetchBookByObjectId(req.params.id, 'title author gutenbergId');
-    if (!book) {
-      return res.status(404).json({ message: 'Book not found.' });
-    }
-
-    const payload = await readGutenbergBookStateless(book.gutenbergId, buildReaderOptions(req));
-    const normalizedPayload = { ...payload, chapters: ensureChapters(payload) };
-    const persisted = await upsertMetadata({
-      gutenbergId: normalizedPayload.gutenbergId,
-      title: normalizedPayload.title,
-      author: normalizedPayload.author,
-    });
-    const responseData = {
-      ...normalizedPayload,
-      bookId: persisted?._id ? String(persisted._id) : String(book._id),
-    };
-    console.info('[BOOK] Final API response payload', {
-      endpoint: 'readBook',
-      gutenbergId: normalizedPayload.gutenbergId,
-      chapters: responseData.chapters.length,
-      status: responseData.status,
-      fallback: Boolean(responseData.fallback),
-    });
-    return success(res, responseData);
-  } catch (error) {
-    const statusCode = Number(error?.statusCode) || 500;
-    return res.status(statusCode).json({
-      message: mapReadErrorMessage(statusCode),
+  if (!source || !sourceId) {
+    return success(res, {
+      title: 'Unavailable',
+      author: 'Unknown author',
+      chapters: [UNAVAILABLE_CHAPTER],
     });
   }
-};
 
-
-export const getGutenbergPreview = async (req, res) => {
-  try {
-    const gutenbergId = parseStrictGutenbergId(req.params.gutenbergId);
-    if (!gutenbergId) {
-      return res.status(400).json({ message: 'Invalid Gutenberg ID.' });
-    }
-
-    if (!isDegradedMode()) {
-      const existing = await Book.findOne({ gutenbergId })
-        .select('_id title author gutenbergId')
-        .lean();
-
-      if (existing) {
-        return success(res, existing);
-      }
-    }
-
-    const catalogEntry = (Array.isArray(gutenbergCatalog) ? gutenbergCatalog : [])
-      .find((book) => Number(book?.gutenbergId) === gutenbergId);
-
-    if (catalogEntry) {
-      return success(res, {
-        gutenbergId,
-        title: catalogEntry.title || 'Untitled',
-        author: catalogEntry.author || 'Unknown author',
-      });
-    }
-
-    const remoteBook = await fetchMetadataSingleFlight(gutenbergId);
-    return success(res, remoteBook);
-  } catch (error) {
-    const statusCode = Number(error?.statusCode);
-    if (statusCode === 404) {
-      return res.status(404).json({ message: 'Book preview not found for this Gutenberg ID.' });
-    }
-    console.error('[BOOK] Failed to fetch Gutenberg preview:', error?.message || error);
-    return res.status(500).json({ message: 'Server error fetching Gutenberg preview.' });
-  }
-};
-
-export const readGutenbergBook = async (req, res) => {
-  try {
-    const gutenbergId = parseStrictGutenbergId(req.params.gutenbergId);
-    if (!gutenbergId) {
-      return res.status(400).json({ message: 'Invalid Gutenberg ID.' });
-    }
-
-    const payload = await readGutenbergBookStateless(gutenbergId, buildReaderOptions(req));
-    const normalizedPayload = { ...payload, chapters: ensureChapters(payload) };
-    const persisted = isDegradedMode()
-      ? null
-      : await upsertMetadata({
-          gutenbergId: normalizedPayload.gutenbergId,
-          title: normalizedPayload.title,
-          author: normalizedPayload.author,
-        });
-    const responseData = {
-      ...normalizedPayload,
-      bookId: persisted?._id ? String(persisted._id) : `gutenberg:${normalizedPayload.gutenbergId}`,
-      fallback: isDegradedMode(),
-    };
-    console.info('[BOOK] Final API response payload', {
-      endpoint: 'readGutenbergBook',
-      gutenbergId: normalizedPayload.gutenbergId,
-      chapters: responseData.chapters.length,
-      status: responseData.status,
-      fallback: Boolean(responseData.fallback || normalizedPayload.fallback),
-    });
-    return success(res, responseData);
-  } catch (error) {
-    const statusCode = Number(error?.statusCode) || 500;
-    return res.status(statusCode).json({
-      message: mapReadErrorMessage(statusCode),
-    });
-  }
-};
-
-
-export const searchBooksUnifiedController = async (req, res) => {
-  try {
-    const query = String(req.query?.q || '').trim();
-    if (!query) return success(res, { results: [] });
-    const results = await searchBooksUnified(query);
-    return success(res, { results });
-  } catch (_ERROR) {
-    return res.status(500).json({ message: 'Failed to search books across providers.' });
-  }
+  const payload = await readBook(source, sourceId);
+  return success(res, ensureReadContract(payload));
 };

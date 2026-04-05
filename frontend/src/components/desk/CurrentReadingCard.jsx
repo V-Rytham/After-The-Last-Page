@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { getBestCoverUrl } from '../../utils/openLibraryCovers';
+import { buildReadRoute } from '../../utils/libraryApi';
 
 const CurrentReadingCard = ({ book, session }) => {
   if (!book) {
@@ -22,7 +23,7 @@ const CurrentReadingCard = ({ book, session }) => {
     ? Math.max(0, Math.min(100, Number(computedProgress)))
     : 0;
   const progressRounded = Math.round(progress);
-  const route = book?.gutenbergId ? `/read/gutenberg/${book.gutenbergId}` : '/library';
+  const route = (book?.source && book?.sourceId) ? buildReadRoute(book) : '/library';
   const coverUrl = getBestCoverUrl(book);
   const pageLabel = totalPages > 0 ? `Page ${currentPage} of ${totalPages}` : `Page ${currentPage}`;
 
