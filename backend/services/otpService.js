@@ -86,6 +86,7 @@ export const issueEmailOtp = async (user, { requestIp = '' } = {}) => {
     resendCount: existing ? existing.resendCount + 1 : 0,
     requestIp: String(requestIp || ''),
     attemptCount: 0,
+    maxAttempts: OTP_MAX_ATTEMPTS,
     blockedUntil: null,
   });
 
@@ -121,6 +122,7 @@ export const verifyEmailOtp = async ({ userId, otpCode }) => {
   }
 
   if (otp.expiresAt.getTime() < Date.now()) {
+    console.log('OTP VERIFY DEBUG:', { userId: String(userId), status: 'expired' });
     const error = new Error('OTP has expired.');
     error.statusCode = 400;
     throw error;
@@ -129,16 +131,25 @@ export const verifyEmailOtp = async ({ userId, otpCode }) => {
   const valid = await bcrypt.compare(String(otpCode), otp.otpCodeHash);
   if (!valid) {
     otp.attemptCount = Number(otp.attemptCount || 0) + 1;
-    if (otp.attemptCount >= OTP_MAX_ATTEMPTS) {
+    const maxAttempts = Number(otp.maxAttempts || OTP_MAX_ATTEMPTS);
+    if (otp.attemptCount >= maxAttempts) {
       otp.blockedUntil = new Date(Date.now() + OTP_TTL_MS);
     }
     await otp.save();
+    console.log('OTP VERIFY DEBUG:', {
+      userId: String(userId),
+      status: 'invalid',
+      attemptCount: otp.attemptCount,
+      maxAttempts,
+      blockedUntil: otp.blockedUntil,
+    });
 
     const error = new Error('Invalid OTP code.');
     error.statusCode = 400;
     throw error;
   }
 
+  console.log('OTP VERIFY DEBUG:', { userId: String(userId), status: 'verified' });
   otp.consumedAt = new Date();
   otp.attemptCount = Number(otp.attemptCount || 0);
   await otp.save();

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Check, LoaderCircle, Upload, UserRound, X } from 'lucide-react';
 import api from '../utils/api';
+import { unwrapApiData } from '../utils/auth';
 import { UI_THEMES } from '../utils/uiThemes';
 import './SettingsPage.css';
 
@@ -40,7 +41,7 @@ const SettingsPage = ({ uiTheme, onThemeChange, currentUser, onUserUpdate }) => 
     try {
       const profileImageData = await readFileAsDataUrl(file);
       const { data } = await api.put('/users/profile/image', { profileImageData });
-      onUserUpdate?.(data);
+      onUserUpdate?.(unwrapApiData(data));
       setImageFailed(false);
       setMessage('Profile image updated.');
     } catch (error) {
@@ -57,7 +58,7 @@ const SettingsPage = ({ uiTheme, onThemeChange, currentUser, onUserUpdate }) => 
 
     try {
       const { data } = await api.delete('/users/profile/image');
-      onUserUpdate?.(data);
+      onUserUpdate?.(unwrapApiData(data));
       setImageFailed(false);
       setMessage('Profile image removed.');
     } catch (error) {

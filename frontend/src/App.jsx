@@ -17,7 +17,7 @@ import SettingsPage from './pages/SettingsPage';
 import BookQuiz from './pages/BookQuiz';
 import RequestBookPage from './pages/RequestBookPage';
 import api from './utils/api';
-import { clearAuthSession, getStoredUser, saveAuthSession, updateStoredUser } from './utils/auth';
+import { clearAuthSession, getStoredUser, saveAuthSession, unwrapApiData, updateStoredUser } from './utils/auth';
 import { DEFAULT_UI_THEME, THEME_STORAGE_KEY, UI_THEMES } from './utils/uiThemes';
 import './index.css';
 
@@ -110,14 +110,20 @@ const App = () => {
     const bootstrapUser = async () => {
       try {
         const { data } = await api.get('/users/profile');
-        const user = saveAuthSession(data);
+        const payload = unwrapApiData(data);
+        const user = saveAuthSession(payload);
         setCurrentUser(user);
-        if (data?.preferences?.theme && VALID_THEMES.includes(data.preferences.theme)) {
-          setUiTheme(data.preferences.theme);
+        if (payload?.preferences?.theme && VALID_THEMES.includes(payload.preferences.theme)) {
+          setUiTheme(payload.preferences.theme);
         }
-      } catch {
-        clearAuthSession();
-        setCurrentUser(null);
+      } catch (error) {
+        if (error?.statusCode === 401) {
+          clearAuthSession();
+          setCurrentUser(null);
+          return;
+        }
+
+        console.warn('Profile bootstrap failed; preserving existing session state.', error);
       }
     };
 
@@ -141,7 +147,7 @@ const App = () => {
       try {
         await api.post('/users/refresh');
         const { data } = await api.get('/users/profile');
-        const user = saveAuthSession(data);
+        const user = saveAuthSession(unwrapApiData(data));
         setCurrentUser(user);
       } catch {
         clearAuthSession();
