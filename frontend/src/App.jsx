@@ -12,6 +12,8 @@ import BookThread from './pages/BookThread';
 import ThreadAccessHub from './pages/ThreadAccessHub';
 import WizardMerch from './pages/WizardMerch';
 import AuthPage from './pages/AuthPage';
+import PrivateRoute from './components/auth/PrivateRoute';
+import { AuthProvider } from './context/AuthContext';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import BookQuiz from './pages/BookQuiz';
@@ -63,18 +65,6 @@ const createAnonymousUserWithRetry = async () => {
   return data;
 };
 
-const RequireMember = ({ currentUser, children }) => {
-  const location = useLocation();
-  const storedUser = getStoredUser();
-  const effectiveUser = currentUser && !currentUser.isAnonymous ? currentUser : storedUser;
-
-  if (!effectiveUser || effectiveUser.isAnonymous) {
-    return <Navigate to="/auth" replace state={{ from: location.pathname }} />;
-  }
-
-  return children;
-};
-
 const AppShell = ({ currentUser, onLogout, onUserUpdate, uiTheme, onThemeChange, onAuthSuccess }) => {
   const location = useLocation();
   const hideNavbar = location.pathname.startsWith('/read/');
@@ -89,20 +79,20 @@ const AppShell = ({ currentUser, onLogout, onUserUpdate, uiTheme, onThemeChange,
         <Routes>
           <Route path="/" element={<LandingPage currentUser={currentUser} />} />
           <Route path="/auth" element={<AuthPage currentUser={currentUser} onAuthSuccess={onAuthSuccess} />} />
-          <Route path="/desk" element={<RequireMember currentUser={currentUser}><BooksLibrary currentUser={currentUser} /></RequireMember>} />
-          <Route path="/library" element={<RequireMember currentUser={currentUser}><Library /></RequireMember>} />
+          <Route path="/desk" element={<PrivateRoute><BooksLibrary currentUser={currentUser} /></PrivateRoute>} />
+          <Route path="/library" element={<PrivateRoute><Library /></PrivateRoute>} />
           <Route path="/books" element={<Navigate to="/desk" replace />} />
-          <Route path="/request-book" element={<RequireMember currentUser={currentUser}><RequestBookPage /></RequireMember>} />
-          <Route path="/read" element={<RequireMember currentUser={currentUser}><Navigate to="/request-book" replace /></RequireMember>} />
+          <Route path="/request-book" element={<PrivateRoute><RequestBookPage /></PrivateRoute>} />
+          <Route path="/read" element={<PrivateRoute><Navigate to="/request-book" replace /></PrivateRoute>} />
           <Route path="/meet" element={<MeetingAccessHub currentUser={currentUser} />} />
           <Route path="/threads" element={<ThreadAccessHub currentUser={currentUser} />} />
-          <Route path="/profile" element={<RequireMember currentUser={currentUser}><ProfilePage currentUser={currentUser} onUserUpdate={onUserUpdate} /></RequireMember>} />
-          <Route path="/settings" element={<RequireMember currentUser={currentUser}><SettingsPage uiTheme={uiTheme} onThemeChange={onThemeChange} currentUser={currentUser} onUserUpdate={onUserUpdate} /></RequireMember>} />
-          <Route path="/read/gutenberg/:gutenbergId" element={<RequireMember currentUser={currentUser}><ReadingRoom uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember>} />
-          <Route path="/read/:bookId" element={<RequireMember currentUser={currentUser}><ReadingRoom uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember>} />
-          <Route path="/quiz/:bookId" element={<RequireMember currentUser={currentUser}><BookQuiz /></RequireMember>} />
-          <Route path="/meet/:bookId" element={<RequireMember currentUser={currentUser}><MeetingHub /></RequireMember>} />
-          <Route path="/thread/:bookId" element={<RequireMember currentUser={currentUser}><BookThread /></RequireMember>} />
+          <Route path="/profile" element={<PrivateRoute><ProfilePage currentUser={currentUser} onUserUpdate={onUserUpdate} /></PrivateRoute>} />
+          <Route path="/settings" element={<PrivateRoute><SettingsPage uiTheme={uiTheme} onThemeChange={onThemeChange} currentUser={currentUser} onUserUpdate={onUserUpdate} /></PrivateRoute>} />
+          <Route path="/read/gutenberg/:gutenbergId" element={<PrivateRoute><ReadingRoom uiTheme={uiTheme} onThemeChange={onThemeChange} /></PrivateRoute>} />
+          <Route path="/read/:bookId" element={<PrivateRoute><ReadingRoom uiTheme={uiTheme} onThemeChange={onThemeChange} /></PrivateRoute>} />
+          <Route path="/quiz/:bookId" element={<PrivateRoute><BookQuiz /></PrivateRoute>} />
+          <Route path="/meet/:bookId" element={<PrivateRoute><MeetingHub /></PrivateRoute>} />
+          <Route path="/thread/:bookId" element={<PrivateRoute><BookThread /></PrivateRoute>} />
           <Route path="/merch" element={<WizardMerch />} />
         </Routes>
       </main>
@@ -113,6 +103,7 @@ const AppShell = ({ currentUser, onLogout, onUserUpdate, uiTheme, onThemeChange,
 const App = () => {
   const [currentUser, setCurrentUser] = useState(getStoredUser());
   const bootstrapStartedRef = useRef(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const [uiTheme, setUiTheme] = useState(() => {
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
     if (storedTheme === 'midnight' || storedTheme === 'mocha') {
@@ -159,6 +150,18 @@ const App = () => {
       const token = getStoredToken();
 
       try {
+        try {
+          const { data } = await api.get('/auth/me');
+          const user = saveAuthSession({ ...data, token: token || '' });
+          setCurrentUser(user);
+          return;
+        } catch (error) {
+          const status = Number(error?.statusCode || error?.response?.status || 0);
+          if (!(status === 401 || status === 403)) {
+            console.warn('[AUTH] Could not validate cookie session:', error);
+          }
+        }
+
         if (token) {
           try {
             const { data } = await api.get('/users/profile');
@@ -186,6 +189,7 @@ const App = () => {
         setCurrentUser(null);
       } finally {
         isFetchingUser = false;
+        setAuthLoading(false);
       }
     };
 
@@ -210,6 +214,7 @@ const App = () => {
     clearAuthSession();
 
     try {
+      await api.post('/auth/logout');
       const data = await createAnonymousUserWithRetry();
       const guestUser = saveAuthSession(data);
       setCurrentUser(guestUser);
@@ -220,8 +225,9 @@ const App = () => {
   };
 
   return (
-    <Router>
-      <AppShell
+    <AuthProvider value={{ currentUser, setCurrentUser, authLoading }}>
+      <Router>
+        <AppShell
         currentUser={currentUser}
         onLogout={handleLogout}
         onUserUpdate={handleUserUpdate}
@@ -229,7 +235,8 @@ const App = () => {
         onThemeChange={setUiTheme}
         onAuthSuccess={handleAuthSuccess}
       />
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 };
 

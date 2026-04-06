@@ -279,6 +279,8 @@ export const registerUser = async (req, res) => {
       email: normalizedEmail,
       password,
       isAnonymous: false,
+      isVerified: true,
+      provider: 'local',
       rating: 5.0,
       preferences: {
         theme: 'dark',
@@ -319,6 +321,10 @@ export const loginUser = async (req, res) => {
 
     if (!user || user.isAnonymous || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: 'Invalid email or password.' });
+    }
+
+    if (!user.isVerified) {
+      return res.status(403).json({ message: 'Please verify your email before logging in.' });
     }
 
     res.json(buildUserResponse(user));
