@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import SearchBar from '../components/library/SearchBar';
 import SortControl from '../components/library/SortControl';
 import BookGrid from '../components/library/BookGrid';
@@ -14,61 +15,12 @@ const FILTER_OPTIONS = [
   { label: 'Philosophy', value: 'philosophy' },
 ];
 
-const queryCache = new Map();
-const LIBRARY_REFRESH_EVENT = 'library:refresh';
-
-const useLibraryQuery = (params) => {
-  const key = JSON.stringify(params);
-  const [state, setState] = React.useState(() => {
-    const cached = queryCache.get(key);
-    if (cached) return { data: cached, loading: false, error: '' };
-    return { data: null, loading: true, error: '' };
-  });
-
-  React.useEffect(() => {
-    const controller = new AbortController();
-    const cached = queryCache.get(key);
-
-    if (cached) {
-      setState({ data: cached, loading: false, error: '' });
-    } else {
-      setState((previous) => ({ ...previous, loading: true, error: '' }));
-    }
-
-    fetchLibraryBooks({ ...params, signal: controller.signal })
-      .then((data) => {
-        queryCache.set(key, data);
-        setState({ data, loading: false, error: '' });
-      })
-      .catch((requestError) => {
-        if (controller.signal.aborted) return;
-        const message = String(requestError?.message || '').trim() || 'Unable to load books right now. Please try again.';
-        setState((previous) => ({ ...previous, loading: false, error: message }));
-      });
-
-    return () => controller.abort();
-  }, [key, params]);
-
-  return state;
-};
-
 const Library = () => {
   const [search, setSearch] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
   const [validationError, setValidationError] = useState('');
   const [category, setCategory] = useState('all');
   const [sort, setSort] = useState('popular');
-  const [refreshTick, setRefreshTick] = useState(0);
-
-  React.useEffect(() => {
-    const handleRefresh = () => {
-      queryCache.clear();
-      setRefreshTick((previous) => previous + 1);
-    };
-
-    window.addEventListener(LIBRARY_REFRESH_EVENT, handleRefresh);
-    return () => window.removeEventListener(LIBRARY_REFRESH_EVENT, handleRefresh);
-  }, []);
 
   const queryParams = useMemo(() => ({
     search: submittedSearch,
@@ -76,12 +28,24 @@ const Library = () => {
     sort,
     page: 1,
     perPage: 24,
-    refreshTick,
-  }), [submittedSearch, category, sort, refreshTick]);
+  }), [submittedSearch, category, sort]);
 
-  const { data, loading, error } = useLibraryQuery(queryParams);
+  const fetchLibrary = React.useCallback(async () => fetchLibraryBooks(queryParams), [queryParams]);
 
-  const books = data?.books ?? [];
+  const { data, isLoading: loading, error, refetch } = useQuery({
+    queryKey: ['library'],
+    queryFn: fetchLibrary,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+  });
+
+  const books = data?.books || [];
+
+  React.useEffect(() => {
+    refetch();
+  }, [refetch, queryParams]);
   const normalizedSearch = String(search || '').trim();
 
   const handleSubmitSearch = () => {
@@ -104,12 +68,13 @@ const Library = () => {
     setSubmittedSearch(next);
   };
 
-  const notFoundMessage = (!loading && !error && submittedSearch && books.length === 0)
+  const resolvedError = String(error?.message || '').trim();
+  const notFoundMessage = (!loading && !resolvedError && submittedSearch && books.length === 0)
     ? (/^\d+$/.test(submittedSearch)
       ? `No Gutenberg book found for ID ${submittedSearch}.`
       : 'No books matched your search.')
     : '';
-  const statusMessage = validationError || error || notFoundMessage;
+  const statusMessage = validationError || resolvedError || notFoundMessage;
 
   return (
     <main className="library-page content-container">

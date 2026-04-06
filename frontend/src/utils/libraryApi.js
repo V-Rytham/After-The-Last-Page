@@ -351,10 +351,10 @@ export const fetchLibraryBooks = async ({ search = '', category = 'all', sort = 
           Expires: '0',
         },
         params: {
-          _ts: Date.now(),
+          ts: Date.now(),
         },
       });
-      console.log('LIBRARY RESPONSE:', data);
+      console.log('LIBRARY FETCH RESULT:', data);
       const list = Array.isArray(data?.items)
         ? data.items
         : Array.isArray(data?.results)
