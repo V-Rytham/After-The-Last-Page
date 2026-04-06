@@ -12,6 +12,9 @@ import BookThread from './pages/BookThread';
 import ThreadAccessHub from './pages/ThreadAccessHub';
 import WizardMerch from './pages/WizardMerch';
 import AuthPage from './pages/AuthPage';
+import SignupPage from './pages/auth/SignupPage';
+import OtpPage from './pages/auth/OtpPage';
+import LoginPage from './pages/auth/LoginPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import BookQuiz from './pages/BookQuiz';
@@ -20,6 +23,8 @@ import ReadEntryPage from './pages/ReadEntryPage';
 import api from './utils/api';
 import { clearAuthSession, getStoredToken, getStoredUser, saveAuthSession, updateStoredUser } from './utils/auth';
 import { DEFAULT_UI_THEME, THEME_STORAGE_KEY, UI_THEMES } from './utils/uiThemes';
+import PrivateRoute from './components/auth/PrivateRoute';
+import { AuthProvider, useAuthContext } from './context/AuthContext';
 import './index.css';
 
 const VALID_THEMES = UI_THEMES.map((theme) => theme.id);
@@ -64,12 +69,13 @@ const createAnonymousUserWithRetry = async () => {
 };
 
 const RequireMember = ({ currentUser, children }) => {
+  const { authUser } = useAuthContext();
   const location = useLocation();
   const storedUser = getStoredUser();
-  const effectiveUser = currentUser && !currentUser.isAnonymous ? currentUser : storedUser;
+  const effectiveUser = authUser || (currentUser && !currentUser.isAnonymous ? currentUser : storedUser);
 
   if (!effectiveUser || effectiveUser.isAnonymous) {
-    return <Navigate to="/auth" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/auth/login" replace state={{ from: location.pathname }} />;
   }
 
   return children;
@@ -88,21 +94,25 @@ const AppShell = ({ currentUser, onLogout, onUserUpdate, uiTheme, onThemeChange,
       <main className="main-content">
         <Routes>
           <Route path="/" element={<LandingPage currentUser={currentUser} />} />
-          <Route path="/auth" element={<AuthPage currentUser={currentUser} onAuthSuccess={onAuthSuccess} />} />
-          <Route path="/desk" element={<RequireMember currentUser={currentUser}><BooksLibrary currentUser={currentUser} /></RequireMember>} />
-          <Route path="/library" element={<RequireMember currentUser={currentUser}><Library /></RequireMember>} />
+          <Route path="/auth" element={<Navigate to="/auth/login" replace />} />
+          <Route path="/auth/login" element={<LoginPage />} />
+          <Route path="/auth/signup" element={<SignupPage />} />
+          <Route path="/auth/otp" element={<OtpPage />} />
+          <Route path="/auth/legacy" element={<AuthPage currentUser={currentUser} onAuthSuccess={onAuthSuccess} />} />
+          <Route path="/desk" element={<PrivateRoute><RequireMember currentUser={currentUser}><BooksLibrary currentUser={currentUser} /></RequireMember></PrivateRoute>} />
+          <Route path="/library" element={<PrivateRoute><RequireMember currentUser={currentUser}><Library /></RequireMember></PrivateRoute>} />
           <Route path="/books" element={<Navigate to="/desk" replace />} />
-          <Route path="/request-book" element={<RequireMember currentUser={currentUser}><RequestBookPage /></RequireMember>} />
-          <Route path="/read" element={<RequireMember currentUser={currentUser}><Navigate to="/request-book" replace /></RequireMember>} />
+          <Route path="/request-book" element={<PrivateRoute><RequireMember currentUser={currentUser}><RequestBookPage /></RequireMember></PrivateRoute>} />
+          <Route path="/read" element={<PrivateRoute><RequireMember currentUser={currentUser}><Navigate to="/request-book" replace /></RequireMember></PrivateRoute>} />
           <Route path="/meet" element={<MeetingAccessHub currentUser={currentUser} />} />
           <Route path="/threads" element={<ThreadAccessHub currentUser={currentUser} />} />
-          <Route path="/profile" element={<RequireMember currentUser={currentUser}><ProfilePage currentUser={currentUser} onUserUpdate={onUserUpdate} /></RequireMember>} />
-          <Route path="/settings" element={<RequireMember currentUser={currentUser}><SettingsPage uiTheme={uiTheme} onThemeChange={onThemeChange} currentUser={currentUser} onUserUpdate={onUserUpdate} /></RequireMember>} />
-          <Route path="/read/gutenberg/:gutenbergId" element={<RequireMember currentUser={currentUser}><ReadingRoom uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember>} />
-          <Route path="/read/:bookId" element={<RequireMember currentUser={currentUser}><ReadingRoom uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember>} />
-          <Route path="/quiz/:bookId" element={<RequireMember currentUser={currentUser}><BookQuiz /></RequireMember>} />
-          <Route path="/meet/:bookId" element={<RequireMember currentUser={currentUser}><MeetingHub /></RequireMember>} />
-          <Route path="/thread/:bookId" element={<RequireMember currentUser={currentUser}><BookThread /></RequireMember>} />
+          <Route path="/profile" element={<PrivateRoute><RequireMember currentUser={currentUser}><ProfilePage currentUser={currentUser} onUserUpdate={onUserUpdate} /></RequireMember></PrivateRoute>} />
+          <Route path="/settings" element={<PrivateRoute><RequireMember currentUser={currentUser}><SettingsPage uiTheme={uiTheme} onThemeChange={onThemeChange} currentUser={currentUser} onUserUpdate={onUserUpdate} /></RequireMember></PrivateRoute>} />
+          <Route path="/read/gutenberg/:gutenbergId" element={<PrivateRoute><RequireMember currentUser={currentUser}><ReadingRoom uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember></PrivateRoute>} />
+          <Route path="/read/:bookId" element={<PrivateRoute><RequireMember currentUser={currentUser}><ReadingRoom uiTheme={uiTheme} onThemeChange={onThemeChange} /></RequireMember></PrivateRoute>} />
+          <Route path="/quiz/:bookId" element={<PrivateRoute><RequireMember currentUser={currentUser}><BookQuiz /></RequireMember></PrivateRoute>} />
+          <Route path="/meet/:bookId" element={<PrivateRoute><RequireMember currentUser={currentUser}><MeetingHub /></RequireMember></PrivateRoute>} />
+          <Route path="/thread/:bookId" element={<PrivateRoute><RequireMember currentUser={currentUser}><BookThread /></RequireMember></PrivateRoute>} />
           <Route path="/merch" element={<WizardMerch />} />
         </Routes>
       </main>
@@ -207,6 +217,12 @@ const App = () => {
   }, []);
 
   const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // continue with local logout fallback
+    }
+
     clearAuthSession();
 
     try {
@@ -221,14 +237,16 @@ const App = () => {
 
   return (
     <Router>
-      <AppShell
-        currentUser={currentUser}
-        onLogout={handleLogout}
-        onUserUpdate={handleUserUpdate}
-        uiTheme={uiTheme}
-        onThemeChange={setUiTheme}
-        onAuthSuccess={handleAuthSuccess}
-      />
+      <AuthProvider>
+        <AppShell
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onUserUpdate={handleUserUpdate}
+          uiTheme={uiTheme}
+          onThemeChange={setUiTheme}
+          onAuthSuccess={handleAuthSuccess}
+        />
+      </AuthProvider>
     </Router>
   );
 };

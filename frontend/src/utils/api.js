@@ -27,6 +27,7 @@ const parseRetryAfterMs = (retryAfterHeader) => {
 const api = axios.create({
   baseURL,
   timeout: 60000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },

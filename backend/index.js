@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
+import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
@@ -22,6 +23,8 @@ import { RealtimeSessionManager } from './services/realtimeSessionManager.js';
 import { requestTracing } from './middleware/requestLogging.js';
 import recommenderRoutes from './routes/recommenderRoutes.js';
 import { requireDatabase } from './middleware/degradedModeMiddleware.js';
+import authRoutes from './routes/authRoutes.js';
+import passport, { configurePassport } from './config/passport.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -121,6 +124,7 @@ const buildCorsOriginValidator = () => {
 
 app.use(cors({
   origin: buildCorsOriginValidator(),
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Book-Action-Id', 'X-Book-Action-Name'],
   exposedHeaders: ['X-Request-Id'],
@@ -128,6 +132,9 @@ app.use(cors({
 }));
 app.use(securityHeaders);
 app.use(requestTracing);
+app.use(cookieParser());
+configurePassport();
+app.use(passport.initialize());
 app.use(express.json({ limit: '7mb' }));
 app.use(express.urlencoded({ extended: false, limit: '200kb' }));
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'backend', 'uploads'), {
@@ -153,6 +160,7 @@ registerSocketEvents(io, sessionManager);
 
 // Routes
 app.use('/api/users', userRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/threads', requireDatabase({ status: 503, feature: 'Threads' }), threadRoutes);
 app.use('/api/agent', agentRoutes);

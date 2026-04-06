@@ -4,6 +4,38 @@ import bcrypt from 'bcryptjs';
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 const userSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    unique: true,
+    sparse: true,
+  },
+  password: {
+    type: String,
+  },
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
+  otpHash: {
+    type: String,
+  },
+  otpExpiry: {
+    type: Date,
+  },
+  otpAttempts: {
+    type: Number,
+    default: 0,
+  },
+  otpLastSentAt: {
+    type: Date,
+  },
+  provider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local',
+  },
   anonymousId: {
     type: String,
     required: true,
@@ -33,16 +65,6 @@ const userSchema = new mongoose.Schema({
     trim: true,
     maxlength: 160,
     default: '',
-  },
-  email: {
-    type: String,
-    trim: true,
-    lowercase: true,
-    unique: true,
-    sparse: true,
-  },
-  password: {
-    type: String,
   },
   isAnonymous: {
     type: Boolean,
