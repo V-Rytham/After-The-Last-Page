@@ -15,7 +15,10 @@
 }
 
 .home2-hero {
+  min-height: clamp(17rem, 58vh, 32rem);
   padding: clamp(2.5rem, 6vw, 4.5rem) var(--page-gutter) clamp(1.5rem, 3.5vw, 2.5rem);
+  display: grid;
+  place-items: center;
   text-align: center;
 }
 
@@ -53,9 +56,9 @@
 
 .home2-btn {
   min-height: 2.65rem;
-  border-radius: 999px;
+  border-radius: 0.9rem;
   border: 1px solid transparent;
-  padding: 0.45rem 1rem;
+  padding: 0.52rem 1.15rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -77,7 +80,7 @@
 .home2-btn-primary:hover,
 .home2-btn-primary:focus-visible {
   filter: brightness(1.03);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
 }
 
 .home2-btn-secondary {
@@ -123,6 +126,7 @@
   border-radius: 1rem;
   background: var(--surface-1);
   box-shadow: var(--shadow-panel);
+  animation: home2Rise 480ms ease both;
 }
 
 .home2-current-card {
@@ -266,7 +270,8 @@
   display: grid;
   align-items: end;
   box-shadow: var(--shadow-panel);
-  transition: transform var(--transition-fast), border-color var(--transition-fast);
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  animation: home2Rise 540ms ease both;
 }
 
 .home2-exp-card:hover {
@@ -304,34 +309,60 @@
   border-radius: 1.15rem;
   background: var(--surface-1);
   box-shadow: var(--shadow-panel);
-  padding: 0.9rem;
+  padding: clamp(1rem, 3vw, 1.4rem);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0.9rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  justify-items: center;
+  text-align: center;
+  animation: home2Rise 620ms ease both;
 }
 
 .home2-emotional-copy {
+  max-width: min(76ch, 100%);
   align-content: center;
   display: grid;
   gap: 0.55rem;
+  justify-items: center;
 }
 
 .home2-emotional-copy h2 {
   font-size: clamp(1.35rem, 3vw, 2rem);
 }
 
-.home2-emotional-art {
-  min-height: 14rem;
+.home2-hero,
+.home2-desk,
+.home2-experience,
+.home2-emotional {
+  animation: home2Fade 500ms ease both;
 }
 
-.home2-emotional-image {
-  height: 100%;
-  border-radius: 0.95rem;
-  border: 1px solid var(--border-soft);
-  background:
-    radial-gradient(circle at 28% 24%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 34%),
-    radial-gradient(circle at 72% 68%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 39%),
-    linear-gradient(140deg, var(--surface-2), color-mix(in srgb, var(--surface-1) 80%, var(--accent) 20%));
+.home2-desk {
+  animation-delay: 80ms;
+}
+
+.home2-experience {
+  animation-delay: 130ms;
+}
+
+.home2-experience .home2-exp-card:nth-child(2) { animation-delay: 150ms; }
+.home2-experience .home2-exp-card:nth-child(3) { animation-delay: 210ms; }
+.home2-experience .home2-exp-card:nth-child(4) { animation-delay: 270ms; }
+
+@keyframes home2Fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes home2Rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 1080px) {
@@ -350,18 +381,14 @@
 }
 
 @media (max-width: 760px) {
-  .home2-hero {
-    text-align: left;
-  }
-
   .home2-hero-inner {
     width: 100%;
   }
 
   .home2-hero-subtitle,
   .home2-hero-actions {
-    margin-inline: 0;
-    justify-content: flex-start;
+    margin-inline: auto;
+    justify-content: center;
   }
 
   .home2-current-main {

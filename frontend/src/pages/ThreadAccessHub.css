@@ -235,6 +235,10 @@
 
 .thread-access-button {
   white-space: nowrap;
+  border-radius: 0.75rem;
+  min-height: 2.35rem;
+  padding: 0.52rem 0.9rem;
+  font-weight: 600;
 }
 
 @media (max-width: 1200px) {
