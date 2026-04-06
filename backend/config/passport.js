@@ -17,6 +17,47 @@ const generateAnonymousId = async () => {
   return `Reader #${Date.now().toString().slice(-6)}`;
 };
 
+const normalizeUsernameSeed = (value) => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9_]/g, '_')
+  .replace(/_+/g, '_')
+  .replace(/^_+|_+$/g, '');
+
+const ensureUsernameLength = (value) => {
+  const trimmed = String(value || '').slice(0, 20);
+  if (trimmed.length >= 3) {
+    return trimmed;
+  }
+
+  return `${trimmed}${'reader'.slice(0, 3 - trimmed.length)}`;
+};
+
+const generateGoogleUsername = async ({ email, profile }) => {
+  const emailLocalPart = String(email || '').split('@')[0] || '';
+  const profileIdTail = String(profile?.id || '').slice(-4);
+  const candidates = [
+    normalizeUsernameSeed(emailLocalPart),
+    normalizeUsernameSeed(profile?.displayName),
+    normalizeUsernameSeed(`reader_${profileIdTail}`),
+    'reader',
+  ].filter(Boolean);
+
+  for (const seed of candidates) {
+    const base = ensureUsernameLength(seed);
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const suffix = attempt === 0 ? '' : `_${Math.floor(10 + Math.random() * 90)}`;
+      const candidate = ensureUsernameLength(`${base}${suffix}`.slice(0, 20));
+      const existing = await User.findOne({ usernameLower: candidate.toLowerCase() }).select('_id');
+      if (!existing) {
+        return candidate;
+      }
+    }
+  }
+
+  return `reader_${Date.now().toString().slice(-6)}`;
+};
+
 export const configurePassport = () => {
   const clientID = String(process.env.GOOGLE_CLIENT_ID || '').trim();
   const clientSecret = String(process.env.GOOGLE_CLIENT_SECRET || '').trim();
@@ -50,7 +91,7 @@ export const configurePassport = () => {
           isVerified: true,
           isAnonymous: false,
           name: profile?.displayName || normalizedEmail,
-          username: '',
+          username: await generateGoogleUsername({ email: normalizedEmail, profile }),
           bio: '',
           rating: 5,
           preferences: {
