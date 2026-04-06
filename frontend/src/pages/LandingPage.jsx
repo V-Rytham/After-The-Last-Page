@@ -1,273 +1,233 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  BookOpen,
-  MessageCircle,
-  Mic,
-  MoveRight,
-  Shirt,
-  Sparkles,
-  Users,
-} from 'lucide-react';
-import { getBestCoverUrl } from '../utils/openLibraryCovers';
 import api from '../utils/api';
 import { getReadingSessionsForCurrentUser } from '../utils/readingSession';
+import HeroSection from '../components/homepage/HeroSection';
+import CurrentReadingCard from '../components/homepage/CurrentReadingCard';
+import MeetReadersCard from '../components/homepage/MeetReadersCard';
+import ThreadsCard from '../components/homepage/ThreadsCard';
+import ExperienceCard from '../components/homepage/ExperienceCard';
+import EmotionalSection from '../components/homepage/EmotionalSection';
 import './LandingPage.css';
 
-const experienceSignals = [
+const EXPERIENCE_ITEMS = [
   {
-    key: 'read',
+    key: 'immersive',
     title: 'Immersive Reading',
-    description: 'A clean reading space that remembers exactly where you paused.',
-    icon: BookOpen,
+    description: 'Quiet pages, focused flow.',
+    tone: 'one',
   },
   {
-    key: 'people',
-    title: 'Meet People',
-    description: 'After finishing, connect anonymously through text, voice, or video.',
-    icon: Users,
+    key: 'minds',
+    title: 'Meet Minds',
+    description: 'Readers who reached the end.',
+    tone: 'two',
   },
   {
     key: 'threads',
-    title: 'BookThread',
-    description: 'Book-specific threads where every reply comes from someone who read it.',
-    icon: MessageCircle,
+    title: 'Book Threads',
+    description: 'Thoughtful, spoiler-safe depth.',
+    tone: 'three',
   },
   {
-    key: 'wizard',
-    title: 'Wizard Merch',
-    description: 'Generate custom apparel inspired by books that stayed with you.',
-    icon: Shirt,
+    key: 'merch',
+    title: 'AI Merchandise',
+    description: 'Artifacts from stories you loved.',
+    tone: 'four',
   },
 ];
 
-const getProgressCandidate = (books, sessions) => {
-  if (!Array.isArray(books) || !sessions || typeof sessions !== 'object') return null;
-
-  return books
-    .map((book) => {
-      const keys = [String(book?._id || ''), String(book?.id || ''), String(book?.gutenbergId || '')].filter(Boolean);
-      const session = keys.map((key) => sessions[key]).find(Boolean);
-      if (!session) return null;
-
-      const progress = Number(session?.progressPercent || 0);
-      if (!Number.isFinite(progress) || progress <= 0 || progress >= 100 || session?.isFinished) return null;
-
-      return {
-        book,
-        session,
-        progress: Math.max(1, Math.min(99, Math.round(progress))),
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => new Date(b.session?.lastOpenedAt || 0).getTime() - new Date(a.session?.lastOpenedAt || 0).getTime())[0] || null;
-};
-
 const resolveBookId = (book) => String(book?._id || book?.id || book?.gutenbergId || '').trim();
 
-const getBookRoute = (book) => {
-  if (!book) return '/desk';
-  if (book?._id || book?.id) return `/read/${book._id || book.id}`;
-  if (book?.gutenbergId) return `/read/gutenberg/${book.gutenbergId}`;
-  return '/desk';
+const getSessionForBook = (sessions, book) => {
+  if (!book || !sessions || typeof sessions !== 'object') return null;
+
+  const candidates = [
+    String(book?._id || ''),
+    String(book?.id || ''),
+    String(book?.gutenbergId || ''),
+  ].filter(Boolean);
+
+  return candidates.map((id) => sessions[id]).find(Boolean) || null;
 };
 
-const ExperienceCard = ({ icon: Icon, title, description }) => (
-  <article className="home-signal-card">
-    <div className="home-signal-icon" aria-hidden="true">
-      <Icon size={16} />
-    </div>
-    <h3 className="font-serif">{title}</h3>
-    <p>{description}</p>
-  </article>
-);
+const getCurrentReading = (books, sessions) => books
+  .map((book) => {
+    const session = getSessionForBook(sessions, book);
+    if (!session) return null;
+    const progress = Number(session?.progressPercent || 0);
+    if (!Number.isFinite(progress) || progress <= 0 || progress >= 100 || session?.isFinished) return null;
+    return {
+      book,
+      session,
+      progress: Math.max(1, Math.min(99, progress)),
+    };
+  })
+  .filter(Boolean)
+  .sort((a, b) => new Date(b.session?.lastOpenedAt || 0).getTime() - new Date(a.session?.lastOpenedAt || 0).getTime())[0] || null;
+
+const estimateTimeLeft = (session) => {
+  if (!session) return 'Time left unavailable';
+  const totalPages = Math.max(0, Number(session?.totalPages || 0));
+  const currentPage = Math.max(0, Number(session?.currentPage || 0));
+
+  if (totalPages > 0 && currentPage > 0) {
+    const pagesLeft = Math.max(0, totalPages - currentPage);
+    const mins = Math.max(5, Math.round(pagesLeft * 1.4));
+    return mins >= 60
+      ? `${Math.floor(mins / 60)}h ${mins % 60}m left`
+      : `${mins} min left`;
+  }
+
+  const progress = Number(session?.progressPercent || 0);
+  if (progress > 0 && progress < 100) {
+    const estimatedMins = Math.round((100 - progress) * 1.2);
+    return `${Math.max(5, estimatedMins)} min left`;
+  }
+
+  return 'Time left unavailable';
+};
 
 export default function LandingPage({ currentUser }) {
   const [books, setBooks] = useState([]);
+  const [threadPreview, setThreadPreview] = useState(null);
+  const [readerNames, setReaderNames] = useState([]);
+  const [finishedCount, setFinishedCount] = useState(0);
   const isMember = Boolean(currentUser && !currentUser.isAnonymous);
 
   useEffect(() => {
-    let mounted = true;
+    let cancelled = false;
 
-    const loadBooks = async () => {
+    const loadData = async () => {
       try {
         const { data } = await api.get('/books');
-        if (mounted) setBooks(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error('[HOME] Failed to load books', error);
-        if (mounted) setBooks([]);
+        if (!cancelled) {
+          setBooks(Array.isArray(data) ? data : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setBooks([]);
+        }
       }
     };
 
-    loadBooks();
+    loadData();
     return () => {
-      mounted = false;
+      cancelled = true;
     };
   }, []);
 
-  const readingSessions = useMemo(() => (
-    isMember ? getReadingSessionsForCurrentUser() : {}
-  ), [isMember]);
+  useEffect(() => {
+    if (!isMember || books.length === 0) {
+      return;
+    }
 
-  const activeProgress = useMemo(() => getProgressCandidate(books, readingSessions), [books, readingSessions]);
+    let cancelled = false;
 
-  const continueReadingRoute = useMemo(() => getBookRoute(activeProgress?.book), [activeProgress]);
+    const loadThreadData = async () => {
+      try {
+        const candidateIds = books.map(resolveBookId).filter(Boolean).slice(0, 8);
+        if (!candidateIds.length) return;
 
-  const heroCover = useMemo(() => getBestCoverUrl(activeProgress?.book || books[0] || null), [activeProgress, books]);
+        const { data: access } = await api.post('/access/check-batch', {
+          bookIds: candidateIds,
+          context: 'thread',
+        });
 
-  const recentlyViewedBooks = useMemo(() => {
-    if (!isMember || !readingSessions || typeof readingSessions !== 'object') return [];
+        const allowedIds = (Array.isArray(access?.allowedBookIds) ? access.allowedBookIds : []).map(String);
+        const sampleIds = allowedIds.slice(0, 3);
 
-    const mapped = books
-      .map((book) => {
-        const key = resolveBookId(book);
-        if (!key) return null;
-        const session = readingSessions[key];
-        if (!session) return null;
+        let preview = null;
+        const authors = new Set();
 
-        return {
-          book,
-          lastOpenedAt: new Date(session?.lastOpenedAt || 0).getTime(),
-          progress: Math.round(Number(session?.progressPercent || 0)),
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt);
+        for (const id of sampleIds) {
+          try {
+            const { data } = await api.get(`/threads/${encodeURIComponent(id)}`, { params: { limit: 5 } });
+            const items = Array.isArray(data?.items) ? data.items : [];
+            items.forEach((item) => {
+              if (item?.authorAnonId) authors.add(String(item.authorAnonId));
+              (item?.comments || []).slice(0, 3).forEach((comment) => {
+                if (comment?.authorAnonId) authors.add(String(comment.authorAnonId));
+              });
+            });
 
-    return mapped.slice(0, 3);
-  }, [books, isMember, readingSessions]);
+            if (!preview && items.length > 0) {
+              const first = items[0];
+              preview = {
+                title: first?.title,
+                content: String(first?.content || '').slice(0, 120),
+              };
+            }
+          } catch {
+            // keep fallback UI for inaccessible thread books
+          }
+        }
 
-  const trendingBooks = useMemo(() => books.slice(0, 3), [books]);
+        if (!cancelled) {
+          const sampled = Array.from(authors).filter(Boolean);
+          setReaderNames(sampled.slice(0, 3));
+          setFinishedCount(Math.max(sampled.length, sampleIds.length));
+          setThreadPreview(preview);
+        }
+      } catch {
+        if (!cancelled) {
+          setReaderNames([]);
+          setFinishedCount(0);
+          setThreadPreview(null);
+        }
+      }
+    };
 
-  const popularDiscussions = useMemo(() => (
-    books.slice(0, 3).map((book, index) => ({
-      key: resolveBookId(book) || `${book?.title}-${index}`,
-      title: book?.title || 'Untitled Book',
-      topic: `Readers are discussing ${book?.author ? `themes from ${book.author}` : 'the ending and key moments'}.`,
-    }))
-  ), [books]);
+    loadThreadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [books, isMember]);
+
+  const readingSessions = useMemo(() => (isMember ? getReadingSessionsForCurrentUser() : {}), [isMember]);
+
+  const activeReading = useMemo(() => getCurrentReading(books, readingSessions), [books, readingSessions]);
+
+  const timeLeft = useMemo(() => estimateTimeLeft(activeReading?.session), [activeReading]);
 
   return (
-    <div className="home-page animate-fade-in">
-      <div className="layout-shell home-shell">
-        <section className="layout-content home-hero" aria-label="Home hero">
-          <div className="home-hero-copy">
-            <p className="home-eyebrow">After the Last Page</p>
-            <h1 className="home-title font-serif">Where reading becomes connection.</h1>
-            <p className="home-subtitle">
-              Finish a chapter in calm, then continue the story with people who felt the same pages.
-            </p>
-            <div className="home-actions">
-              <Link to={isMember ? continueReadingRoute : '/auth'} className="home-btn home-btn-primary">
-                {isMember ? 'Continue Reading' : 'Start Reading'} <MoveRight size={15} />
-              </Link>
-              <Link to="/meet" className="home-btn home-btn-secondary">Discover People</Link>
-            </div>
-          </div>
-
-          <div className="home-hero-art" aria-hidden="true">
-            <div className="home-orb" />
-            <div className="home-floating-cover">
-              {heroCover ? <img src={heroCover} alt="" loading="eager" decoding="async" /> : <span className="font-serif">ATLP</span>}
-            </div>
-          </div>
-        </section>
-
-        <section className="layout-content home-signals" aria-label="Experience preview">
-          {experienceSignals.map((item) => (
-            <ExperienceCard key={item.key} icon={item.icon} title={item.title} description={item.description} />
-          ))}
-        </section>
-
-        <section className="layout-content home-after-book" aria-label="After you finish a book">
-          <div className="home-after-copy">
-            <p className="home-eyebrow">After you finish a book…</p>
-            <h2 className="font-serif">The last line lands. The feeling stays.</h2>
-            <p>
-              Instead of closing the tab, meet another reader who reached the same final page and wants to talk about it.
-            </p>
-          </div>
-          <div className="home-connection" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
-          <Link to="/meet" className="home-btn home-btn-primary">Meet Readers <Mic size={15} /></Link>
-        </section>
-
-        <section className="layout-content home-dynamic" aria-label="Personalized feed">
-          <div className="home-dynamic-head">
-            <p className="home-eyebrow">Your entry point</p>
-            <h2 className="font-serif">{isMember ? 'Pick up where you left off.' : 'Explore what readers are opening now.'}</h2>
-          </div>
+    <div className="home2-page animate-fade-in">
+      <div className="layout-shell home2-shell">
+        <section className="layout-content">
+          {!isMember ? <HeroSection /> : null}
 
           {isMember ? (
-            <div className="home-dynamic-grid home-dynamic-grid-member">
-              <article className="home-dynamic-card home-dynamic-continue">
-                <p className="home-label">Continue</p>
-                <h3 className="font-serif">{activeProgress?.book?.title || 'Resume your reading flow'}</h3>
-                <p>{activeProgress ? `${activeProgress.progress}% complete` : 'Return to your reading desk and continue your latest book.'}</p>
-                <Link to={continueReadingRoute} className="home-inline-link">Open Reader <MoveRight size={14} /></Link>
-              </article>
-
-              <article className="home-dynamic-card">
-                <p className="home-label">Recently viewed</p>
-                <ul className="home-list">
-                  {recentlyViewedBooks.length > 0 ? recentlyViewedBooks.map(({ book, progress }) => (
-                    <li key={resolveBookId(book) || book?.title}>
-                      <span>{book?.title || 'Untitled Book'}</span>
-                      <span>{Number.isFinite(progress) ? `${Math.max(0, progress)}%` : 'In progress'}</span>
-                    </li>
-                  )) : <li><span>No recent books yet</span><span>—</span></li>}
-                </ul>
-              </article>
-
-              <article className="home-dynamic-card">
-                <p className="home-label">Shortcuts</p>
-                <div className="home-shortcuts">
-                  <Link to="/meet" className="home-btn home-btn-secondary">Meet people</Link>
-                  <Link to="/threads" className="home-btn home-btn-secondary">BookThread</Link>
-                  <Link to="/merch" className="home-btn home-btn-secondary">Wizard Merch</Link>
+            <section className="home2-desk" aria-label="Your Desk">
+              <header className="home2-section-head">
+                <p className="home2-kicker">Home</p>
+                <h1 className="font-serif">Your Desk</h1>
+              </header>
+              <div className="home2-desk-grid">
+                <CurrentReadingCard
+                  book={activeReading?.book || null}
+                  progress={activeReading?.progress || 0}
+                  timeLeft={timeLeft}
+                />
+                <div className="home2-stack">
+                  <MeetReadersCard readers={readerNames} count={finishedCount} />
+                  <ThreadsCard preview={threadPreview} />
                 </div>
-              </article>
-            </div>
-          ) : (
-            <div className="home-dynamic-grid home-dynamic-grid-guest">
-              <article className="home-dynamic-card">
-                <p className="home-label">Trending books</p>
-                <ul className="home-list">
-                  {trendingBooks.length > 0 ? trendingBooks.map((book, index) => (
-                    <li key={resolveBookId(book) || `${book?.title}-${index}`}>
-                      <span>{book?.title || 'Untitled Book'}</span>
-                      <span>{book?.author || 'Reader pick'}</span>
-                    </li>
-                  )) : <li><span>Library updates soon</span><span>—</span></li>}
-                </ul>
-              </article>
+              </div>
+            </section>
+          ) : null}
 
-              <article className="home-dynamic-card">
-                <p className="home-label">Popular discussions</p>
-                <ul className="home-topic-list">
-                  {popularDiscussions.length > 0 ? popularDiscussions.map((item) => (
-                    <li key={item.key}>
-                      <h3 className="font-serif">{item.title}</h3>
-                      <p>{item.topic}</p>
-                    </li>
-                  )) : <li><p>Thread highlights will appear here.</p></li>}
-                </ul>
-              </article>
+          <section className="home2-experience" aria-label="Experience">
+            {EXPERIENCE_ITEMS.map((item) => (
+              <ExperienceCard
+                key={item.key}
+                title={item.title}
+                description={item.description}
+                tone={item.tone}
+              />
+            ))}
+          </section>
 
-              <article className="home-dynamic-card home-signup-card">
-                <Sparkles size={17} aria-hidden="true" />
-                <h3 className="font-serif">Sign up to unlock the full reading experience.</h3>
-                <Link to="/auth" className="home-btn home-btn-primary">Sign up</Link>
-              </article>
-            </div>
-          )}
-        </section>
-
-        <section className="layout-content home-endcap" aria-label="Closing note">
-          <p className="font-serif">Built for the moment after the last page.</p>
+          <EmotionalSection />
         </section>
       </div>
     </div>
