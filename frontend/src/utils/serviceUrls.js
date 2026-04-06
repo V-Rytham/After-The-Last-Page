@@ -50,6 +50,20 @@ export const getApiBaseUrl = () => {
   return '/api';
 };
 
+export const buildApiUrl = (path = '') => {
+  const base = String(getApiBaseUrl() || '').replace(/\/+$/, '');
+  const normalizedPath = String(path || '');
+  if (!normalizedPath) {
+    return base;
+  }
+
+  if (/^https?:\/\//i.test(normalizedPath)) {
+    return normalizedPath;
+  }
+
+  return `${base}/${normalizedPath.replace(/^\/+/, '')}`;
+};
+
 export const getSocketServerUrl = () => {
   const configured = normalizeConfiguredUrl(import.meta.env.VITE_SOCKET_URL, null);
   if (configured) {

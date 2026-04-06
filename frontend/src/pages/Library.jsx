@@ -7,6 +7,7 @@ import useDebouncedValue from '../hooks/useDebouncedValue';
 import useOnboarding from '../hooks/useOnboarding';
 import OnboardingTooltip from '../components/onboarding/OnboardingTooltip';
 import { getCachedSearch, setCachedSearch } from '../utils/searchCache';
+import { buildApiUrl } from '../utils/serviceUrls';
 import './Library.css';
 
 const normalizeQuery = (value) => String(value || '').trim();
@@ -44,7 +45,7 @@ export default function Library() {
     abortRef.current = controller;
     Promise.resolve().then(() => setSearchState((prev) => ({ ...prev, loading: true, error: '' })));
 
-    fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+    fetch(`${buildApiUrl('/search')}?q=${encodeURIComponent(q)}`, { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) {
           const text = await res.text();
