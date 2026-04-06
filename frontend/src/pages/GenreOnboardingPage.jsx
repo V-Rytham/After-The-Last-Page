@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { updateStoredUser } from '../utils/auth';
@@ -8,6 +9,7 @@ import './GenreOnboardingPage.css';
 const GenreOnboardingPage = ({ onUserUpdate }) => {
   const navigate = useNavigate();
   const [selected, setSelected] = useState([]);
+  const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -29,7 +31,14 @@ const GenreOnboardingPage = ({ onUserUpdate }) => {
         skip,
         preferredGenres: skip ? [] : selected,
       });
-      window.dispatchEvent(new Event('library:refresh'));
+      await queryClient.invalidateQueries({
+        queryKey: ['library'],
+        refetchType: 'all',
+      });
+      await queryClient.refetchQueries({
+        queryKey: ['library'],
+        type: 'active',
+      });
       const updated = updateStoredUser(data) || data;
       onUserUpdate?.(updated);
       navigate('/library', { replace: true });

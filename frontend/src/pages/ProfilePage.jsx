@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, LoaderCircle, PencilLine, X } from 'lucide-react';
 import api from '../utils/api';
 import { getStoredUser } from '../utils/auth';
@@ -41,6 +42,7 @@ const getUsernameValidationMessage = (username) => {
 };
 
 const ProfilePage = ({ currentUser, onUserUpdate }) => {
+  const queryClient = useQueryClient();
   const storedUser = useMemo(() => getStoredUser(), []);
   const baseUser = useMemo(() => {
     if (currentUser && !currentUser.isAnonymous) {
@@ -211,7 +213,14 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
         skip,
         preferredGenres: skip ? [] : genreSelection,
       });
-      window.dispatchEvent(new Event('library:refresh'));
+      await queryClient.invalidateQueries({
+        queryKey: ['library'],
+        refetchType: 'all',
+      });
+      await queryClient.refetchQueries({
+        queryKey: ['library'],
+        type: 'active',
+      });
       setProfile({ ...data, stats: data.stats || EMPTY_STATS });
       setGenreSelection(Array.isArray(data.preferredGenres) ? data.preferredGenres : []);
       onUserUpdate?.(data);
