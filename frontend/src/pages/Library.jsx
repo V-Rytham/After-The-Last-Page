@@ -8,6 +8,7 @@ import useOnboarding from '../hooks/useOnboarding';
 import OnboardingTooltip from '../components/onboarding/OnboardingTooltip';
 import { getCachedSearch, setCachedSearch } from '../utils/searchCache';
 import { buildApiUrl } from '../utils/serviceUrls';
+import { parseJsonSafely } from '../utils/http';
 import './Library.css';
 
 const normalizeQuery = (value) => String(value || '').trim();
@@ -51,7 +52,7 @@ export default function Library() {
           const text = await res.text();
           throw new Error(text || `HTTP ${res.status}`);
         }
-        return res.json();
+        return parseJsonSafely(res);
       })
       .then((data) => {
         const books = Array.isArray(data?.books) ? data.books : [];

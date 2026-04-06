@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { parseJsonSafely } from '../utils/http';
 
 export default function useRecommendations(selectedGenres) {
   const [state, setState] = useState({ books: [], personalized: false, loading: false, error: '' });
@@ -27,7 +28,7 @@ export default function useRecommendations(selectedGenres) {
           const text = await res.text();
           throw new Error(text || `HTTP ${res.status}`);
         }
-        return res.json();
+        return parseJsonSafely(res);
       })
       .then((data) => {
         const books = Array.isArray(data?.books) ? data.books : [];
