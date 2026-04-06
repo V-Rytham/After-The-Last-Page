@@ -44,6 +44,29 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
   },
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
+  otpHash: {
+    type: String,
+    default: '',
+  },
+  otpExpiry: {
+    type: Date,
+  },
+  otpAttempts: {
+    type: Number,
+    default: 0,
+  },
+  otpLastSentAt: {
+    type: Date,
+  },
+  provider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local',
+  },
   isAnonymous: {
     type: Boolean,
     default: false,

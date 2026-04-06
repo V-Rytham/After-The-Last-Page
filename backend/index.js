@@ -1,4 +1,5 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import { createServer } from 'http';
@@ -21,6 +22,9 @@ import { isProd } from './utils/runtime.js';
 import { RealtimeSessionManager } from './services/realtimeSessionManager.js';
 import { requestTracing } from './middleware/requestLogging.js';
 import recommenderRoutes from './routes/recommenderRoutes.js';
+import authRoutes from './routes/authRoutes.js';
+import passport from './config/passport.js';
+import { configurePassport } from './config/passport.js';
 import { requireDatabase } from './middleware/degradedModeMiddleware.js';
 
 const app = express();
@@ -119,13 +123,18 @@ const buildCorsOriginValidator = () => {
   };
 };
 
+configurePassport();
+
 app.use(cors({
   origin: buildCorsOriginValidator(),
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Book-Action-Id', 'X-Book-Action-Name'],
   exposedHeaders: ['X-Request-Id'],
   maxAge: 600,
+  credentials: true,
 }));
+app.use(cookieParser());
+app.use(passport.initialize());
 app.use(securityHeaders);
 app.use(requestTracing);
 app.use(express.json({ limit: '7mb' }));
@@ -140,6 +149,9 @@ app.use(rateLimit({ windowMs: 15 * 60_000, max: 100 }));
 // Tighten common abuse targets.
 app.use('/api/users/login', rateLimit({ windowMs: 60_000, max: 20 }));
 app.use('/api/users/signup', rateLimit({ windowMs: 60_000, max: 15 }));
+app.use('/api/auth/signup', rateLimit({ windowMs: 60_000, max: 8 }));
+app.use('/api/auth/verify-otp', rateLimit({ windowMs: 60_000, max: 10 }));
+app.use('/api/auth/login', rateLimit({ windowMs: 60_000, max: 20 }));
 app.use('/api/users/anonymous', rateLimit({ windowMs: 60_000, max: 40 }));
 app.use('/api/quiz', rateLimit({ windowMs: 60_000, max: 60 }));
 app.use('/api/access', rateLimit({ windowMs: 60_000, max: 90 }));
@@ -152,6 +164,7 @@ const sessionManager = new RealtimeSessionManager(io);
 registerSocketEvents(io, sessionManager);
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/threads', requireDatabase({ status: 503, feature: 'Threads' }), threadRoutes);
