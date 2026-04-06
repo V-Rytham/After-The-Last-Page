@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import useDebouncedValue from './useDebouncedValue';
 import { getCachedSearch, setCachedSearch } from '../utils/searchCache';
 import { buildApiUrl } from '../utils/serviceUrls';
+import { parseJsonSafely } from '../utils/http';
 
 const normalizeQuery = (value) => String(value || '').trim();
 
@@ -35,7 +36,7 @@ export default function useGlobalSearch(query) {
           const text = await res.text();
           throw new Error(text || `HTTP ${res.status}`);
         }
-        return res.json();
+        return parseJsonSafely(res);
       })
       .then((data) => {
         const books = Array.isArray(data?.books) ? data.books : [];

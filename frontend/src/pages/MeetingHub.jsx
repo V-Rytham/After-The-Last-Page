@@ -141,15 +141,20 @@ const MeetingHub = () => {
 
     fetchData();
 
+    const token = String(getStoredToken() || '').trim();
+    if (!token) {
+      setSocketReady(false);
+      setMatchNotice('Please sign in again to use live matching.');
+      return () => {};
+    }
+
     socketRef.current = io(socketServer, {
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 3,
       reconnectionDelay: 600,
       timeout: 3000,
-      auth: {
-        token: getStoredToken(),
-      },
+      auth: { token },
     });
 
     socketRef.current.on('connect', () => {
@@ -160,6 +165,16 @@ const MeetingHub = () => {
     socketRef.current.on('connect_error', (error) => {
       console.error('Socket connection failed:', error);
       setSocketReady(false);
+
+      const errorCode = String(error?.data?.code || '').trim().toUpperCase();
+      const isUnauthorized = errorCode === 'UNAUTHORIZED' || /unauthorized/i.test(String(error?.message || ''));
+
+      if (isUnauthorized) {
+        socketRef.current?.disconnect();
+        setMatchNotice('Your session expired. Please sign in again to use live matching.');
+        return;
+      }
+
       setMatchNotice('Live matching is offline right now. You can still enter the community thread.');
     });
 
