@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import useDebouncedValue from './useDebouncedValue';
 import { getCachedSearch, setCachedSearch } from '../utils/searchCache';
+import { buildApiUrl } from '../utils/serviceUrls';
 
 const normalizeQuery = (value) => String(value || '').trim();
 
@@ -28,7 +29,7 @@ export default function useGlobalSearch(query) {
     abortRef.current = controller;
     Promise.resolve().then(() => setState((prev) => ({ ...prev, loading: true, error: '' })));
 
-    fetch(`/api/search?q=${encodeURIComponent(normalized)}`, { signal: controller.signal })
+    fetch(`${buildApiUrl('/search')}?q=${encodeURIComponent(normalized)}`, { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) {
           const text = await res.text();
