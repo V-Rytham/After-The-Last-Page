@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { parseJsonSafely } from '../utils/http';
+import { buildApiUrl } from '../utils/serviceUrls';
+
+const normalizeBooksList = (data) => {
+  if (Array.isArray(data?.books)) return data.books;
+  if (Array.isArray(data?.recommendations)) return data.recommendations;
+  if (Array.isArray(data?.data?.books)) return data.data.books;
+  if (Array.isArray(data?.data?.recommendations)) return data.data.recommendations;
+  return [];
+};
 
 export default function useRecommendations(selectedGenres) {
   const [state, setState] = useState({ books: [], personalized: false, loading: false, error: '' });
@@ -17,9 +26,16 @@ export default function useRecommendations(selectedGenres) {
 
     Promise.resolve().then(() => setState((prev) => ({ ...prev, loading: true, error: '' })));
 
-    fetch('/api/recommendations', {
+    const token = localStorage.getItem('token');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    fetch(buildApiUrl('/recommendations'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
+      credentials: 'include',
       body: JSON.stringify({ genres: selectedGenres }),
       signal: controller.signal,
     })
@@ -31,9 +47,19 @@ export default function useRecommendations(selectedGenres) {
         return parseJsonSafely(res);
       })
       .then((data) => {
-        const books = Array.isArray(data?.books) ? data.books : [];
+        const books = normalizeBooksList(data);
         console.log('BOOKS RECEIVED:', books);
-        Promise.resolve().then(() => setState({ books, personalized: Boolean(data?.personalized), loading: false, error: '' }));
+
+        const emptyMessage = books.length === 0
+          ? 'No recommendations returned. Please retry in a few seconds.'
+          : '';
+
+        Promise.resolve().then(() => setState({
+          books,
+          personalized: Boolean(data?.personalized) || books.length > 0,
+          loading: false,
+          error: emptyMessage,
+        }));
       })
       .catch((err) => {
         if (err?.name === 'AbortError') return;
