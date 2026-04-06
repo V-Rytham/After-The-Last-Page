@@ -258,6 +258,19 @@ html[data-theme='sepia'] .editorial-theme {
   isolation: isolate;
 }
 
+.current-reading-card--empty {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1rem;
+}
+
+.current-reading-card--empty p {
+  max-width: 36ch;
+  margin: 0;
+  font-size: 1rem;
+}
+
 .current-reading-card__bg {
   position: absolute;
   inset: -12px;
@@ -454,19 +467,20 @@ html[data-theme='dark'] .current-reading-card__resume {
 }
 
 .desk-btn {
-  border-radius: 9999px;
+  border-radius: 12px;
   border: 1px solid var(--intent-btn-border, var(--accent));
   background: var(--intent-btn-bg, var(--accent));
   color: var(--intent-btn-text, var(--accent-contrast));
-  min-height: 34px;
-  padding: 10px 18px;
+  min-height: 42px;
+  padding: 10px 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-ui);
   font-size: 0.86rem;
   transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
-  width: fit-content;
+  width: auto;
+  align-self: center;
 }
 
 .desk-btn--secondary {

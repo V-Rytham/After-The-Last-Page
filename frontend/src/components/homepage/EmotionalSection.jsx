@@ -10,9 +10,6 @@ const EmotionalSection = () => (
       </p>
       <Link to="/meet" className="home2-btn home2-btn-primary">Join the conversation</Link>
     </div>
-    <div className="home2-emotional-art" aria-hidden="true">
-      <div className="home2-emotional-image" />
-    </div>
   </section>
 );
 

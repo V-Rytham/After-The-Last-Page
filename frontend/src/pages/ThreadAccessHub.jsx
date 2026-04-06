@@ -1,8 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, LockKeyhole, Search } from 'lucide-react';
 import useGlobalSearch from '../hooks/useGlobalSearch';
+import api from '../utils/api';
 import './ThreadAccessHub.css';
+
+const DEFAULT_BOOK_LIMIT = 36;
 
 const canonicalizeThreadKey = (value) => {
   const raw = String(value || '').trim().toLowerCase();
@@ -15,9 +18,34 @@ export default function ThreadAccessHub({ currentUser }) {
   const isMember = Boolean(currentUser && !currentUser.isAnonymous);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [defaultBooks, setDefaultBooks] = useState([]);
+  const [defaultLoading, setDefaultLoading] = useState(true);
   const { books, loading, error, query } = useGlobalSearch(searchTerm);
 
-  const visible = useMemo(() => (Array.isArray(books) ? books : []), [books]);
+  useEffect(() => {
+    let cancelled = false;
+    const loadDefaultBooks = async () => {
+      setDefaultLoading(true);
+      try {
+        const { data } = await api.get('/books');
+        const catalog = (Array.isArray(data) ? data : [])
+          .filter((book) => book?._id || (book?.source && book?.sourceId))
+          .slice(0, DEFAULT_BOOK_LIMIT);
+        if (!cancelled) setDefaultBooks(catalog);
+      } catch {
+        if (!cancelled) setDefaultBooks([]);
+      } finally {
+        if (!cancelled) setDefaultLoading(false);
+      }
+    };
+
+    loadDefaultBooks();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const searchResults = useMemo(() => (Array.isArray(books) ? books : []), [books]);
 
   if (!isMember) {
     return (
@@ -38,7 +66,8 @@ export default function ThreadAccessHub({ currentUser }) {
   const typedQuery = String(searchTerm || '').trim();
   const hasInput = Boolean(typedQuery);
   const hasQuery = Boolean(query);
-  const hasResults = visible.length > 0;
+  const hasResults = searchResults.length > 0;
+  const visible = hasInput ? searchResults : defaultBooks;
   const manualKey = canonicalizeThreadKey(typedQuery);
   const manualCompositeId = manualKey ? `custom:${manualKey}` : '';
 
@@ -66,9 +95,9 @@ export default function ThreadAccessHub({ currentUser }) {
       </section>
 
       <section className="thread-access-grid">
-        {!hasInput && (
+        {!hasInput && defaultLoading && (
           <div className="thread-access-loading glass-panel">
-            <p>Type a title or author to open a book thread.</p>
+            <p>Preparing a curated shelf for thread-worthy books...</p>
           </div>
         )}
 
@@ -112,16 +141,23 @@ export default function ThreadAccessHub({ currentUser }) {
           </article>
         )}
 
-        {hasQuery && !loading && !error && hasResults && visible.map((book) => {
+        {!hasInput && !defaultLoading && !visible.length && (
+          <div className="thread-access-loading glass-panel">
+            <p>Type a title or author to open a book thread.</p>
+          </div>
+        )}
+
+        {(!hasInput || (hasQuery && !loading && !error && hasResults)) && visible.map((book) => {
           const source = String(book?.source || '').trim().toLowerCase();
           const sourceId = String(book?.sourceId || '').trim();
-          if (!source || !sourceId) return null;
+          const hasSourceRoute = Boolean(source && sourceId);
+          const legacyId = String(book?._id || book?.id || book?.internalBookId || '').trim();
+          if (!hasSourceRoute && !legacyId) return null;
           const compositeId = `${source}:${sourceId}`;
-          const legacyId = String(book?.internalBookId || '').trim();
           const threadRouteId = legacyId || compositeId;
 
           return (
-            <article key={`${source}:${sourceId}`} className="thread-access-card glass-panel">
+            <article key={`${threadRouteId}-${book?.title || 'book'}`} className="thread-access-card glass-panel">
               <div className="thread-access-mini-cover" aria-hidden="true">
                 {book.coverImage ? (
                   <img

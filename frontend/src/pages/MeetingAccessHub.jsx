@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Search, ShieldCheck } from 'lucide-react';
 import useGlobalSearch from '../hooks/useGlobalSearch';
+import api from '../utils/api';
 import './MeetingAccessHub.css';
+
+const DEFAULT_BOOK_LIMIT = 36;
 
 const canonicalizeMeetKey = (value) => {
   const raw = String(value || '').trim().toLowerCase();
@@ -15,7 +18,32 @@ export default function MeetingAccessHub({ currentUser }) {
   const isMember = Boolean(currentUser && !currentUser.isAnonymous);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [defaultBooks, setDefaultBooks] = useState([]);
+  const [defaultLoading, setDefaultLoading] = useState(true);
   const { books, loading, error, query } = useGlobalSearch(searchTerm);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadDefaultBooks = async () => {
+      setDefaultLoading(true);
+      try {
+        const { data } = await api.get('/books');
+        const catalog = (Array.isArray(data) ? data : [])
+          .filter((book) => book?._id || (book?.source && book?.sourceId))
+          .slice(0, DEFAULT_BOOK_LIMIT);
+        if (!cancelled) setDefaultBooks(catalog);
+      } catch {
+        if (!cancelled) setDefaultBooks([]);
+      } finally {
+        if (!cancelled) setDefaultLoading(false);
+      }
+    };
+
+    loadDefaultBooks();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!isMember) {
     return (
@@ -42,8 +70,9 @@ export default function MeetingAccessHub({ currentUser }) {
   const typedQuery = String(searchTerm || '').trim();
   const hasInput = Boolean(typedQuery);
   const hasQuery = Boolean(query);
-  const normalizedBooks = Array.isArray(books) ? books : [];
-  const visible = hasQuery ? normalizedBooks : [];
+  const searchResults = Array.isArray(books) ? books : [];
+  const hasResults = searchResults.length > 0;
+  const visible = hasInput ? searchResults : defaultBooks;
   const manualKey = canonicalizeMeetKey(typedQuery);
   const manualCompositeId = manualKey ? `custom:${manualKey}` : '';
 
@@ -76,7 +105,14 @@ export default function MeetingAccessHub({ currentUser }) {
         </section>
       )}
 
-      {hasInput && (
+      {!hasInput && defaultLoading && (
+        <section className="meeting-access-empty glass-panel">
+          <h2 className="font-serif">Loading featured books...</h2>
+          <p>Curating a shelf so you can jump into Meet instantly.</p>
+        </section>
+      )}
+
+      {(hasInput || (!defaultLoading && visible.length > 0)) && (
         <section className="meeting-access-grid" aria-label="Meet books">
           {manualCompositeId ? (
             <article key={manualCompositeId} className="meeting-access-card glass-panel meeting-access-card--manual">
@@ -109,12 +145,17 @@ export default function MeetingAccessHub({ currentUser }) {
             </article>
           ) : null}
 
-          {!loading && !error && visible.map((book) => {
-            const compositeId = `${String(book?.source || '').trim().toLowerCase()}:${String(book?.sourceId || '').trim()}`;
-            if (!book?.source || !book?.sourceId) return null;
+          {!loading && !error && (!hasInput || hasResults) && visible.map((book) => {
+            const source = String(book?.source || '').trim().toLowerCase();
+            const sourceId = String(book?.sourceId || '').trim();
+            const hasSourceRoute = Boolean(source && sourceId);
+            const legacyId = String(book?._id || book?.id || '').trim();
+            const compositeId = `${source}:${sourceId}`;
+            const routeId = hasSourceRoute ? compositeId : legacyId;
+            if (!routeId) return null;
 
             return (
-              <article key={`${book.source}:${book.sourceId}`} className="meeting-access-card glass-panel">
+              <article key={`${routeId}-${book?.title || 'book'}`} className="meeting-access-card glass-panel">
                 <div className="meeting-access-mini-cover" aria-hidden="true">
                   {book.coverImage ? (
                     <img
@@ -140,13 +181,20 @@ export default function MeetingAccessHub({ currentUser }) {
                 <button
                   type="button"
                   className="meeting-access-button"
-                  onClick={() => navigate(`/meet/${encodeURIComponent(compositeId)}`)}
+                  onClick={() => navigate(`/meet/${encodeURIComponent(routeId)}`, { state: { book } })}
                 >
                   Open Meet <ArrowRight size={16} />
                 </button>
               </article>
             );
           })}
+        </section>
+      )}
+
+      {!hasInput && !defaultLoading && !visible.length && (
+        <section className="meeting-access-empty glass-panel">
+          <h2 className="font-serif">No books available right now.</h2>
+          <p>Try searching by title or author to open a meet room.</p>
         </section>
       )}
     </div>
