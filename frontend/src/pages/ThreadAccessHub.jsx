@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, LockKeyhole, Search } from 'lucide-react';
 import useGlobalSearch from '../hooks/useGlobalSearch';
+import api from '../utils/api';
 import './ThreadAccessHub.css';
 
 const canonicalizeThreadKey = (value) => {
@@ -15,9 +16,43 @@ export default function ThreadAccessHub({ currentUser }) {
   const isMember = Boolean(currentUser && !currentUser.isAnonymous);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [featuredBooks, setFeaturedBooks] = useState([]);
   const { books, loading, error, query } = useGlobalSearch(searchTerm);
+  const visibleSearch = useMemo(() => (Array.isArray(books) ? books : []), [books]);
 
-  const visible = useMemo(() => (Array.isArray(books) ? books : []), [books]);
+  const typedQuery = String(searchTerm || '').trim();
+  const hasInput = Boolean(typedQuery);
+  const hasQuery = Boolean(query);
+  const visible = hasInput ? visibleSearch : featuredBooks;
+  const hasResults = visible.length > 0;
+  const manualKey = canonicalizeThreadKey(typedQuery);
+  const manualCompositeId = manualKey ? `custom:${manualKey}` : '';
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadFeaturedBooks = async () => {
+      try {
+        const { data } = await api.get('/books');
+        if (cancelled) return;
+        const normalized = Array.isArray(data) ? data : [];
+        setFeaturedBooks(normalized.slice(0, 36).map((book) => ({
+          ...book,
+          source: String(book?.source || 'local'),
+          sourceId: String(book?.sourceId || book?._id || ''),
+        })).filter((book) => book.sourceId));
+      } catch {
+        if (!cancelled) setFeaturedBooks([]);
+      }
+    };
+
+    if (isMember) {
+      loadFeaturedBooks();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isMember]);
 
   if (!isMember) {
     return (
@@ -34,13 +69,6 @@ export default function ThreadAccessHub({ currentUser }) {
       </div>
     );
   }
-
-  const typedQuery = String(searchTerm || '').trim();
-  const hasInput = Boolean(typedQuery);
-  const hasQuery = Boolean(query);
-  const hasResults = visible.length > 0;
-  const manualKey = canonicalizeThreadKey(typedQuery);
-  const manualCompositeId = manualKey ? `custom:${manualKey}` : '';
 
   return (
     <div className="thread-access-page animate-fade-in">
@@ -68,13 +96,13 @@ export default function ThreadAccessHub({ currentUser }) {
       <section className="thread-access-grid">
         {!hasInput && (
           <div className="thread-access-loading glass-panel">
-            <p>Type a title or author to open a book thread.</p>
+            <p>Explore threads by opening any of these featured books.</p>
           </div>
         )}
 
         {hasQuery && loading && (
           <div className="thread-access-loading glass-panel">
-            <p>Searchingâ€¦</p>
+            <p>Searching…</p>
           </div>
         )}
 
@@ -86,7 +114,7 @@ export default function ThreadAccessHub({ currentUser }) {
 
         {hasQuery && !loading && !error && !hasResults && (
           <div className="thread-access-loading glass-panel">
-            <p>No matches found. You can still open a thread for â€œ{typedQuery || query}â€.</p>
+            <p>No matches found. You can still open a thread for “{typedQuery || query}”.</p>
           </div>
         )}
 
@@ -112,7 +140,7 @@ export default function ThreadAccessHub({ currentUser }) {
           </article>
         )}
 
-        {hasQuery && !loading && !error && hasResults && visible.map((book) => {
+        {!loading && !error && hasResults && visible.map((book) => {
           const source = String(book?.source || '').trim().toLowerCase();
           const sourceId = String(book?.sourceId || '').trim();
           if (!source || !sourceId) return null;

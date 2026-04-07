@@ -186,7 +186,7 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
   const displayName = profile?.name || profile?.email || 'Reader';
   const email = profile?.email || '—';
   const username = profile?.username || '—';
-  const bio = profile?.bio || 'No bio yet. Add a short note so people know how you read.';
+  const bio = String(profile?.bio || '').trim();
   const joinedDate = formatJoinedDate(profile?.joinedAt);
   const stats = profile?.stats || EMPTY_STATS;
   const profileImageUrl = profile?.profileImageUrl || '';
@@ -370,10 +370,10 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
           <div className="profile-identity-copy">
             <h2 className="font-serif">{displayName}</h2>
             <div className="profile-meta-line">
-              <span>@{username}</span>
+              <span>{username}</span>
               <span aria-hidden="true">•</span>
               <span>Joined {joinedDate}</span>
-              <span className="profile-bio-inline">{bio}</span>
+              {bio ? <span className="profile-bio-inline">{bio}</span> : null}
             </div>
           </div>
         </div>
@@ -389,8 +389,7 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
 
             {!editing ? (
               <div className="profile-details-panel">
-                <div className="profile-details-group" aria-label="Identity">
-                  <h3>Identity</h3>
+                <div className="profile-details-group" aria-label="Profile details">
                   <dl className="profile-details-grid">
                     <div className="profile-detail">
                       <dt>Name</dt>
@@ -398,7 +397,7 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
                     </div>
                     <div className="profile-detail">
                       <dt>Username</dt>
-                      <dd>@{username}</dd>
+                      <dd>{username}</dd>
                     </div>
                   </dl>
                 </div>
@@ -413,8 +412,7 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
                   </dl>
                 </div>
 
-                <div className="profile-details-group" aria-label="Meta">
-                  <h3>Meta</h3>
+                <div className="profile-details-group" aria-label="Joined info">
                   <dl className="profile-details-grid">
                     <div className="profile-detail">
                       <dt>Joined</dt>

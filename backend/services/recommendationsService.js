@@ -10,8 +10,8 @@ const GOOGLE_BOOKS_HOST = 'https://www.googleapis.com/books/v1/volumes';
 
 const OPEN_LIBRARY_HOST = 'https://openlibrary.org';
 
-const MIN_RESULTS = 20;
-const MAX_RESULTS = 25;
+const MIN_RESULTS = 50;
+const MAX_RESULTS = 50;
 
 const UNKNOWN_GENRES = new Set(['unknown', 'n/a', 'none', 'null', 'undefined', 'misc', 'general']);
 
@@ -478,7 +478,7 @@ export const buildRecommendations = async ({ genres }) => {
     .filter((book) => !book.genres.some((g) => UNKNOWN_GENRES.has(normalizeGenreToken(g))))
     .slice(0, MAX_RESULTS);
 
-  // Ensure 20–25 even in worst case by filling with OpenLibrary subject search.
+  // Ensure 50 books even in worst case by filling with OpenLibrary subject search.
   if (finalBooks.length < MIN_RESULTS) {
     const fill = await fillFromOpenLibrarySubjects({
       genres: normalizedGenres,
@@ -512,4 +512,3 @@ export const buildRecommendations = async ({ genres }) => {
 
   return { books: bounded };
 };
-

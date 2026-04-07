@@ -1,8 +1,6 @@
 import express from 'express';
-import passport from 'passport';
 import {
   googleAuthFailure,
-  googleCallbackSuccess,
   login,
   logout,
   me,
@@ -21,10 +19,14 @@ router.get('/me', requireAuth, me);
 
 // POST route required by API contract.
 router.post('/google', (_req, res) => {
-  res.status(200).json({ authUrl: '/api/auth/google/start' });
+  res.status(410).json({ message: 'Google authentication is disabled.' });
 });
-router.get('/google/start', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
-router.get('/google/callback', passport.authenticate('google', { failureRedirect: '/api/auth/google/failure', session: false }), googleCallbackSuccess);
+router.get('/google/start', (_req, res) => {
+  res.status(410).json({ message: 'Google authentication is disabled.' });
+});
+router.get('/google/callback', (_req, res) => {
+  res.status(410).json({ message: 'Google authentication is disabled.' });
+});
 router.get('/google/failure', googleAuthFailure);
 
 export default router;
