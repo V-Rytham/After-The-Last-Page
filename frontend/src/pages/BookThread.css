@@ -112,7 +112,7 @@
 .thread-title {
   font-size: clamp(1.55rem, 3.2vw, 2.2rem);
   line-height: 1.08;
-  max-width: 24ch;
+  max-width: 100%;
   text-wrap: balance;
 }
 
@@ -284,7 +284,7 @@
 .thread-list-title {
   font-size: clamp(1.1rem, 2vw, 1.32rem);
   line-height: 1.25;
-  max-width: 32ch;
+  max-width: 100%;
 }
 
 .back-link,
@@ -359,7 +359,7 @@
 .thread-focus-title {
   font-size: clamp(1.25rem, 2.6vw, 1.65rem);
   line-height: 1.18;
-  max-width: 30ch;
+  max-width: 100%;
 }
 
 .thread-focus-content,
@@ -449,6 +449,10 @@
 }
 
 @media (max-width: 760px) {
+  .thread-page {
+    padding-inline: 1rem;
+  }
+
   .salon-book-anchor,
   .salon-preface,
   .thread-book-context {
@@ -465,5 +469,11 @@
   .reply-node.is-nested {
     margin-left: calc(var(--reply-depth) * 0.6rem);
     padding-left: 0.55rem;
+  }
+
+  .thread-focus-actions .reply-action,
+  .nexus-toolbar .thread-cta,
+  .composer-actions .thread-cta {
+    min-height: 2.75rem;
   }
 }
