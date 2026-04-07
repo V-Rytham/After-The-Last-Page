@@ -14,6 +14,17 @@
   gap: clamp(1rem, 2.2vw, 1.5rem);
 }
 
+.home2-page .home2-hero,
+.home2-page .home2-desk,
+.home2-page .home2-experience,
+.home2-page .home2-emotional {
+  animation: home2-rise 620ms ease both;
+}
+
+.home2-page .home2-desk { animation-delay: 90ms; }
+.home2-page .home2-experience { animation-delay: 160ms; }
+.home2-page .home2-emotional { animation-delay: 230ms; }
+
 .home2-hero {
   padding: clamp(2.5rem, 6vw, 4.5rem) var(--page-gutter) clamp(1.5rem, 3.5vw, 2.5rem);
   text-align: center;
@@ -23,6 +34,7 @@
   width: min(44rem, 100%);
   display: grid;
   gap: 0.85rem;
+  margin-inline: auto;
 }
 
 .home2-kicker {
@@ -61,6 +73,12 @@
   justify-content: center;
   gap: 0.35rem;
   transition: transform var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.home2-page .home2-btn,
+.home2-page .home2-card,
+.home2-page .home2-exp-card {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
 }
 
 .home2-btn:hover,
@@ -306,7 +324,7 @@
   box-shadow: var(--shadow-panel);
   padding: 0.9rem;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.9rem;
 }
 
@@ -314,6 +332,8 @@
   align-content: center;
   display: grid;
   gap: 0.55rem;
+  justify-items: center;
+  text-align: center;
 }
 
 .home2-emotional-copy h2 {
@@ -349,19 +369,20 @@
   }
 }
 
-@media (max-width: 760px) {
-  .home2-hero {
-    text-align: left;
+@keyframes home2-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
+@media (max-width: 760px) {
   .home2-hero-inner {
     width: 100%;
-  }
-
-  .home2-hero-subtitle,
-  .home2-hero-actions {
-    margin-inline: 0;
-    justify-content: flex-start;
   }
 
   .home2-current-main {

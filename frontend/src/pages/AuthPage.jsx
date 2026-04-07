@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, LoaderCircle, LogIn, Sparkles, UserPlus } from 'lucide-react';
 import api from '../utils/api';
 import { saveAuthSession } from '../utils/auth';
-import { getApiBaseUrl } from '../utils/serviceUrls';
 import './AuthPage.css';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
@@ -51,8 +50,6 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
   const [mode, setMode] = useState('login');
   const [loginForm, setLoginForm] = useState(initialLoginState);
   const [signupForm, setSignupForm] = useState(initialSignupState);
-  const [otpForm, setOtpForm] = useState({ email: '', otp: '' });
-  const [otpMode, setOtpMode] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [serverOnline, setServerOnline] = useState(true);
@@ -71,16 +68,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
   useEffect(() => {
     const query = new URLSearchParams(location.search);
     if (query.get('error') === 'google_login_failed') {
-      setError('Google login failed. Please try again.');
-    }
-
-    if (query.get('google') === 'success') {
-      api.get('/auth/me')
-        .then(({ data }) => {
-          onAuthSuccess(saveAuthSession(data));
-          navigate(redirectPath, { replace: true });
-        })
-        .catch(() => setError('Google login completed, but session could not be loaded.'));
+      setError('Google login is currently unavailable.');
     }
   }, [location.search, navigate, onAuthSuccess, redirectPath]);
 
@@ -108,7 +96,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
   }, []);
 
   useEffect(() => {
-    if (mode !== 'signup' || otpMode) {
+    if (mode !== 'signup') {
       setUsernameState({ status: 'idle', message: '' });
       return undefined;
     }
@@ -155,7 +143,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [mode, normalizedSignupUsername, otpMode, signupForm.username]);
+  }, [mode, normalizedSignupUsername, signupForm.username]);
 
   const introCopy = useMemo(() => {
     if (isGuest) {
@@ -200,8 +188,8 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
     setSubmitting(true);
 
     try {
-      const { data } = await api.post('/auth/login', loginForm);
-      await completeAuthSession(data.token, data.user);
+      const { data } = await api.post('/users/login', loginForm);
+      await completeAuthSession(data.token, data);
     } catch (requestError) {
       if (!requestError.response) {
         setServerOnline(false);
@@ -237,16 +225,11 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
     setSubmitting(true);
 
     try {
-      await api.post('/auth/signup', {
-        email: signupForm.email,
-        password: signupForm.password,
-      });
-
       const profileImageData = signupForm.profileImageFile
         ? await readFileAsDataUrl(signupForm.profileImageFile)
         : '';
 
-      await api.post('/users/signup', {
+      const { data } = await api.post('/users/signup', {
         name: signupForm.name,
         username: normalizedSignupUsername,
         bio: signupForm.bio,
@@ -255,8 +238,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
         profileImageData,
       });
 
-      setOtpForm({ email: signupForm.email, otp: '' });
-      setOtpMode(true);
+      await completeAuthSession(data.token, data, { redirectToOnboarding: true });
     } catch (requestError) {
       if (!requestError.response) {
         setServerOnline(false);
@@ -267,27 +249,6 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleVerifyOtp = async (event) => {
-    event.preventDefault();
-    setError('');
-    setSubmitting(true);
-
-    try {
-      const { data } = await api.post('/auth/verify-otp', otpForm);
-      await completeAuthSession(data.token, data.user, { redirectToOnboarding: true });
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to verify OTP right now.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    const apiBase = getApiBaseUrl();
-    const baseOrigin = apiBase.startsWith('http') ? apiBase.replace(/\/api\/?$/, '') : window.location.origin;
-    window.location.href = `${baseOrigin}/api/auth/google/start`;
   };
 
   return (
@@ -309,7 +270,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
 
         <section className="auth-card glass-panel">
           <div className="auth-tabs">
-            <button className={`auth-tab ${mode === 'login' ? 'active' : ''}`} onClick={() => { setMode('login'); setOtpMode(false); setError(''); }}>
+            <button className={`auth-tab ${mode === 'login' ? 'active' : ''}`} onClick={() => { setMode('login'); setError(''); }}>
               <LogIn size={18} /> Login
             </button>
             <button className={`auth-tab ${mode === 'signup' ? 'active' : ''}`} onClick={() => { setMode('signup'); setError(''); }}>
@@ -324,13 +285,7 @@ export default function AuthPage({ onAuthSuccess, currentUser }) {
             <form className="auth-form" onSubmit={handleLogin}>
               <label className="auth-label"><span>Email</span><input name="email" type="email" value={loginForm.email} onChange={handleLoginChange} className="auth-input" required /></label>
               <label className="auth-label"><span>Password</span><input name="password" type="password" value={loginForm.password} onChange={handleLoginChange} className="auth-input" required /></label>
-              <button type="button" className="btn-secondary auth-submit" onClick={handleGoogleLogin} disabled={submitting}>Continue with Google</button>
               <button type="submit" className="btn-primary auth-submit" disabled={submitting}>{submitting ? 'Signing in...' : 'Login'} <ArrowRight size={18} /></button>
-            </form>
-          ) : otpMode ? (
-            <form className="auth-form" onSubmit={handleVerifyOtp}>
-              <label className="auth-label"><span>Verification code</span><input name="otp" type="text" inputMode="numeric" value={otpForm.otp} onChange={(event) => setOtpForm((prev) => ({ ...prev, otp: event.target.value }))} className="auth-input" minLength={6} maxLength={6} required /></label>
-              <button type="submit" className="btn-primary auth-submit" disabled={submitting}>{submitting ? 'Verifying...' : 'Verify OTP'} <ArrowRight size={18} /></button>
             </form>
           ) : (
             <form className="auth-form" onSubmit={handleSignup}>

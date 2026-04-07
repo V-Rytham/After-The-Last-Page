@@ -249,9 +249,12 @@
   background: var(--intent-btn-bg);
   color: var(--intent-btn-text);
   font-size: 0.8rem;
-  padding: 10px 18px;
-  min-height: 2rem;
-  border-radius: 9999px;
+  padding: 0.5rem 0.9rem;
+  min-height: 2.2rem;
+  border-radius: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .meeting-access-page .btn-primary,
