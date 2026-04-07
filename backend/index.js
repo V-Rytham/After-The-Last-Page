@@ -19,6 +19,7 @@ import { securityHeaders } from './middleware/securityHeaders.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import { isProd } from './utils/runtime.js';
+import { log } from './utils/logger.js';
 import { RealtimeSessionManager } from './services/realtimeSessionManager.js';
 import { requestTracing } from './middleware/requestLogging.js';
 import recommendationsRoutes from './routes/recommendationsRoutes.js';
@@ -228,5 +229,5 @@ try {
 }
 
 httpServer.listen(PORT, () => {
-  console.log(`[SERVER] Nexus core listening on port ${PORT}`);
+  log(`[SERVER] Nexus core listening on port ${PORT}`);
 });

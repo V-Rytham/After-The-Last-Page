@@ -817,9 +817,7 @@ const ReadingRoom = ({ uiTheme, onThemeChange }) => {
         sourceUrl={book?.sourceUrl}
         sourceLabel={book?.source}
         hint={safeHint}
-        onExternalClick={(url) => {
-          console.log('[READ] External source click:', { url, bookId: resolvedBookId });
-        }}
+        onExternalClick={() => {}}
       />
     );
   }

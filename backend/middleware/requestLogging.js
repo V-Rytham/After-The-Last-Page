@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { log } from '../utils/logger.js';
 
 const SLOW_REQUEST_THRESHOLD_MS = 1200;
 
@@ -17,7 +18,7 @@ export const requestTracing = (req, res, next) => {
     const isError = status >= 500;
     const isWarn = status >= 400 || elapsedMs >= SLOW_REQUEST_THRESHOLD_MS;
 
-    const logger = isError ? console.error : (isWarn ? console.warn : console.info);
+    const logger = isError ? console.error : (isWarn ? console.warn : log);
     logger(
       `[HTTP] ${req.method} ${req.originalUrl} -> ${status} ${elapsedMs.toFixed(1)}ms `
       + `requestId=${req.requestId} ip=${getClientIp(req)}`,

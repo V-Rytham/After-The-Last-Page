@@ -412,7 +412,6 @@ export const buildRecommendations = async ({ genres }) => {
     groqRaw = '';
   }
 
-  console.log('GROQ RAW:', groqRaw);
 
   const groqBooks = hardValidateGroqList(parseGroqBooks(groqRaw));
   const excludePairs = groqBooks.map((b) => `${b.title} by ${b.author}`);
@@ -442,7 +441,6 @@ export const buildRecommendations = async ({ genres }) => {
     }
 
     if (retryRaw) {
-      console.log('GROQ RAW:', retryRaw);
       const retryBooks = hardValidateGroqList(parseGroqBooks(retryRaw));
       const enrichedRetry = (await mapWithConcurrency(retryBooks, 5, enrichOne)).filter(Boolean);
       for (const book of enrichedRetry) {
@@ -501,7 +499,6 @@ export const buildRecommendations = async ({ genres }) => {
 
   // Final strict bounds.
   const bounded = finalBooks.slice(0, clamp(finalBooks.length, MIN_RESULTS, MAX_RESULTS));
-  console.log('FINAL BOOK COUNT:', bounded.length);
 
   // If Groq failed completely and fill isn't enough, throw (better than breaking contract silently).
   if (bounded.length < MIN_RESULTS) {

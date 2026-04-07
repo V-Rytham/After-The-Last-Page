@@ -1,5 +1,6 @@
 import { gutenbergCatalog } from '../seed/gutenbergCatalog.js';
 import { Book } from '../models/Book.js';
+import { log } from '../utils/logger.js';
 
 const GUTENDEX_HOST = 'https://gutendex.com';
 const OPEN_LIBRARY_HOST = 'https://openlibrary.org';
@@ -68,7 +69,7 @@ const runSourceSafely = async (label, action) => {
     const started = Date.now();
     const results = await action();
     const normalized = Array.isArray(results) ? results : [];
-    console.info(`[SEARCH] ${label} results=${normalized.length} (${Date.now() - started}ms)`);
+    log(`[SEARCH] ${label} results=${normalized.length} (${Date.now() - started}ms)`);
     return normalized;
   } catch (error) {
     console.warn(`[SEARCH] ${label} failed:`, error?.message || error);

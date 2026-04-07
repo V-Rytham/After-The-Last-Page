@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { log } from '../utils/logger.js';
 
 const GUTENBERG_TOP_URL = 'https://www.gutenberg.org/browse/scores/top';
 const GUTENDEX_BOOK_URL = (id) => `https://gutendex.com/books/${encodeURIComponent(String(id))}`;
@@ -319,7 +320,7 @@ const main = async () => {
 
   const outPath = new URL('./gutenbergCatalog.js', import.meta.url);
   await fs.writeFile(outPath, toCatalogJs(finalItems), 'utf8');
-  console.log(`[CATALOG] Wrote ${finalItems.length} books to ${outPath.pathname}`);
+  log(`[CATALOG] Wrote ${finalItems.length} books to ${outPath.pathname}`);
 };
 
 await main();

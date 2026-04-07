@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { connectDB } from '../config/db.js';
 import { Book } from '../models/Book.js';
 import { normalizeTags } from '../utils/tags.js';
+import { log } from '../utils/logger.js';
 
 dotenv.config();
 
@@ -22,11 +23,11 @@ const main = async () => {
       book.tags = after;
       await book.save();
       updated += 1;
-      console.log(`[TAGS] Normalized: ${book.title}`);
+      log(`[TAGS] Normalized: ${book.title}`);
     }
   }
 
-  console.log(`[TAGS] Done. Updated ${updated}/${books.length} books.`);
+  log(`[TAGS] Done. Updated ${updated}/${books.length} books.`);
   process.exit(0);
 };
 
