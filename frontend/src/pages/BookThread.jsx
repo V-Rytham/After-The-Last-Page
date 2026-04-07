@@ -320,8 +320,8 @@ export default function BookThread() {
             setBook((prev) => ({
               ...(prev || {}),
               ...payload,
-              title: String(payload?.title || prev?.title || 'Untitled'),
-              author: String(payload?.author || prev?.author || ''),
+              title: String(payload?.title || prev?.title || '').trim() || 'Untitled',
+              author: String(payload?.author || prev?.author || '').trim() || 'Author unavailable',
             }));
           }
         }
@@ -432,13 +432,19 @@ export default function BookThread() {
 
   const handleCreateThread = async (event) => {
     event.preventDefault();
+    if (submittingThread) {
+      return;
+    }
     setError('');
     setFeedback('');
     setSubmittingThread(true);
 
     try {
+      const storedUser = getStoredUser();
       const { data } = await api.post('/threads', {
         bookKey: threadBookKey,
+        bookId: threadBookKey,
+        userId: storedUser?._id || null,
         title: threadForm.title,
         chapterReference: threadForm.chapterReference,
         content: threadForm.content,
@@ -547,14 +553,6 @@ export default function BookThread() {
                   </div>
                   <h1 className="thread-title font-serif">{book.title}</h1>
                 </div>
-              </div>
-
-              <div className="salon-preface">
-                <div className="salon-preface-rule" aria-hidden="true" />
-                <p>
-                  Browse the room as you would a stack of short essays. Each thread begins with an opening thought,
-                  and each response is meant to extend the reading rather than chase attention.
-                </p>
               </div>
 
               <div className="nexus-toolbar" role="toolbar" aria-label="Discussion controls">

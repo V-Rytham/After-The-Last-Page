@@ -160,13 +160,15 @@ export const createThread = async (req, res) => {
       doc.bookId = new mongoose.Types.ObjectId(bookKey);
     }
 
-    const thread = await Thread.create({
-      ...doc,
-    });
+    const thread = await Thread.create({ ...doc });
 
     res.status(201).json(thread);
-  } catch {
-    res.status(500).json({ message: 'Error creating thread' });
+  } catch (error) {
+    const statusCode = Number(error?.statusCode) || (error?.name === 'ValidationError' ? 400 : 500);
+    const message = statusCode >= 500
+      ? 'Unable to create thread right now. Please retry.'
+      : (error?.message || 'Invalid thread payload.');
+    res.status(statusCode).json({ message });
   }
 };
 

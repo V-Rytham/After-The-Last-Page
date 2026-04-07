@@ -278,6 +278,12 @@ body.is-reading-room::before {
   gap: var(--section-space);
 }
 
+@media (max-width: 767px) {
+  :root {
+    --page-gutter: 1rem;
+  }
+}
+
 .layout-section {
   width: 100%;
 }
@@ -330,6 +336,20 @@ h4,
   font-family: var(--font-reading);
   font-weight: 500;
   letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(1.5rem, 5vw, 2.75rem);
+}
+
+h2 {
+  font-size: clamp(1.25rem, 4.2vw, 2rem);
+}
+
+h3 {
+  font-size: clamp(1.1rem, 3.6vw, 1.5rem);
 }
 
 p,
@@ -364,6 +384,9 @@ li {
   border-radius: var(--radius-md);
   font-size: var(--font-size-1);
   font-weight: 600;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
   transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 

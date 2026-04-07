@@ -36,8 +36,8 @@ export default function MeetingAccessHub({ currentUser }) {
         const normalized = Array.isArray(data) ? data : [];
         setFeaturedBooks(normalized.slice(0, 36).map((book) => ({
           ...book,
-          source: String(book?.source || 'local'),
-          sourceId: String(book?.sourceId || book?._id || ''),
+          source: String(book?.source || (book?.gutenbergId ? 'gutenberg' : 'local')),
+          sourceId: String(book?.sourceId || book?.gutenbergId || book?._id || ''),
         })).filter((book) => book.sourceId));
       } catch {
         if (!cancelled) setFeaturedBooks([]);
@@ -111,7 +111,6 @@ export default function MeetingAccessHub({ currentUser }) {
               <div className="meeting-access-body">
                 <h3 className="meeting-access-title font-serif">{typedQuery}</h3>
                 <p className="meeting-access-author">Meet people who read this book</p>
-                <span className="meeting-access-status">Featured for Meet</span>
               </div>
               <button
                 type="button"
@@ -141,7 +140,6 @@ export default function MeetingAccessHub({ currentUser }) {
                 <div className="meeting-access-body">
                   <h3 className="meeting-access-title font-serif">{book.title}</h3>
                   <p className="meeting-access-author">{book.author}</p>
-                  <span className="meeting-access-status">Featured for Meet</span>
                 </div>
                 <button
                   type="button"
@@ -166,7 +164,6 @@ export default function MeetingAccessHub({ currentUser }) {
                 <div className="meeting-access-body">
                   <h3 className="meeting-access-title font-serif">{book.title}</h3>
                   <p className="meeting-access-author">{book.author}</p>
-                  <span className="meeting-access-status">Featured for Meet</span>
                 </div>
                 <button type="button" className="meeting-access-button" onClick={() => navigate(`/meet/${encodeURIComponent(compositeId)}`)}>
                   Open Meet <ArrowRight size={16} />

@@ -37,8 +37,8 @@ export default function ThreadAccessHub({ currentUser }) {
         const normalized = Array.isArray(data) ? data : [];
         setFeaturedBooks(normalized.slice(0, 36).map((book) => ({
           ...book,
-          source: String(book?.source || 'local'),
-          sourceId: String(book?.sourceId || book?._id || ''),
+          source: String(book?.source || (book?.gutenbergId ? 'gutenberg' : 'local')),
+          sourceId: String(book?.sourceId || book?.gutenbergId || book?._id || ''),
         })).filter((book) => book.sourceId));
       } catch {
         if (!cancelled) setFeaturedBooks([]);
@@ -120,11 +120,6 @@ export default function ThreadAccessHub({ currentUser }) {
 
         {hasInput && manualCompositeId && (
           <article key={manualCompositeId} className="thread-access-card glass-panel">
-            <div className="thread-access-mini-cover" aria-hidden="true">
-              <div className="thread-access-mini-fallback">
-                <span className="thread-access-mini-spine" />
-              </div>
-            </div>
             <div className="thread-access-card-body">
               <h3 className="thread-access-title font-serif">{typedQuery}</h3>
               <p className="thread-access-author">Open the book thread</p>
@@ -150,23 +145,6 @@ export default function ThreadAccessHub({ currentUser }) {
 
           return (
             <article key={`${source}:${sourceId}`} className="thread-access-card glass-panel">
-              <div className="thread-access-mini-cover" aria-hidden="true">
-                {book.coverImage ? (
-                  <img
-                    className="thread-access-mini-image"
-                    src={book.coverImage}
-                    alt=""
-                    loading="lazy"
-                    onError={(event) => {
-                      event.currentTarget.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="thread-access-mini-fallback">
-                    <span className="thread-access-mini-spine" />
-                  </div>
-                )}
-              </div>
               <div className="thread-access-card-body">
                 <h3 className="thread-access-title font-serif">{book.title}</h3>
                 <p className="thread-access-author">{book.author}</p>
