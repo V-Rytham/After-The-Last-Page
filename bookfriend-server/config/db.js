@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { log } from '../utils/logger.js';
+
 
 let connected = false;
 let lastDbError = null;
@@ -22,7 +24,7 @@ export const connectDB = async () => {
     const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
     connected = true;
     lastDbError = null;
-    console.log(`[BOOKFRIEND][DB] Connected to MongoDB: ${conn.connection.host}`);
+    log(`[BOOKFRIEND][DB] Connected to MongoDB: ${conn.connection.host}`);
     return true;
   } catch (error) {
     connected = false;

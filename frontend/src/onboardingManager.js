@@ -1,3 +1,5 @@
+import { log } from './utils/logger';
+
 const COMPLETED_KEY = 'hasCompletedOnboarding';
 const STEP_KEY = 'onboardingStep';
 const HIGHLIGHT_BOOK_KEY = 'onboardingHighlightBookId';
@@ -26,8 +28,7 @@ const emitChange = () => {
 const setStep = (nextStep) => {
   const step = clampStep(nextStep);
   window.localStorage.setItem(STEP_KEY, String(step));
-  // Debugging requirement
-  console.log('Onboarding Step:', step);
+  log('Onboarding Step:', step);
   emitChange();
   return step;
 };

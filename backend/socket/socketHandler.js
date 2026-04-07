@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { checkMeetAccess } from '../services/accessService.js';
+import { log } from '../utils/logger.js';
 
 export default function registerSocketEvents(io, sessionManager) {
   if (!sessionManager) {
@@ -59,7 +60,7 @@ export default function registerSocketEvents(io, sessionManager) {
   });
 
   io.on('connection', (socket) => {
-    console.log(`[SOCKET] User connected: ${socket.id}`);
+    log(`[SOCKET] User connected: ${socket.id}`);
     sessionManager.registerSocket({ userId: socket.userId, socketId: socket.id });
     onlineCount += 1;
     emitStats();
@@ -127,7 +128,7 @@ export default function registerSocketEvents(io, sessionManager) {
     });
 
     socket.on('disconnect', () => {
-      console.log(`[SOCKET] User disconnected: ${socket.id}`);
+      log(`[SOCKET] User disconnected: ${socket.id}`);
       onlineCount = Math.max(0, onlineCount - 1);
       sessionManager.unregisterSocket({ socketId: socket.id });
       emitStats();

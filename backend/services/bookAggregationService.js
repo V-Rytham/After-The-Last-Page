@@ -1,3 +1,5 @@
+import { log } from '../utils/logger.js';
+
 const GUTENDEX_HOST = 'https://gutendex.com';
 const OPEN_LIBRARY_HOST = 'https://openlibrary.org';
 const INTERNET_ARCHIVE_HOST = 'https://archive.org';
@@ -91,7 +93,7 @@ const runSourceSafely = async (label, action) => {
   try {
     const results = await action();
     const normalized = Array.isArray(results) ? results : [];
-    console.info(`[BOOK][SEARCH] Source ${label} responded with ${normalized.length} results in ${Date.now() - started}ms`);
+    log(`[BOOK][SEARCH] Source ${label} responded with ${normalized.length} results in ${Date.now() - started}ms`);
     return normalized;
   } catch (error) {
     console.warn(`[BOOK][SEARCH] Source ${label} failed:`, error?.message || error);
@@ -188,7 +190,7 @@ export const aggregateBookSearch = async (query) => {
   ]);
 
   const merged = uniqueById([...gutenberg, ...openlibrary, ...internetarchive]);
-  console.info(
+  log(
     `[BOOK][SEARCH] Aggregated ${merged.length} total results (gutenberg=${gutenberg.length}, openlibrary=${openlibrary.length}, internetarchive=${internetarchive.length})`,
   );
   return merged.slice(0, 48);

@@ -504,12 +504,6 @@ export const updatePreferredGenres = async (req, res) => {
           .filter((genre) => ALLOWED_PREFERRED_GENRES.has(genre)),
       ),
     ).slice(0, 8);
-    console.info('[PERSONALIZATION] GENRES RECEIVED:', normalizedGenres);
-    console.info('[PERSONALIZATION] Received preferred genre update:', {
-      userId: String(req.user?._id || ''),
-      requestedGenres,
-      normalizedGenres,
-    });
 
     const user = await User.findById(req.user._id);
     if (!user) {

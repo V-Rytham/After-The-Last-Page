@@ -10,8 +10,6 @@ export default function useRecommendations(selectedGenres) {
       return () => {};
     }
 
-    console.log('SELECTED GENRES:', selectedGenres);
-    console.log('FETCHING RECOMMENDATIONS');
 
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
@@ -23,7 +21,6 @@ export default function useRecommendations(selectedGenres) {
       .then(({ data }) => data)
       .then((data) => {
         const books = Array.isArray(data?.books) ? data.books : [];
-        console.log('BOOKS RECEIVED:', books);
         Promise.resolve().then(() => setState({ books, personalized: Boolean(data?.personalized), loading: false, error: '' }));
       })
       .catch((err) => {

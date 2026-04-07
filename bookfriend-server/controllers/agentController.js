@@ -66,7 +66,6 @@ export const sendAgentMessage = async (req, res) => {
       userMessage: message,
       maxHistory: getMaxHistory(),
     });
-    console.log("Inside agenController.js calling generate AgenReply method");
 
     const response = await generateAgentReply(promptPayload);
     appendMessage({ sessionId, role: 'assistant', content: response });

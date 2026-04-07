@@ -1,4 +1,6 @@
 import { resolveLlmProvider } from '../config/env.js';
+import { log } from '../utils/logger.js';
+
 
 const getGroqApiKey = () => process.env.GROQ_API_KEY || process.env.BOOKFRIEND_GROQ_API_KEY;
 const buildUserPrompt = ({ bookMeta, retrievedChunks, history, userMessage }) => {
@@ -30,7 +32,7 @@ const buildMockResponse = ({ userMessage, bookMeta }) => {
 
 export const generateAgentReply = async ({ systemPrompt, bookMeta, retrievedChunks, history, userMessage }) => {
   const { provider, source } = resolveLlmProvider();
-  console.log(`[BOOKFRIEND] LLM provider: ${provider} (${source})`);
+  log(`[BOOKFRIEND] LLM provider: ${provider} (${source})`);
 
   const prompt = buildUserPrompt({ bookMeta, retrievedChunks, history, userMessage });
 

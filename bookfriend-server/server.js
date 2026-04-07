@@ -5,6 +5,7 @@ import cors from 'cors';
 import { connectDB, getLastDbError, isDbConnected } from './config/db.js';
 import { loadBookFriendEnv, resolveLlmProvider } from './config/env.js';
 import agentRoutes from './routes/agentRoutes.js';
+import { log } from './utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -152,8 +153,8 @@ try {
 const { provider } = resolveLlmProvider();
 
 app.listen(port, () => {
-  console.log(`[BOOKFRIEND] Agent server listening on ${port}`);
-  console.log(`[BOOKFRIEND] LLM provider: ${provider}`);
+  log(`[BOOKFRIEND] Agent server listening on ${port}`);
+  log(`[BOOKFRIEND] LLM provider: ${provider}`);
 });
 
 
