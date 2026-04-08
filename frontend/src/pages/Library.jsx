@@ -24,6 +24,7 @@ export default function Library({ currentUser }) {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
   const [searchState, setSearchState] = useState({ loading: false, error: '', books: [] });
+  const [searchingDots, setSearchingDots] = useState('.');
   const abortRef = useRef(null);
 
   const normalizedSearch = useMemo(() => normalizeQuery(debouncedSearch), [debouncedSearch]);
@@ -85,6 +86,14 @@ export default function Library({ currentUser }) {
     return () => window.clearTimeout(timeout);
   }, [highlightBookId, nextStep, onboardingCompleted, onboardingStep]);
 
+  useEffect(() => {
+    if (!normalizedSearch || !searchState.loading) return undefined;
+    const dotsInterval = window.setInterval(() => {
+      setSearchingDots((prev) => (prev === '.' ? '..' : prev === '..' ? '...' : '.'));
+    }, 360);
+    return () => window.clearInterval(dotsInterval);
+  }, [normalizedSearch, searchState.loading]);
+
 
   const isMember = Boolean(currentUser && !currentUser.isAnonymous);
 
@@ -97,6 +106,11 @@ export default function Library({ currentUser }) {
   const visibleBooks = showSearchResults ? searchState.books : curatedBooks;
   const loading = showSearchResults ? searchState.loading : recLoading;
   const error = showSearchResults ? searchState.error : recError;
+  const searchLabel = !showSearchResults
+    ? 'Search'
+    : searchState.loading
+      ? `Searching${searchingDots}`
+      : 'Search Results';
 
   return (
     <main className="library-page content-container">
@@ -123,6 +137,7 @@ export default function Library({ currentUser }) {
           onChange={setSearch}
           onSubmit={() => {}}
           loading={loading}
+          searchLabel={searchLabel}
           categories={[]}
           activeCategory={null}
           onCategoryChange={() => {}}

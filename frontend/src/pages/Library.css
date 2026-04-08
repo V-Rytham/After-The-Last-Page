@@ -60,6 +60,13 @@
   color: var(--text-primary);
 }
 
+.search-state-label {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
 .search-input-wrap input:focus { outline: none; }
 .search-input-wrap input::placeholder { color: var(--text-muted); }
 .search-input-icon { color: var(--text-muted); }

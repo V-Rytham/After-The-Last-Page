@@ -258,6 +258,18 @@ html[data-theme='sepia'] .editorial-theme {
   isolation: isolate;
 }
 
+.current-reading-card--empty {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.6rem;
+}
+
+.current-reading-card--empty p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
 .current-reading-card__bg {
   position: absolute;
   inset: -12px;
@@ -473,6 +485,20 @@ html[data-theme='dark'] .current-reading-card__resume {
   background: transparent;
   color: var(--desk-text);
   border-color: var(--desk-border);
+}
+
+.desk-btn--primary-empty {
+  margin-top: 0.5rem;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 58%, var(--surface-1)) 0%, color-mix(in srgb, var(--accent-ink) 14%, var(--surface-1)) 100%);
+  border-color: color-mix(in srgb, var(--accent-border) 70%, var(--border-soft));
+  color: var(--text-primary);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent-ink) 16%, transparent);
+  gap: 0.42rem;
+}
+
+.desk-btn--primary-empty:hover {
+  transform: scale(1.03);
+  box-shadow: 0 11px 24px color-mix(in srgb, var(--accent-ink) 23%, transparent);
 }
 
 .desk-btn:hover,

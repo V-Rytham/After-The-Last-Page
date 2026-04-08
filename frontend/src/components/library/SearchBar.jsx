@@ -1,7 +1,17 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 
-const SearchBar = ({ value, onChange, onSubmit, loading = false, categories = [], activeCategory, onCategoryChange, inputClassName = '' }) => {
+const SearchBar = ({
+  value,
+  onChange,
+  onSubmit,
+  loading = false,
+  categories = [],
+  activeCategory,
+  onCategoryChange,
+  inputClassName = '',
+  searchLabel = 'Search',
+}) => {
   const handleSubmit = (event) => {
     event.preventDefault();
     onSubmit?.();
@@ -17,9 +27,10 @@ const SearchBar = ({ value, onChange, onSubmit, loading = false, categories = []
 
   return (
     <div className="search-wrapper">
-      <form className="search-container" role="search" onSubmit={handleSubmit}>
+      <form className="search-container" role="search" onSubmit={handleSubmit} aria-busy={loading ? 'true' : 'false'}>
         <div className="search-input-wrap">
           <Search size={15} aria-hidden="true" className="search-input-icon" />
+          <span className="search-state-label" aria-live="polite">{searchLabel}</span>
           <input
             value={value}
             onChange={(event) => onChange(event.target.value)}
@@ -30,10 +41,6 @@ const SearchBar = ({ value, onChange, onSubmit, loading = false, categories = []
             className={inputClassName}
           />
         </div>
-
-        <button type="submit" className="search-submit-btn" aria-label="Search library" disabled={loading}>
-          <Search size={15} />
-        </button>
       </form>
 
       {categories.length > 0 ? (
