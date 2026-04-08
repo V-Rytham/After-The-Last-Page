@@ -248,21 +248,14 @@
   margin: 0;
   max-width: 46ch;
   line-height: 1.55;
+  opacity: 0.78;
 }
 
-.searching-dots span {
+.searching-dots {
   display: inline-block;
-  width: 0.35em;
-  animation: searchingDots 1.25s infinite;
-  opacity: 0.3;
-}
-
-.searching-dots span:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-.searching-dots span:nth-child(3) {
-  animation-delay: 0.3s;
+  min-width: 1.1em;
+  text-align: left;
+  opacity: 0.85;
 }
 
 @keyframes searchingDots {
@@ -296,6 +289,19 @@
   border: 1px solid var(--border-soft);
   font-size: 0.76rem;
   color: var(--text-muted);
+  animation: searchingPillIn 340ms ease both;
+  position: relative;
+  overflow: hidden;
+}
+
+.searching-pill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-120%);
+  background: linear-gradient(110deg, transparent 0%, color-mix(in srgb, var(--accent-soft) 25%, transparent) 46%, transparent 100%);
+  animation: searchingShimmer 2.6s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .searching-actions {
@@ -311,13 +317,14 @@
   height: 3rem;
   display: grid;
   place-items: center;
+  animation: radarFloat 3.2s ease-in-out infinite;
 }
 
 .radar-center-icon {
   width: 1.4rem;
   height: 1.4rem;
   color: var(--text-muted);
-  animation: radarPulse 1.9s ease-in-out infinite;
+  animation: radarPulse 1.7s ease-in-out infinite;
 }
 
 @keyframes radarPulse {
@@ -327,7 +334,38 @@
   }
 
   50% {
-    transform: scale(1.05);
+    transform: scale(1.1);
+    opacity: 0.92;
+  }
+}
+
+@keyframes radarFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.9;
+  }
+
+  50% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+@keyframes searchingShimmer {
+  0% { transform: translateX(-120%); }
+  55% { transform: translateX(140%); }
+  100% { transform: translateX(140%); }
+}
+
+@keyframes searchingPillIn {
+  0% {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 
@@ -348,7 +386,8 @@
 .meeting-back-btn:hover {
   background: var(--surface-muted);
   color: var(--text-secondary);
-  transform: translateY(-0.5px);
+  transform: scale(1.03);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
 }
 
 .room-container {

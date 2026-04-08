@@ -67,6 +67,7 @@ const MeetingHub = () => {
   const [bookFriendLoading, setBookFriendLoading] = useState(false);
   const [matchStats, setMatchStats] = useState(null);
   const [searchSeconds, setSearchSeconds] = useState(0);
+  const [searchingDots, setSearchingDots] = useState('.');
   const [leavePromptOpen, setLeavePromptOpen] = useState(false);
   const pendingLeaveActionRef = useRef(null);
   const socketRef = useRef(null);
@@ -192,6 +193,24 @@ const MeetingHub = () => {
     });
 
     socketRef.current.on('partner_left', () => {
+      if (peerRef.current) {
+        try { peerRef.current.close(); } catch { /* ignore */ }
+        peerRef.current = null;
+      }
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
+        localStreamRef.current = null;
+      }
+      if (remoteStreamRef.current) {
+        remoteStreamRef.current.getTracks().forEach((track) => track.stop());
+        remoteStreamRef.current = null;
+      }
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+      pendingOfferRef.current = null;
+      setMediaStatus('idle');
+      setMediaError('');
       setMatchNotice('Your partner left the room. You can search again when ready.');
       setRoomId(null);
       setMessages([]);
@@ -388,6 +407,10 @@ const MeetingHub = () => {
   }, [sessionIsSensitive]);
 
 	  const cleanupMedia = useCallback(() => {
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+
     if (peerRef.current) {
       try { peerRef.current.close(); } catch { /* ignore */ }
       peerRef.current = null;
@@ -426,6 +449,7 @@ const MeetingHub = () => {
         if (pc.connectionState === 'connected') {
           setMediaStatus('connected');
         } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+          cleanupMedia();
           setMediaStatus('failed');
         }
       };
@@ -450,7 +474,7 @@ const MeetingHub = () => {
       setMediaError(error?.message || 'Unable to access camera or microphone.');
       setMediaStatus('failed');
     }
-  }, [matchRole, prefType]);
+  }, [cleanupMedia, matchRole, prefType]);
 
   startCallRef.current = startCall;
 
@@ -458,9 +482,14 @@ const MeetingHub = () => {
     if (phase !== 'connected') cleanupMedia();
   }, [cleanupMedia, phase]);
 
+  useEffect(() => () => {
+    cleanupMedia();
+  }, [cleanupMedia]);
+
   useEffect(() => {
     if (phase !== 'searching') return undefined;
     setSearchSeconds(0);
+    setSearchingDots('.');
     setBookFriendOffered(false);
 
     if (searchIntervalRef.current) {
@@ -488,6 +517,14 @@ const MeetingHub = () => {
       }
     };
   }, [phase, prefType]);
+
+  useEffect(() => {
+    if (phase !== 'searching') return undefined;
+    const dotsInterval = window.setInterval(() => {
+      setSearchingDots((prev) => (prev === '.' ? '..' : prev === '..' ? '...' : '.'));
+    }, 420);
+    return () => window.clearInterval(dotsInterval);
+  }, [phase]);
 
   if (loading) return <div className="p-10 text-center mt-20 font-serif">Deep in the archives... Seeking your book.</div>;
   if (!book) return <div className="p-10 text-center mt-20 font-serif">Book not found. Perhaps it's still being written?</div>;
@@ -637,9 +674,7 @@ const MeetingHub = () => {
                 {searchStage === 'searching' && 'Matching you'}
                 {searchStage === 'lingering' && 'Almost there'}
                 {searchStage === 'delayed' && 'Taking longer than usual'}
-                <span className="searching-dots" aria-hidden="true">
-                  <span>.</span><span>.</span><span>.</span>
-                </span>
+                <span className="searching-dots" aria-hidden="true">{searchingDots}</span>
               </h2>
               <p className="text-muted searching-subtitle">
                 {searchHint}

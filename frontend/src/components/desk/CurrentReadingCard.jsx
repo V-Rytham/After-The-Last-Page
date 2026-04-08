@@ -1,13 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import { getBestCoverUrl } from '../../utils/openLibraryCovers';
 
 const CurrentReadingCard = ({ book, session }) => {
   if (!book) {
     return (
       <article className="current-reading-card current-reading-card--empty">
-        <p>No active read yet. Open a book to start tracking your progress.</p>
-        <Link to="/library" className="desk-btn desk-btn--secondary">Browse books</Link>
+        <p>Your reading journey starts here.</p>
+        <p>Pick a book and make this space yours.</p>
+        <Link to="/library" className="desk-btn desk-btn--primary-empty">
+          Browse books <ArrowRight size={14} aria-hidden="true" />
+        </Link>
       </article>
     );
   }
