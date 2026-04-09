@@ -18,6 +18,13 @@ const initialThreadForm = { title: '', chapterReference: '', content: '' };
 const MAX_VISUAL_REPLY_DEPTH = 3;
 const COLLAPSE_REPLY_DEPTH = 4;
 const BOOK_READ_TIMEOUT_MS = 120000;
+const THREAD_CONTENT_MAX = 1000;
+const WRITING_ASSIST_CHIPS = [
+  { label: 'Ask a question', starter: 'Why do you think the author chose to...' },
+  { label: 'Share an interpretation', starter: 'One way to read this moment is...' },
+  { label: 'Highlight a character', starter: 'A character choice that stood out to me was...' },
+  { label: 'Discuss a theme', starter: 'A theme that keeps surfacing here is...' },
+];
 
 const canonicalizeThreadKey = (value) => {
   const raw = String(value || '').trim().toLowerCase();
@@ -266,6 +273,9 @@ export default function BookThread() {
   const [collapsedBranches, setCollapsedBranches] = useState({});
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
+  const trimmedThreadTitle = threadForm.title.trim();
+  const trimmedThreadContent = threadForm.content.trim();
+  const isComposerSubmitDisabled = submittingThread || !trimmedThreadTitle || !trimmedThreadContent;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -416,7 +426,12 @@ export default function BookThread() {
 
   const handleThreadFieldChange = (event) => {
     const { name, value } = event.target;
-    setThreadForm((prev) => ({ ...prev, [name]: value }));
+    const nextValue = name === 'content' ? value.slice(0, THREAD_CONTENT_MAX) : value;
+    setThreadForm((prev) => ({ ...prev, [name]: nextValue }));
+  };
+
+  const handleApplyStarter = (starter) => {
+    setThreadForm((prev) => ({ ...prev, content: starter }));
   };
 
   const handleReplyDraftChange = (key, value) => {
@@ -522,7 +537,16 @@ export default function BookThread() {
   };
 
   if (loading) {
-    return <div className="p-10 text-center mt-20">Preparing the discussion room...</div>;
+    return (
+      <div className="thread-loader" role="status" aria-live="polite" aria-label="Opening the discussion room">
+        <p>
+          Opening the discussion room
+          <span className="loader-dots" aria-hidden="true">
+            <span>.</span><span>.</span><span>.</span>
+          </span>
+        </p>
+      </div>
+    );
   }
 
   if (!book) {
@@ -566,56 +590,70 @@ export default function BookThread() {
             {showComposer && (
               <form className="composer-surface" onSubmit={handleCreateThread}>
                 <div className="composer-copy">
-                  <span className="writing-label">New discussion</span>
-                  <h2 className="font-serif">Introduce an idea the room can return to.</h2>
-                  <p>
-                    Write as if you are placing a short opening essay on the table: specific, rooted in the book,
-                    and generous enough for other readers to enter.
-                  </p>
+                  <span className="writing-label">Start a discussion</span>
+                  <h2 className="font-serif">Start a discussion</h2>
+                  <p>Share one clear idea others can respond to.</p>
                 </div>
 
                 <label className="writing-field">
-                  <span>Thread title</span>
+                  <span>Discussion title</span>
                   <input
                     name="title"
                     value={threadForm.title}
                     onChange={handleThreadFieldChange}
                     className="thread-input"
-                    placeholder="Name the question, image, conflict, or feeling you want to open"
+                    placeholder="What question or idea are you exploring?"
                     maxLength={100}
                     required
                   />
                 </label>
 
                 <label className="writing-field">
-                  <span>Book anchor</span>
+                  <span>Reference (optional)</span>
                   <input
                     name="chapterReference"
                     value={threadForm.chapterReference}
                     onChange={handleThreadFieldChange}
                     className="thread-input"
-                    placeholder="Optional: Chapter 7, final pages, opening scene..."
+                    placeholder="Chapter, scene, or moment (e.g., 'Chapter 7 ending')"
                     maxLength={80}
                   />
                 </label>
 
                 <label className="writing-field">
-                  <span>Opening discussion</span>
-                  <textarea
-                    name="content"
-                    value={threadForm.content}
-                    onChange={handleThreadFieldChange}
-                    className="thread-textarea"
-                    rows={9}
-                    placeholder="Set out your reading, the passages or moments you are drawing from, and the conversation you hope this room will have."
-                    required
-                  />
+                  <span>Your perspective</span>
+                  <div className="helper-chips" role="group" aria-label="Writing assistance">
+                    {WRITING_ASSIST_CHIPS.map((chip) => (
+                      <button
+                        key={chip.label}
+                        type="button"
+                        className="helper-chip"
+                        onClick={() => handleApplyStarter(chip.starter)}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="textarea-wrap">
+                    <textarea
+                      name="content"
+                      value={threadForm.content}
+                      onChange={handleThreadFieldChange}
+                      className="thread-textarea"
+                      rows={9}
+                      maxLength={THREAD_CONTENT_MAX}
+                      placeholder={`What stood out to you?\n\n– A moment, idea, or conflict from the book\n– Why it matters or felt interesting\n– What you want others to think about or respond to`}
+                      required
+                    />
+                    <span className={`composer-count inside ${threadForm.content.length >= THREAD_CONTENT_MAX * 0.8 ? 'near-limit' : ''}`}>
+                      {threadForm.content.length}/{THREAD_CONTENT_MAX}
+                    </span>
+                  </div>
                 </label>
 
                 <div className="composer-actions">
-                  <span className="composer-count">{threadForm.content.length}/1000</span>
-                  <button type="submit" className="thread-cta" disabled={submittingThread}>
-                    {submittingThread ? 'Placing note...' : 'Place discussion in room'}
+                  <button type="submit" className="thread-cta composer-submit" disabled={isComposerSubmitDisabled}>
+                    {submittingThread ? 'Starting discussion...' : 'Start discussion'}
                   </button>
                 </div>
               </form>
