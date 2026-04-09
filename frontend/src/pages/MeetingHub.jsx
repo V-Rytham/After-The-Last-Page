@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useNavigate, useLocation, useBlocker } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight, Video, MessageSquare, Mic, User, Send, Bot, Waves, Clock3, LogOut } from 'lucide-react';
 import { useSocketConnection } from '../context/SocketContext';
 import api from '../utils/api';
@@ -75,7 +75,6 @@ const MeetingHub = () => {
 
   const [chatInput, setChatInput] = useState('');
   const [prefType, setPrefType] = useState(initialPrefType);
-  const lastSafeHashRef = useRef(typeof window !== 'undefined' ? window.location.hash : '');
 
   useEffect(() => {
     roomIdRef.current = roomId;
@@ -326,17 +325,6 @@ const MeetingHub = () => {
     }
   }, [closeBookFriendSession, phase, roomId]);
 
-  const navigationBlocker = useBlocker(sessionIsSensitive);
-
-  useEffect(() => {
-    if (navigationBlocker.state !== 'blocked') {
-      return;
-    }
-    setLeavePromptBody('You will disconnect from this reader.');
-    pendingLeaveActionRef.current = () => navigationBlocker.proceed();
-    setLeavePromptOpen(true);
-  }, [navigationBlocker]);
-
   useEffect(() => {
     if (!socketReady) {
       return;
@@ -384,13 +372,6 @@ const MeetingHub = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [sessionIsSensitive]);
-
-  useEffect(() => {
-    if (!sessionIsSensitive && navigationBlocker.state === 'blocked') {
-      navigationBlocker.reset();
-    }
-    if (typeof window !== 'undefined') lastSafeHashRef.current = window.location.hash;
-  }, [navigationBlocker, sessionIsSensitive]);
 
 	  const cleanupMedia = useCallback(() => {
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
@@ -885,9 +866,6 @@ const MeetingHub = () => {
                 onClick={() => {
                   setLeavePromptOpen(false);
                   pendingLeaveActionRef.current = null;
-                  if (navigationBlocker.state === 'blocked') {
-                    navigationBlocker.reset();
-                  }
                 }}
               >
                 Cancel
