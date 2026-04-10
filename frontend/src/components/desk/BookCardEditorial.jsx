@@ -19,13 +19,29 @@ const getReadingState = (session) => {
   return { status: 'not-started', readingProgress: 0 };
 };
 
+const getReaderRoute = (book) => {
+  const gutenbergId = String(book?.gutenbergId || '').trim();
+  if (gutenbergId) {
+    return `/read/gutenberg/${encodeURIComponent(gutenbergId)}`;
+  }
+
+  const source = String(book?.source || '').trim().toLowerCase();
+  const sourceId = String(book?.sourceId || '').trim();
+  if (source && sourceId) {
+    return `/read/${encodeURIComponent(`${source}:${sourceId}`)}`;
+  }
+
+  const internalId = String(book?.bookId || book?._id || book?.id || '').trim();
+  if (internalId) {
+    return `/read/${encodeURIComponent(internalId)}`;
+  }
+
+  return '/read';
+};
+
 const BookCardEditorial = ({ book, session, recommendationReason = '', onOpen = null }) => {
   const coverUrl = getBestCoverUrl(book);
-  const route = book?.gutenbergId
-    ? `/read/gutenberg/${book.gutenbergId}`
-    : (book?.source && book?.sourceId
-      ? `/read/${encodeURIComponent(`${String(book.source).trim().toLowerCase()}:${String(book.sourceId).trim()}`)}`
-      : '/library');
+  const route = getReaderRoute(book);
   const title = String(book?.title || 'Untitled').trim() || 'Untitled';
   const author = String(book?.author || 'Unknown author').trim() || 'Unknown author';
 
