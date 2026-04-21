@@ -340,15 +340,7 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
   return (
     <div className="profile-page animate-fade-in">
       <header className="profile-head">
-        <div>
-          <h1 className="font-serif">Profile</h1>
-        </div>
-
-        {!editing ? (
-          <button type="button" className="btn-secondary profile-edit-btn" onClick={handleStartEditing}>
-            <PencilLine size={16} /> Edit profile
-          </button>
-        ) : null}
+        <h1 className="font-serif">Profile</h1>
       </header>
 
       {(error || success) && (
@@ -358,26 +350,33 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
       )}
 
       <section className="profile-hero glass-panel" aria-label="Public profile overview">
-        <div className="profile-identity">
-          <div className="profile-avatar-shell" aria-hidden="true">
-            {profileImageUrl && !imageFailed ? (
-              <img src={profileImageUrl} alt="" onError={() => setImageFailed(true)} loading="lazy" />
-            ) : (
-              <span>{displayName.charAt(0).toUpperCase()}</span>
-            )}
-          </div>
+        <div className="profile-hero-main">
+          <div className="profile-identity">
+            <div className="profile-avatar-shell" aria-hidden="true">
+              {profileImageUrl && !imageFailed ? (
+                <img src={profileImageUrl} alt="" onError={() => setImageFailed(true)} loading="lazy" />
+              ) : (
+                <span>{displayName.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
 
-          <div className="profile-identity-copy">
-            <h2 className="font-serif">{displayName}</h2>
-            <div className="profile-meta-line">
-              <span>{username}</span>
-              <span aria-hidden="true">•</span>
-              <span>Joined {joinedDate}</span>
-              {bio ? <span className="profile-bio-inline">{bio}</span> : null}
+            <div className="profile-identity-copy">
+              <div className="profile-name-row">
+                <h2 className="font-serif">{displayName}</h2>
+                {!editing ? (
+                  <button type="button" className="btn-secondary profile-edit-btn" onClick={handleStartEditing}>
+                    <PencilLine size={16} /> Edit profile
+                  </button>
+                ) : null}
+              </div>
+              <div className="profile-meta-line">
+                <span>{username}</span>
+                <span aria-hidden="true">•</span>
+                <span>Joined {joinedDate}</span>
+              </div>
             </div>
           </div>
         </div>
-
       </section>
 
       <section className="profile-grid">
@@ -389,42 +388,35 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
 
             {!editing ? (
               <div className="profile-details-panel">
-                <div className="profile-details-group" aria-label="Profile details">
-                  <dl className="profile-details-grid">
-                    <div className="profile-detail">
-                      <dt>Name</dt>
-                      <dd>{displayName}</dd>
-                    </div>
-                    <div className="profile-detail">
-                      <dt>Username</dt>
-                      <dd>{username}</dd>
-                    </div>
-                  </dl>
-                </div>
-
-                <div className="profile-details-group" aria-label="Contact">
-                  <h3>Contact</h3>
-                  <dl className="profile-details-grid">
-                    <div className="profile-detail">
-                      <dt>Email</dt>
-                      <dd>{email}</dd>
-                    </div>
-                  </dl>
-                </div>
-
-                <div className="profile-details-group" aria-label="Joined info">
-                  <dl className="profile-details-grid">
-                    <div className="profile-detail">
-                      <dt>Joined</dt>
-                      <dd>{joinedDate}</dd>
-                    </div>
-                  </dl>
-                </div>
-
-                <div className="profile-details-group profile-details-group-bio" aria-label="Bio">
-                  <h3>Bio</h3>
-                  <p>{bio}</p>
-                </div>
+                <dl className="profile-details-stack">
+                  <div className="profile-detail profile-detail-stacked">
+                    <dt>Name</dt>
+                    <dd>{displayName}</dd>
+                  </div>
+                  <div className="profile-detail profile-detail-stacked">
+                    <dt>Username</dt>
+                    <dd>{username}</dd>
+                  </div>
+                  <div className="profile-detail profile-detail-stacked">
+                    <dt>Email</dt>
+                    <dd>{email}</dd>
+                  </div>
+                  <div className="profile-detail profile-detail-stacked">
+                    <dt>Joined</dt>
+                    <dd>{joinedDate}</dd>
+                  </div>
+                </dl>
+                {bio ? (
+                  <div className="profile-details-group profile-details-group-bio" aria-label="Bio">
+                    <h3>Bio</h3>
+                    <p>{bio}</p>
+                  </div>
+                ) : (
+                  <div className="profile-details-group profile-details-group-bio profile-bio-empty" aria-label="Bio">
+                    <h3>Bio</h3>
+                    <p>Add a bio</p>
+                  </div>
+                )}
               </div>
             ) : (
               <form className="profile-form" onSubmit={handleSave}>
@@ -484,23 +476,16 @@ const ProfilePage = ({ currentUser, onUserUpdate }) => {
             <div className="profile-card-head">
               <h2 className="font-serif">Reading stats</h2>
             </div>
-
-            <div className="profile-stats-grid">
-              <article className="profile-stat-tile">
-                <strong>{loading ? '…' : stats.booksCompleted}</strong>
-                <span>Books completed</span>
-              </article>
-              <article className="profile-stat-tile">
-                <strong>{loading ? '…' : stats.discussionsParticipated}</strong>
-                <span>Discussions participated</span>
-              </article>
-            </div>
+            <p className="profile-stats-inline">
+              {loading ? '…' : stats.booksCompleted} books completed
+              <span aria-hidden="true"> · </span>
+              {loading ? '…' : stats.discussionsParticipated} discussions
+            </p>
           </section>
           <section className="profile-card glass-panel" aria-label="Preferred genres">
             <div className="profile-card-head">
               <h2 className="font-serif">Preferred genres</h2>
             </div>
-            <p className="profile-inline-note">Select a few genres and your library will be curated instantly.</p>
             <GenreSelector
               selectedGenres={selectedGenres}
               disabled={savingGenres}
