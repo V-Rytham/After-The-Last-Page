@@ -220,6 +220,7 @@ export default function BookThread() {
     }
     return parsedSourceRoute ? parsedSourceRoute.composite : String(bookId || '').trim();
   }, [bookId, customThreadTitle, isCustomThread, parsedSourceRoute]);
+  const selectedBookId = useMemo(() => String(threadBookKey || '').trim(), [threadBookKey]);
   const actorId = useMemo(() => {
     const stored = getStoredUser();
     return stored?._id ? String(stored._id) : null;
@@ -242,6 +243,20 @@ export default function BookThread() {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!selectedBookId) {
+        setThreads([]);
+        setLoading(false);
+        return;
+      }
+
+      if (!isCustomThread && !selectedBookId.includes(':')) {
+        console.warn('Invalid book ID');
+        setThreads([]);
+        setError('Invalid book data');
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError('');
 
@@ -278,21 +293,20 @@ export default function BookThread() {
           });
         }
 
-        return api.get(`/books/${encodeURIComponent(bookId)}`);
+        return api.get(`/books/${bookId}`);
       })();
-
-      const threadsRequest = isCustomThread
-        ? Promise.resolve({ data: { items: [] } })
-        : api.get(`/books/${encodeURIComponent(threadBookKey)}/threads`, {
-            params: {
-              page: 1,
-              limit: 25,
-            },
-          });
 
       const [bookResult, threadsResult] = await Promise.allSettled([
         bookRequest,
-        threadsRequest,
+        isCustomThread
+          ? Promise.resolve({ data: { items: [] } })
+          : api.get(`/books/${selectedBookId}/threads`, {
+              params: {
+                page: 1,
+                limit: 25,
+              },
+              validateStatus: () => true,
+            }),
       ]);
 
       if (bookResult.status === 'fulfilled') {
@@ -313,13 +327,43 @@ export default function BookThread() {
       }
 
       if (threadsResult.status === 'fulfilled') {
-        const payload = threadsResult.value.data;
+        const response = threadsResult.value;
+        if (!isCustomThread && response.status === 400) {
+          setError('Invalid book data');
+          setThreads([]);
+          setLoading(false);
+          return;
+        }
+
+        if (!isCustomThread && response.status >= 400) {
+          setThreads([]);
+          setError('The discussion room is unavailable right now.');
+          console.error('Thread fetch failed', {
+            status: response.status,
+            bookId: selectedBookId,
+          });
+          setLoading(false);
+          return;
+        }
+
+        const payload = response.data;
         const normalized = Array.isArray(payload?.items)
           ? payload.items
           : (Array.isArray(payload) ? payload : []);
         setThreads(normalized);
       } else {
-        console.error('Failed to fetch thread data:', threadsResult.reason);
+        const status = threadsResult.reason?.response?.status || null;
+        if (status === 400) {
+          setError('Invalid book data');
+          setThreads([]);
+          setLoading(false);
+          return;
+        }
+
+        console.error('Thread fetch failed', {
+          status,
+          bookId: selectedBookId,
+        });
         setThreads([]);
         setError('The discussion room is unavailable right now.');
       }
@@ -328,7 +372,7 @@ export default function BookThread() {
     };
 
     fetchData();
-  }, [bookId, customThreadTitle, isCustomThread, location?.state?.book, navigate, parsedSourceRoute, threadBookKey]);
+  }, [bookId, customThreadTitle, isCustomThread, location?.state?.book, navigate, parsedSourceRoute, selectedBookId, threadBookKey]);
 
   const buildReplyTree = (messages, rootMessageId) => {
     const nodes = new Map();

@@ -5,6 +5,15 @@ import { forbidden, unauthorized, sendError } from './httpErrors.js';
 import { parseObjectId } from './validators.js';
 
 const service = new BookThreadsService();
+const decodeBookIdParam = (bookId) => {
+  const raw = String(bookId || '').trim();
+  if (!raw) return raw;
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+};
 
 const requireUserOrThrow = (req) => {
   if (!req.user?._id) {
@@ -26,7 +35,7 @@ const requireUserOrThrow = (req) => {
 export const createThread = async (req, res) => {
   try {
     const actorId = requireUserOrThrow(req);
-    const book = await resolveBookOrThrow(req.params.bookId);
+    const book = await resolveBookOrThrow(decodeBookIdParam(req.params.bookId));
 
     const payload = await service.createThread({
       bookId: book._id,
@@ -45,7 +54,7 @@ export const createThread = async (req, res) => {
 export const listThreadsByBook = async (req, res) => {
   try {
     requireUserOrThrow(req);
-    const book = await resolveBookOrThrow(req.params.bookId);
+    const book = await resolveBookOrThrow(decodeBookIdParam(req.params.bookId));
     const payload = await service.listThreadsByBook({ bookId: book._id, query: req.query });
     return res.json(payload);
   } catch (error) {

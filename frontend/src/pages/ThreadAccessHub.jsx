@@ -28,6 +28,7 @@ export default function ThreadAccessHub({ currentUser }) {
   const isMember = Boolean(currentUser && !currentUser.isAnonymous);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedBook, setSelectedBook] = useState(null);
   const { books, loading, error, query } = useGlobalSearch(searchTerm);
 
   const hasQuery = Boolean(query);
@@ -89,7 +90,10 @@ export default function ThreadAccessHub({ currentUser }) {
 
       <section className="thread-access-grid" aria-label="Thread search results">
         {!loading && !error && results.map((book) => (
-          <article key={book.compositeId} className="thread-access-card glass-panel">
+          <article
+            key={book.compositeId}
+            className={`thread-access-card glass-panel${selectedBook?.compositeId === book.compositeId ? ' is-selected' : ''}`}
+          >
             <div className="thread-access-card-body">
               <h3 className="thread-access-title font-serif">{book.title}</h3>
               <p className="thread-access-author">{book.author}</p>
@@ -98,7 +102,10 @@ export default function ThreadAccessHub({ currentUser }) {
             <div className="thread-access-actions">
               <button
                 className="btn-primary sm thread-access-button"
-                onClick={() => navigate(`/thread/${encodeURIComponent(book.compositeId)}`, { state: { book } })}
+                onClick={() => {
+                  setSelectedBook(book);
+                  navigate(`/thread/${book.compositeId}`, { state: { book } });
+                }}
               >
                 Open thread <ArrowRight size={14} />
               </button>
