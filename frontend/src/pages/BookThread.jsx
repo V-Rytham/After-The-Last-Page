@@ -4,8 +4,7 @@ import {
   ArrowLeft,
   Heart,
   ScrollText,
-  Send,
-  Share2,
+  X,
 } from 'lucide-react';
 import api from '../utils/api';
 import { getStoredUser } from '../utils/auth';
@@ -135,10 +134,10 @@ const ReplyTree = ({
                 className={`reply-action like-button ${isHearted ? 'is-liked' : ''}`}
                 onClick={() => onLikeComment(threadId, comment._id)}
                 aria-pressed={isHearted}
-                title={isHearted ? 'Remove heart' : 'Send a heart'}
+                title={isHearted ? 'Unlike' : 'Like'}
               >
                 <Heart size={16} aria-hidden="true" fill={isHearted ? 'currentColor' : 'none'} />
-                {comment.likes > 0 && <span className="like-count">{comment.likes}</span>}
+                <span className="sr-only">{comment.likes || 0} likes</span>
               </button>
             </div>
 
@@ -150,24 +149,20 @@ const ReplyTree = ({
                   onSubmitReply(threadId, comment._id);
                 }}
               >
-                <div className="writing-surface-copy">
-                  <span className="writing-label">Response</span>
-                  <p>Add your response to this thread</p>
-                </div>
+                <h3 className="composer-heading">Reply</h3>
                 <textarea
                   className="thread-textarea compact"
                   rows={4}
                   value={replyDrafts[replyKey] || ''}
                   onChange={(event) => onReplyDraftChange(replyKey, event.target.value)}
-                  placeholder={`Reply to ${getAuthorDisplayName(comment)}...`}
+                  placeholder="Write something..."
                 />
                 <div className="inline-reply-actions">
                   <button type="button" className="text-button" onClick={() => onToggleReply(null)}>
-                    Close
+                    Cancel
                   </button>
                   <button type="submit" className="thread-cta" disabled={pendingReplyKey === replyKey}>
-                    <Send size={15} />
-                    {pendingReplyKey === replyKey ? 'Placing response...' : 'Place response'}
+                    {pendingReplyKey === replyKey ? 'Posting...' : 'Post'}
                   </button>
                 </div>
               </form>
@@ -440,6 +435,12 @@ export default function BookThread() {
   }, [location.state]);
 
   useEffect(() => {
+    if (!feedback) return undefined;
+    const timer = window.setTimeout(() => setFeedback(''), 3600);
+    return () => window.clearTimeout(timer);
+  }, [feedback]);
+
+  useEffect(() => {
     const selectedFromQuery = new URLSearchParams(location.search).get('thread');
     if (!selectedFromQuery) {
       return;
@@ -602,17 +603,6 @@ export default function BookThread() {
     }
   };
 
-  const handleShareThread = async (threadId) => {
-    const shareUrl = `${window.location.origin}/#/thread/${encodeURIComponent(threadBookKey)}?thread=${threadId}`;
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setFeedback('A direct link to this discussion has been copied.');
-    } catch {
-      setFeedback('Copy failed. You can copy the page URL manually.');
-    }
-  };
-
   if (loading) {
     return (
       <div className="thread-loader" role="status" aria-live="polite" aria-label="Opening the discussion room">
@@ -719,7 +709,15 @@ export default function BookThread() {
 
             {(error || feedback) && (
               <div className={`thread-banner ${error ? 'error' : 'success'}`}>
-                {error || feedback}
+                <span>{error || feedback}</span>
+                <button
+                  type="button"
+                  className="banner-dismiss"
+                  onClick={() => (error ? setError('') : setFeedback(''))}
+                  aria-label="Dismiss message"
+                >
+                  <X size={14} />
+                </button>
               </div>
             )}
 
@@ -771,7 +769,15 @@ export default function BookThread() {
 
             {(error || feedback) && (
               <div className={`thread-banner ${error ? 'error' : 'success'}`}>
-                {error || feedback}
+                <span>{error || feedback}</span>
+                <button
+                  type="button"
+                  className="banner-dismiss"
+                  onClick={() => (error ? setError('') : setFeedback(''))}
+                  aria-label="Dismiss message"
+                >
+                  <X size={14} />
+                </button>
               </div>
             )}
 
@@ -793,25 +799,22 @@ export default function BookThread() {
               <div className="thread-focus-actions">
                 <button
                   type="button"
-                  className={`reply-action like-button ${selectedThreadIsHearted ? 'is-liked' : ''}`}
-                  onClick={() => handleLikeThread(selectedThread._id)}
-                  aria-pressed={selectedThreadIsHearted}
-                  title={selectedThreadIsHearted ? 'Remove heart' : 'Send a heart'}
-                >
-                  <Heart size={16} aria-hidden="true" fill={selectedThreadIsHearted ? 'currentColor' : 'none'} />
-                  {selectedThread.likes > 0 && <span className="like-count">{selectedThread.likes}</span>}
-                </button>
-                <button
-                  type="button"
                   className="reply-action"
                   onClick={() => setReplyingTo((current) => (
                     current === `thread-${selectedThread._id}` ? null : `thread-${selectedThread._id}`
                   ))}
                 >
-                  Add response
+                  Reply
                 </button>
-                <button type="button" className="reply-action" onClick={() => handleShareThread(selectedThread._id)}>
-                  <Share2 size={15} /> Share link
+                <button
+                  type="button"
+                  className={`reply-action like-button ${selectedThreadIsHearted ? 'is-liked' : ''}`}
+                  onClick={() => handleLikeThread(selectedThread._id)}
+                  aria-pressed={selectedThreadIsHearted}
+                  title={selectedThreadIsHearted ? 'Unlike' : 'Like'}
+                >
+                  <Heart size={16} aria-hidden="true" fill={selectedThreadIsHearted ? 'currentColor' : 'none'} />
+                  <span className="sr-only">{selectedThread.likes || 0} likes</span>
                 </button>
               </div>
             </article>
@@ -824,29 +827,24 @@ export default function BookThread() {
                   handleSubmitReply(selectedThread._id);
                 }}
               >
-                <div className="writing-surface-copy">
-                  <span className="writing-label">Your response</span>
-                  <h2 className="font-serif">Add your response to this thread</h2>
-                  <p>Write your response</p>
-                </div>
+                <h2 className="composer-heading">Reply</h2>
                 <textarea
                   className="thread-textarea compact"
                   rows={6}
                   value={replyDrafts[`thread-${selectedThread._id}`] || ''}
                   onChange={(event) => handleReplyDraftChange(`thread-${selectedThread._id}`, event.target.value)}
-                  placeholder="Add your perspective to the discussion..."
+                  placeholder="Write something..."
                 />
                 <div className="inline-reply-actions">
                   <button type="button" className="text-button" onClick={() => setReplyingTo(null)}>
-                    Close
+                    Cancel
                   </button>
                   <button
                     type="submit"
                     className="thread-cta"
                     disabled={pendingReplyKey === `thread-${selectedThread._id}`}
                   >
-                    <Send size={15} />
-                    {pendingReplyKey === `thread-${selectedThread._id}` ? 'Placing response...' : 'Place response'}
+                    {pendingReplyKey === `thread-${selectedThread._id}` ? 'Posting...' : 'Post'}
                   </button>
                 </div>
               </form>
