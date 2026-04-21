@@ -241,10 +241,10 @@
 .thread-list-item,
 .thread-focus-post,
 .thread-replies {
-  border: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
-  border-radius: 1rem;
-  background: linear-gradient(165deg, color-mix(in srgb, var(--surface-1) 94%, transparent), color-mix(in srgb, var(--surface-2) 88%, transparent));
-  box-shadow: var(--shadow-panel);
+  border: 1px solid color-mix(in srgb, var(--border-soft) 38%, transparent);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--surface-1) 92%, transparent);
+  box-shadow: none;
 }
 
 .composer-surface {
@@ -357,9 +357,31 @@
 }
 
 .thread-banner {
-  padding: 0.8rem 0.9rem;
+  position: relative;
+  padding: 0.55rem 2rem 0.55rem 0.75rem;
   border: 1px solid var(--border-soft);
   border-radius: 0.85rem;
+  font-size: 0.86rem;
+  display: flex;
+  align-items: flex-start;
+}
+
+.banner-dismiss {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  min-height: 1.4rem;
+  min-width: 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--text-muted);
+}
+
+.banner-dismiss:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-2) 68%, transparent);
 }
 
 .thread-banner.success { background: var(--success-soft); }
@@ -402,10 +424,8 @@
 .like-button {
   display: inline-flex;
   align-items: center;
-  gap: 0.34rem;
+  justify-content: center;
   border-radius: 999px;
-  border: 1px solid var(--border-soft);
-  background: var(--surface-muted);
 }
 
 .resonance-pill {
@@ -413,16 +433,24 @@
 }
 
 .like-button {
-  min-height: 1.85rem;
-  padding: 0 0.55rem;
+  min-height: 1.5rem;
+  min-width: 1.5rem;
+  padding: 0;
   background: transparent;
+  border: 0;
+  color: var(--text-muted);
 }
 
-.like-button:hover { background: var(--surface-muted); }
+.like-button:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+}
+.like-button:active {
+  transform: translateY(1px);
+}
 .like-button.is-liked {
   color: var(--accent-ink);
-  border-color: var(--accent-border);
-  background: color-mix(in srgb, var(--accent-soft) 58%, transparent);
+  background: transparent;
 }
 
 .thread-book-context {
@@ -448,7 +476,7 @@
 
 .thread-focus-post,
 .thread-replies {
-  padding: 0.9rem;
+  padding: 0.75rem;
   gap: 0.65rem;
 }
 
@@ -476,12 +504,12 @@
 
 .reply-content {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .thread-replies,
 .reply-children {
-  gap: 1.1rem;
+  gap: 1rem;
 }
 
 .reply-main {
@@ -490,13 +518,16 @@
 
 .inline-reply-form {
   display: grid;
-  gap: 0.75rem;
-  padding: 0.8rem;
+  gap: 0.45rem;
+  padding: 0.2rem 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .reply-node {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.35rem;
   margin-left: calc(var(--reply-depth) * 0.9rem);
 }
 
@@ -505,15 +536,62 @@
 }
 
 .reply-meta {
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.2rem;
+  font-size: 0.76rem;
+  opacity: 0.68;
+  gap: 0.3rem;
 }
 
 .reply-actions {
-  margin-top: 0.6rem;
+  margin-top: 0.5rem;
+  gap: 0.4rem;
 }
 
 .reply-children {
-  margin-top: 1.1rem;
+  margin-top: 1rem;
+}
+
+.reply-main > .reply-content {
+  margin-top: 6px;
+}
+
+.reply-main > .reply-actions {
+  margin-top: 8px;
+}
+
+.composer-heading {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.inline-reply-actions {
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.inline-reply-actions .thread-cta {
+  margin-left: auto;
+}
+
+.thread-focus-meta {
+  font-size: 0.77rem;
+  opacity: 0.68;
+  gap: 0.3rem;
+}
+
+.thread-focus-content {
+  margin-top: 6px;
+}
+
+.thread-focus-actions {
+  margin-top: 8px;
+  gap: 0.4rem;
+}
+
+.reply-action {
+  font-size: 0.84rem;
 }
 
 .branch-toggle {
