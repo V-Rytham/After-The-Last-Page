@@ -1,12 +1,10 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Search, ShieldCheck } from 'lucide-react';
 import useGlobalSearch from '../hooks/useGlobalSearch';
 import { useSocketConnection } from '../context/SocketContext';
 import api from '../utils/api';
 import './MeetingAccessHub.css';
-
-const toList = (value) => (Array.isArray(value) ? value : []);
 
 const normalizeBook = (book) => {
   const source = String(book?.source || '').trim().toLowerCase();
@@ -16,7 +14,6 @@ const normalizeBook = (book) => {
   return {
     title: String(book?.title || 'Untitled').trim() || 'Untitled',
     author: String(book?.author || 'Unknown author').trim() || 'Unknown author',
-    cover: String(book?.coverImage || '').trim(),
     source,
     source_book_id: sourceBookId,
   };
@@ -28,46 +25,22 @@ export default function MeetingAccessHub({ currentUser }) {
   const { socketConnected, socketConnecting, socketError, ensureConnected } = useSocketConnection();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [featuredBooks, setFeaturedBooks] = useState([]);
-  const [featuredLoading, setFeaturedLoading] = useState(false);
   const [joiningKey, setJoiningKey] = useState('');
   const [joinNotice, setJoinNotice] = useState('');
   const { books, loading, error, query } = useGlobalSearch(searchTerm);
 
   const hasQuery = Boolean(query);
-  const normalizedSearchResults = useMemo(() => toList(books).map(normalizeBook).filter(Boolean), [books]);
-  const normalizedFeatured = useMemo(() => toList(featuredBooks).map(normalizeBook).filter(Boolean), [featuredBooks]);
-  const visibleBooks = hasQuery ? normalizedSearchResults : normalizedFeatured;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadFeaturedBooks = async () => {
-      setFeaturedLoading(true);
-      try {
-        const { data } = await api.get('/books/search', { params: { q: 'classic literature' } });
-        if (cancelled) return;
-        setFeaturedBooks(toList(data?.results).slice(0, 12));
-      } catch {
-        if (!cancelled) setFeaturedBooks([]);
-      } finally {
-        if (!cancelled) setFeaturedLoading(false);
-      }
-    };
-
-    if (isMember) {
-      loadFeaturedBooks();
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isMember]);
+  const visibleBooks = useMemo(
+    () => (Array.isArray(books) ? books : []).map(normalizeBook).filter(Boolean),
+    [books],
+  );
 
   const handleJoinDiscussion = async (book) => {
     const key = `${book.source}:${book.source_book_id}`;
+    if (joiningKey) return;
+
     if (!socketConnected) {
-      setJoinNotice(socketConnecting ? 'Connectingâ€¦' : 'Connecting to chatâ€¦');
+      setJoinNotice(socketConnecting ? 'Connecting...' : 'Connecting to chat...');
       return;
     }
 
@@ -82,7 +55,6 @@ export default function MeetingAccessHub({ currentUser }) {
 
     try {
       const { data } = await attemptJoin();
-
       const roomId = String(data?.room_id || data?.canonical_book_id || '').trim();
       if (!roomId) throw new Error('Could not start chat.');
 
@@ -105,7 +77,7 @@ export default function MeetingAccessHub({ currentUser }) {
         && (/no active socket connection/i.test(serverMessage) || serverMessage === 'SOCKET_NOT_CONNECTED');
 
       if (socketMismatch) {
-        setJoinNotice('Reconnectingâ€¦');
+        setJoinNotice('Reconnecting...');
         try {
           await ensureConnected({ forceReconnect: true });
           const { data } = await attemptJoin();
@@ -163,52 +135,31 @@ export default function MeetingAccessHub({ currentUser }) {
       <section className="meeting-access-hero">
         <div className="meeting-access-hero-copy">
           <h1 className="font-serif">Find a book. Start a chat.</h1>
-          <p>Start a private conversation with another reader.</p>
-          <p className="meeting-access-live-state">
-            {socketConnected ? 'Ready' : (socketConnecting ? 'Connectingâ€¦' : 'Connectingâ€¦')}
-          </p>
+          <p>Search for a book, select it, then begin your private conversation.</p>
+          {!socketConnected ? <p className="meeting-access-live-state">{socketConnecting ? 'Connecting...' : 'Connecting...'}</p> : null}
           {!socketConnected && socketError ? <p className="meeting-access-live-error">{socketError}</p> : null}
           {joinNotice ? <p className="meeting-access-live-error">{joinNotice}</p> : null}
         </div>
-        <label className="meeting-access-search" htmlFor="meeting-search-input">
-          <Search size={16} aria-hidden="true" />
-          <input
-            id="meeting-search-input"
-            type="search"
-            value={searchTerm}
-            placeholder="Search by title or author"
-            onChange={(event) => setSearchTerm(event.target.value)}
-            aria-label="Search books to meet"
-          />
-        </label>
       </section>
+
+      <label className="meeting-access-search" htmlFor="meeting-search-input">
+        <Search size={16} aria-hidden="true" />
+        <input
+          id="meeting-search-input"
+          type="search"
+          value={searchTerm}
+          placeholder="Search by title or author"
+          onChange={(event) => setSearchTerm(event.target.value)}
+          aria-label="Search books to meet"
+        />
+      </label>
+
+      {hasQuery && loading ? <p className="meeting-access-inline-status">Searching...</p> : null}
 
       {error && hasQuery ? (
         <section className="meeting-access-empty glass-panel">
           <h2 className="font-serif">Unable to load books right now.</h2>
           <p>{error}</p>
-        </section>
-      ) : null}
-
-      {loading ? (
-        <section className="meeting-access-results" aria-label="Loading books">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <article key={`skeleton-${index}`} className="meeting-book-card meeting-book-card--skeleton glass-panel" aria-hidden="true">
-              <div className="meeting-book-skeleton-line meeting-book-skeleton-line--title" />
-              <div className="meeting-book-skeleton-line meeting-book-skeleton-line--subtitle" />
-            </article>
-          ))}
-        </section>
-      ) : null}
-
-      {!loading && !hasQuery && featuredLoading && visibleBooks.length === 0 ? (
-        <section className="meeting-access-results" aria-label="Loading books">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <article key={`featured-skeleton-${index}`} className="meeting-book-card meeting-book-card--skeleton glass-panel" aria-hidden="true">
-              <div className="meeting-book-skeleton-line meeting-book-skeleton-line--title" />
-              <div className="meeting-book-skeleton-line meeting-book-skeleton-line--subtitle" />
-            </article>
-          ))}
         </section>
       ) : null}
 
@@ -229,8 +180,8 @@ export default function MeetingAccessHub({ currentUser }) {
                   disabled={Boolean(joiningKey) || !socketConnected}
                   onClick={() => handleJoinDiscussion(book)}
                 >
-                  {isJoining || !socketConnected ? <span className="meeting-cta-spinner" aria-hidden="true" /> : null}
-                  {isJoining ? 'Startingâ€¦' : (socketConnected ? 'Start Chat' : 'Connectingâ€¦')}
+                  {isJoining ? <span className="meeting-cta-spinner" aria-hidden="true" /> : null}
+                  {isJoining ? 'Starting...' : (socketConnected ? 'Start Chat' : 'Connecting...')}
                 </button>
               </article>
             );
@@ -240,11 +191,10 @@ export default function MeetingAccessHub({ currentUser }) {
 
       {!loading && !error && hasQuery && visibleBooks.length === 0 ? (
         <section className="meeting-access-empty glass-panel">
-          <h2 className="font-serif">No books found.</h2>
-          <p>Try a different title or author.</p>
+          <h2 className="font-serif">No books found</h2>
+          <p>Try a different title</p>
         </section>
       ) : null}
     </div>
   );
 }
-

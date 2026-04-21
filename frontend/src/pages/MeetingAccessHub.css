@@ -20,25 +20,21 @@
 .meeting-access-gate-actions { display: flex; justify-content: center; }
 .meeting-access-gate-footnote { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: var(--font-size-0); justify-content: center; }
 
-.meeting-access-hero {
-  display: grid;
-  grid-template-columns: 1fr minmax(16rem, 23rem);
-  gap: 1rem;
-  align-items: end;
-}
-
 .meeting-access-hero-copy h1 { margin: 0; font-size: clamp(1.35rem, 1.08rem + 1.1vw, 2rem); line-height: 1.15; }
 .meeting-access-hero-copy p { margin: 0.35rem 0 0; color: var(--text-secondary); }
+
 .meeting-access-live-state {
   font-size: 0.82rem;
   color: var(--text-muted);
 }
+
 .meeting-access-live-error {
   font-size: 0.8rem;
   color: var(--intent-danger-text);
 }
 
 .meeting-access-search {
+  width: min(100%, 28rem);
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -46,8 +42,30 @@
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-soft);
   background: var(--surface-1);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
-.meeting-access-search input { width: 100%; border: none; outline: none; background: transparent; }
+
+.meeting-access-search input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+.meeting-access-search input::selection {
+  background: transparent;
+}
+
+.meeting-access-search:focus-within {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--selection) 40%, transparent);
+}
+
+.meeting-access-inline-status {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
 
 .meeting-access-results { display: grid; gap: 0.75rem; }
 
@@ -69,6 +87,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .meeting-book-author {
   margin: 0.2rem 0 0;
   color: var(--text-muted);
@@ -91,10 +110,12 @@
   font-size: 0.82rem;
   white-space: nowrap;
 }
+
 .meeting-book-cta:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
+
 .meeting-cta-spinner {
   width: 0.85rem;
   height: 0.85rem;
@@ -104,24 +125,12 @@
   animation: meeting-cta-spin 0.85s linear infinite;
 }
 
-.meeting-book-card--skeleton { grid-template-columns: 1fr; }
-.meeting-book-skeleton-line {
-  height: 0.8rem;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--surface-muted), var(--surface-1), var(--surface-muted));
-  background-size: 200% 100%;
-  animation: meeting-skeleton 1.2s linear infinite;
-}
-.meeting-book-skeleton-line--title { width: 55%; }
-.meeting-book-skeleton-line--subtitle { width: 35%; }
-
 .meeting-access-empty { padding: 1rem; border-radius: var(--radius-lg); }
 
-@keyframes meeting-skeleton { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @keyframes meeting-cta-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 @media (max-width: 800px) {
-  .meeting-access-hero { grid-template-columns: 1fr; }
   .meeting-book-card { grid-template-columns: 1fr; gap: 0.65rem; }
   .meeting-book-cta { justify-self: start; }
+  .meeting-access-search { width: 100%; }
 }

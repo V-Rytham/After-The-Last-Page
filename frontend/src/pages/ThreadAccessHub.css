@@ -8,28 +8,27 @@
   gap: 0.95rem;
 }
 
-.thread-access-hero {
-  margin: 0;
-}
-
-.thread-access-hero-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.1rem;
-  flex-wrap: wrap;
-}
-
 .thread-access-copy {
-  flex: 1 1 26rem;
   max-width: 42rem;
   display: grid;
   gap: 0.45rem;
 }
 
+.thread-access-copy h1 {
+  max-width: 28ch;
+  font-size: clamp(1.55rem, 3.2vw, 2.15rem);
+  line-height: 1.15;
+}
+
+.thread-access-copy p {
+  max-width: 70ch;
+  line-height: 1.65;
+  font-size: 0.98rem;
+  color: var(--text-secondary);
+}
+
 .thread-access-search {
-  width: clamp(14rem, 28vw, 20rem);
-  max-width: 100%;
+  width: min(100%, 28rem);
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
@@ -37,12 +36,7 @@
   border-radius: var(--radius-pill);
   background: var(--surface-muted);
   border: 1px solid var(--border-soft);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition:
-    border-color var(--transition-fast),
-    background-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .thread-access-search svg {
@@ -61,69 +55,23 @@
   line-height: 1.3;
 }
 
+.thread-access-search input::selection {
+  background: transparent;
+}
+
 .thread-access-search input::placeholder {
   color: var(--text-muted);
 }
 
 .thread-access-search:focus-within {
   border-color: var(--border-strong);
-  box-shadow: 0 0 0 3px var(--selection);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--selection) 40%, transparent);
 }
 
-.thread-access-badge {
-  width: fit-content;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.3rem 0.7rem;
-  border-radius: var(--radius-pill);
-  color: var(--accent-ink);
-  box-shadow: none;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-border);
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.thread-access-copy h1 {
-  max-width: 28ch;
-  font-size: clamp(1.55rem, 3.2vw, 2.15rem);
-  line-height: 1.15;
-  text-wrap: balance;
-}
-
-.thread-access-copy p {
-  max-width: 70ch;
-  line-height: 1.65;
-  font-size: 0.98rem;
-  color: var(--text-secondary);
-}
-
-.thread-access-notice {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: center;
-  padding: 0.95rem 1rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-soft);
-  background: var(--warning-soft);
-}
-
-.thread-access-notice-copy {
-  display: grid;
-  gap: 0.15rem;
-}
-
-.thread-access-notice-copy strong {
-  color: var(--text-primary);
-}
-
-.thread-access-notice-actions {
-  display: flex;
-  gap: 0.65rem;
-  flex-wrap: wrap;
+.thread-access-inline-status {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
 }
 
 .thread-access-grid {
@@ -137,7 +85,6 @@
   padding: 1.25rem;
   border-radius: var(--radius-lg);
   text-align: center;
-  box-shadow: none;
 }
 
 .thread-access-card {
@@ -149,19 +96,6 @@
   min-height: 7rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-soft);
-  box-shadow: 0 10px 24px rgba(10, 15, 28, 0.06);
-  transition:
-    transform var(--transition-fast),
-    border-color var(--transition-fast),
-    background-color var(--transition-fast),
-    box-shadow var(--transition-fast);
-  background: color-mix(in srgb, var(--surface-1) 92%, var(--surface-2));
-}
-
-.thread-access-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--border-strong);
-  box-shadow: 0 16px 30px rgba(10, 15, 28, 0.09);
 }
 
 .thread-access-card-body {
@@ -193,12 +127,9 @@
 .thread-access-actions {
   display: grid;
   justify-items: end;
-  gap: 0.36rem;
 }
 
 .thread-access-button {
-  white-space: normal;
-  text-wrap: pretty;
   min-height: 2.75rem;
   border-radius: 0.8rem;
   padding: 0.45rem 0.8rem;
@@ -219,31 +150,16 @@
   }
 }
 
-@media (max-width: 900px) {
-  .thread-access-notice {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-
-@media (max-width: 720px) {
-  .thread-access-hero-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .thread-access-search {
-    width: 100%;
-  }
-}
-
 @media (max-width: 560px) {
   .thread-access-card {
     grid-template-columns: 1fr;
-    align-items: center;
   }
 
   .thread-access-actions {
     justify-items: start;
+  }
+
+  .thread-access-search {
+    width: 100%;
   }
 }

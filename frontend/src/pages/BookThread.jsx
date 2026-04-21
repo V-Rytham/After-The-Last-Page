@@ -495,6 +495,15 @@ export default function BookThread() {
     updateThreadQuery('');
   };
 
+  const handleBackToResults = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+
+    navigate('/threads');
+  };
+
   const handleThreadFieldChange = (event) => {
     const { name, value } = event.target;
     const nextValue = name === 'content' ? value.slice(0, THREAD_CONTENT_MAX) : value;
@@ -623,6 +632,9 @@ export default function BookThread() {
   return (
     <div className={`thread-page animate-fade-in ${selectedThread ? 'focus-mode' : 'list-mode'}`}>
       <div className="thread-shell">
+        <button type="button" className="back-link button-reset thread-results-back" onClick={handleBackToResults}>
+          <ArrowLeft size={16} /> Back to results
+        </button>
         {!selectedThread ? (
           <>
             <header className="salon-header">
