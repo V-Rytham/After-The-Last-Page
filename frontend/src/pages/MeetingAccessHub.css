@@ -3,16 +3,15 @@
   width: min(100%, var(--page-max-width));
   margin: 0 auto;
   padding: clamp(1rem, 2.5vw, 1.75rem) var(--page-gutter) clamp(1.5rem, 3vw, 2.5rem);
-  display: grid;
-  gap: 1rem;
+  display: block;
 }
 
 .meeting-access-page.is-gated {
   width: 100%;
   max-width: none;
   min-height: calc(100vh - var(--chrome-height));
+  display: grid;
   place-items: center;
-  align-content: center;
   text-align: center;
 }
 
@@ -20,51 +19,101 @@
 .meeting-access-gate-actions { display: flex; justify-content: center; }
 .meeting-access-gate-footnote { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: var(--font-size-0); justify-content: center; }
 
-.meeting-access-hero-copy h1 { margin: 0; font-size: clamp(1.35rem, 1.08rem + 1.1vw, 2rem); line-height: 1.15; }
-.meeting-access-hero-copy p { margin: 0.35rem 0 0; color: var(--text-secondary); }
+.meeting-access-container {
+  width: min(100%, 600px);
+  margin: clamp(0.5rem, 2vh, 1rem) auto 0;
+  display: grid;
+  align-content: start;
+}
+
+.meeting-access-container h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 1.08rem + 1.1vw, 2rem);
+  line-height: 1.15;
+}
+
+.meeting-access-container > p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+}
+
+.meeting-search-bar {
+  width: 100%;
+  max-width: 600px;
+  height: 48px;
+  margin-top: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0 0.9rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 28%, transparent);
+  background: color-mix(in srgb, var(--surface-1) 86%, #fff 14%);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.meeting-search-bar-icon {
+  color: var(--text-muted);
+}
+
+.meeting-search-bar input {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.meeting-search-bar input::placeholder {
+  color: color-mix(in srgb, var(--text-secondary) 80%, transparent);
+}
+
+.meeting-search-bar input:focus {
+  outline: none;
+  border-color: #888;
+}
+
+.meeting-search-bar:focus-within {
+  border-color: #888;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--selection) 36%, transparent);
+}
+
+.meeting-access-live-state,
+.meeting-access-live-error {
+  margin: 0.6rem 0 0;
+  font-size: 0.82rem;
+}
 
 .meeting-access-live-state {
-  font-size: 0.82rem;
   color: var(--text-muted);
 }
 
 .meeting-access-live-error {
-  font-size: 0.8rem;
   color: var(--intent-danger-text);
 }
 
-.meeting-access-search {
-  width: min(100%, 28rem);
+.meeting-access-interaction-layer {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.meeting-access-loading {
+  margin-top: 0.55rem;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.6rem 0.8rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border-soft);
-  background: var(--surface-1);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.meeting-access-search input {
-  width: 100%;
-  border: none;
-  outline: none;
-  background: transparent;
-}
-
-.meeting-access-search input::selection {
-  background: transparent;
-}
-
-.meeting-access-search:focus-within {
-  border-color: var(--border-strong);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--selection) 40%, transparent);
-}
-
-.meeting-access-inline-status {
-  margin: 0;
   color: var(--text-muted);
   font-size: 0.86rem;
+}
+
+.meeting-access-loading-spinner {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: meeting-cta-spin 0.85s linear infinite;
 }
 
 .meeting-access-results { display: grid; gap: 0.75rem; }
@@ -76,6 +125,12 @@
   align-items: center;
   padding: 0.9rem 1rem;
   border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--border-soft) 85%, transparent);
+}
+
+.meeting-book-card.is-highlighted {
+  border-color: color-mix(in srgb, var(--selection) 72%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--selection) 28%, transparent);
 }
 
 .meeting-book-main { min-width: 0; }
@@ -127,10 +182,34 @@
 
 .meeting-access-empty { padding: 1rem; border-radius: var(--radius-lg); }
 
+.meeting-access-recent {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.meeting-access-recent h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.meeting-access-recent-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.meeting-access-recent-chip {
+  border: 1px solid var(--border-soft);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 0.42rem 0.72rem;
+  font-size: 0.82rem;
+}
+
 @keyframes meeting-cta-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 @media (max-width: 800px) {
   .meeting-book-card { grid-template-columns: 1fr; gap: 0.65rem; }
   .meeting-book-cta { justify-self: start; }
-  .meeting-access-search { width: 100%; }
 }
