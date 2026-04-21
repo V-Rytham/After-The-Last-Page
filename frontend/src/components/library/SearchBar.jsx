@@ -5,12 +5,10 @@ const SearchBar = ({
   value,
   onChange,
   onSubmit,
-  loading = false,
   categories = [],
   activeCategory,
   onCategoryChange,
   inputClassName = '',
-  searchLabel = 'Search',
 }) => {
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -27,15 +25,15 @@ const SearchBar = ({
 
   return (
     <div className="search-wrapper">
-      <form className="search-container" role="search" onSubmit={handleSubmit} aria-busy={loading ? 'true' : 'false'}>
+      <form className="search-container" role="search" onSubmit={handleSubmit}>
         <div className="search-input-wrap">
           <Search size={15} aria-hidden="true" className="search-input-icon" />
-          <span className="search-state-label" aria-live="polite">{searchLabel}</span>
           <input
+            type="text"
             value={value}
             onChange={(event) => onChange(event.target.value)}
-            placeholder="Search by title, author, genre, or Gutenberg ID"
-            aria-label="Search by title, author, genre, or Gutenberg ID"
+            placeholder="Search by title, author, or genre"
+            aria-label="Search by title, author, or genre"
             autoComplete="off"
             data-onboarding="search-input"
             className={inputClassName}

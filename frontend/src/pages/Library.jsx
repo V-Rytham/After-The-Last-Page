@@ -1,19 +1,32 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchBar from '../components/library/SearchBar';
 import BookGrid from '../components/library/BookGrid';
 import useSelectedGenres from '../hooks/useSelectedGenres';
 import useRecommendations from '../hooks/useRecommendations';
-import useDebouncedValue from '../hooks/useDebouncedValue';
 import useOnboarding from '../hooks/useOnboarding';
 import OnboardingTooltip from '../components/onboarding/OnboardingTooltip';
 import { getCachedSearch, setCachedSearch } from '../utils/searchCache';
 import AuthRequired from '../components/auth/AuthRequired';
 import { getApiBaseUrl } from '../utils/serviceUrls';
-import { log } from '../utils/logger';
 import './Library.css';
 
 const normalizeQuery = (value) => String(value || '').trim();
 const BASE_URL = getApiBaseUrl();
+
+const debounce = (fn, delay) => {
+  let timeoutId;
+
+  const debouncedFn = (...args) => {
+    window.clearTimeout(timeoutId);
+    timeoutId = window.setTimeout(() => fn(...args), delay);
+  };
+
+  debouncedFn.cancel = () => {
+    window.clearTimeout(timeoutId);
+  };
+
+  return debouncedFn;
+};
 
 export default function Library({ currentUser }) {
   const selectedGenres = useSelectedGenres();
@@ -21,61 +34,71 @@ export default function Library({ currentUser }) {
 
   const { step: onboardingStep, completed: onboardingCompleted, highlightBookId, nextStep } = useOnboarding();
 
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search, 300);
-  const [searchState, setSearchState] = useState({ loading: false, error: '', books: [] });
-  const [searchingDots, setSearchingDots] = useState('.');
-  const abortRef = useRef(null);
+  const [query, setQuery] = useState('');
+  const [searchState, setSearchState] = useState({ loading: false, error: null, results: [] });
+  const controllerRef = useRef(null);
 
-  const normalizedSearch = useMemo(() => normalizeQuery(debouncedSearch), [debouncedSearch]);
+  const searchBooks = useCallback(async (inputQuery) => {
+    const normalizedQuery = normalizeQuery(inputQuery);
 
-  useEffect(() => {
-    const q = normalizedSearch;
+    if (controllerRef.current) controllerRef.current.abort();
 
-    if (abortRef.current) abortRef.current.abort();
-
-    if (!q) {
-      Promise.resolve().then(() => setSearchState({ loading: false, error: '', books: [] }));
+    if (!normalizedQuery) {
+      setSearchState({ loading: false, error: null, results: [] });
       return;
     }
 
-    const cached = getCachedSearch(q);
+    const cached = getCachedSearch(normalizedQuery);
     if (cached) {
-      Promise.resolve().then(() => setSearchState({ loading: false, error: '', books: cached }));
+      setSearchState({ loading: false, error: null, results: cached });
       return;
     }
 
     const controller = new AbortController();
-    abortRef.current = controller;
-    Promise.resolve().then(() => setSearchState((prev) => ({ ...prev, loading: true, error: '' })));
+    controllerRef.current = controller;
 
-    const url = `${BASE_URL}/search?q=${encodeURIComponent(q)}`;
-    log('Search Query:', q);
-    log('Request URL:', url);
+    try {
+      setSearchState((prev) => ({ ...prev, loading: true, error: null }));
 
-    fetch(url, { signal: controller.signal, credentials: 'include' })
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error(`API failed (${res.status})`);
-        }
-        return res.json();
-      })
-      .then((data) => {
-        const books = Array.isArray(data?.books) ? data.books : [];
-        setCachedSearch(q, books);
-        Promise.resolve().then(() => setSearchState({ loading: false, error: '', books }));
-
-        if (!onboardingCompleted && onboardingStep === 1) {
-          nextStep();
-        }
-      })
-      .catch((err) => {
-        if (err?.name === 'AbortError') return;
-        Promise.resolve().then(() => setSearchState({ loading: false, error: err?.message || 'Search failed.', books: [] }));
+      const res = await fetch(`${BASE_URL}/search?q=${encodeURIComponent(normalizedQuery)}`, {
+        signal: controller.signal,
+        credentials: 'include',
       });
 
-    return () => controller.abort();
-  }, [nextStep, normalizedSearch, onboardingCompleted, onboardingStep]);
+      if (!res.ok) {
+        throw new Error('Request failed');
+      }
+
+      const data = await res.json();
+      const results = Array.isArray(data?.books) ? data.books : [];
+
+      setCachedSearch(normalizedQuery, results);
+      setSearchState({ loading: false, error: null, results });
+
+      if (!onboardingCompleted && onboardingStep === 1) {
+        nextStep();
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      setSearchState({ loading: false, error: 'Something went wrong', results: [] });
+    }
+  }, [nextStep, onboardingCompleted, onboardingStep]);
+
+  const debouncedSearch = useMemo(
+    () => debounce(searchBooks, 300),
+    [searchBooks],
+  );
+
+  useEffect(() => {
+    debouncedSearch(query);
+    return () => debouncedSearch.cancel();
+  }, [debouncedSearch, query]);
+
+  useEffect(() => {
+    return () => {
+      if (controllerRef.current) controllerRef.current.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (onboardingCompleted) return undefined;
@@ -86,31 +109,17 @@ export default function Library({ currentUser }) {
     return () => window.clearTimeout(timeout);
   }, [highlightBookId, nextStep, onboardingCompleted, onboardingStep]);
 
-  useEffect(() => {
-    if (!normalizedSearch || !searchState.loading) return undefined;
-    const dotsInterval = window.setInterval(() => {
-      setSearchingDots((prev) => (prev === '.' ? '..' : prev === '..' ? '...' : '.'));
-    }, 360);
-    return () => window.clearInterval(dotsInterval);
-  }, [normalizedSearch, searchState.loading]);
-
-
   const isMember = Boolean(currentUser && !currentUser.isAnonymous);
 
   if (!isMember) {
     return <AuthRequired previewClassName="library-page" previewLabel="Preview your future library after signing in." />;
   }
 
+  const normalizedSearch = normalizeQuery(query);
   const showSearchResults = Boolean(normalizedSearch);
-  const curatedBooks = personalizedBooks;
-  const visibleBooks = showSearchResults ? searchState.books : curatedBooks;
   const loading = showSearchResults ? searchState.loading : recLoading;
   const error = showSearchResults ? searchState.error : recError;
-  const searchLabel = !showSearchResults
-    ? 'Search'
-    : searchState.loading
-      ? `Searching${searchingDots}`
-      : 'Search Results';
+  const results = showSearchResults ? searchState.results : personalizedBooks;
 
   return (
     <main className="library-page content-container">
@@ -133,27 +142,42 @@ export default function Library({ currentUser }) {
       <header className="library-page-header">
         <h1>{showSearchResults ? 'Search' : 'Curated For You'}</h1>
         <SearchBar
-          value={search}
-          onChange={setSearch}
+          value={query}
+          onChange={setQuery}
           onSubmit={() => {}}
-          loading={loading}
-          searchLabel={searchLabel}
           categories={[]}
           activeCategory={null}
           onCategoryChange={() => {}}
           inputClassName={!onboardingCompleted && onboardingStep === 1 ? 'onboarding-target-glow' : ''}
         />
+
+        {showSearchResults && loading ? (
+          <div className="mt-2 text-sm opacity-60" role="status" aria-live="polite">
+            Searching...
+          </div>
+        ) : null}
+
         {!showSearchResults && selectedGenres.length === 0 ? (
           <p className="library-inline-message" role="status">Pick genres in your Profile to personalize this feed.</p>
         ) : null}
       </header>
 
-      <BookGrid
-        books={visibleBooks}
-        loading={loading}
-        error={error}
-        onboardingHighlightBookId={!onboardingCompleted && onboardingStep === 2 ? highlightBookId : ''}
-      />
+      {error ? (
+        <div className="library-empty" role="status">Something went wrong</div>
+      ) : null}
+
+      {!error && showSearchResults && !loading && results.length === 0 ? (
+        <div className="mt-6 text-sm opacity-60" role="status">No books found. Try a different title.</div>
+      ) : null}
+
+      {!error && (!showSearchResults || !loading) && (showSearchResults ? results.length > 0 : true) ? (
+        <BookGrid
+          books={results}
+          loading={!showSearchResults && loading}
+          error=""
+          onboardingHighlightBookId={!onboardingCompleted && onboardingStep === 2 ? highlightBookId : ''}
+        />
+      ) : null}
     </main>
   );
 }
